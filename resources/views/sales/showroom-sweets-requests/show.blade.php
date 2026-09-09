@@ -1,0 +1,1545 @@
+@extends('layouts.app')
+
+@section('title', 'طلب حلويات: ' . $showroomSweetsRequest->request_number)
+
+@push('styles')
+<style>
+    /* =========================================================
+       متغيرات حالة الطلب
+    ========================================================= */
+
+    .sweets-request-page {
+        --request-accent: #d6a900;
+        --request-soft: rgba(214, 169, 0, .07);
+        --request-border: rgba(214, 169, 0, .22);
+    }
+
+    .sweets-request-page.tone-gold {
+        --request-accent: #d6a900;
+        --request-soft: rgba(214, 169, 0, .07);
+        --request-border: rgba(214, 169, 0, .22);
+    }
+
+    .sweets-request-page.tone-blue {
+        --request-accent: #2563eb;
+        --request-soft: rgba(37, 99, 235, .065);
+        --request-border: rgba(37, 99, 235, .19);
+    }
+
+    .sweets-request-page.tone-green {
+        --request-accent: #16a34a;
+        --request-soft: rgba(22, 163, 74, .065);
+        --request-border: rgba(22, 163, 74, .19);
+    }
+
+    .sweets-request-page.tone-red {
+        --request-accent: #dc2626;
+        --request-soft: rgba(220, 38, 38, .06);
+        --request-border: rgba(220, 38, 38, .18);
+    }
+
+    .sweets-request-page.tone-gray {
+        --request-accent: #64748b;
+        --request-soft: rgba(100, 116, 139, .065);
+        --request-border: rgba(100, 116, 139, .18);
+    }
+
+
+    /* =========================================================
+       رأس الصفحة
+    ========================================================= */
+
+    .request-page-header {
+        position: relative;
+
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        gap: 1rem;
+
+        padding: 1.1rem 1.2rem;
+
+        margin-bottom: 1.2rem;
+
+        background:
+            linear-gradient(
+                270deg,
+                var(--request-soft),
+                #fff 72%
+            );
+
+        border:
+            1px solid
+            var(--request-border);
+
+        border-radius: 18px;
+
+        overflow: hidden;
+    }
+
+    .request-page-header::before {
+        content: '';
+
+        position: absolute;
+
+        top: 0;
+        right: 0;
+
+        width: 5px;
+        height: 100%;
+
+        background:
+            var(--request-accent);
+    }
+
+    .request-page-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: .8rem;
+
+        min-width: 0;
+    }
+
+    .request-page-icon {
+        width: 48px;
+        height: 48px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        flex: 0 0 48px;
+
+        border-radius: 13px;
+
+        color:
+            var(--request-accent);
+
+        background:
+            var(--request-soft);
+
+        border:
+            1px solid
+            var(--request-border);
+    }
+
+    .request-page-icon svg {
+        width: 23px;
+        height: 23px;
+    }
+
+    .request-page-title {
+        color: var(--text);
+
+        font-size: 1.18rem;
+        font-weight: 900;
+    }
+
+    .request-page-subtitle {
+        margin-top: .2rem;
+
+        color:
+            var(--text-muted);
+
+        font-size: .75rem;
+    }
+
+    .request-page-actions {
+        display: flex;
+        align-items: center;
+
+        gap: .5rem;
+
+        flex-wrap: wrap;
+    }
+
+    .request-status {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        min-height: 32px;
+
+        padding: .4rem .85rem;
+
+        border-radius: 999px;
+
+        background:
+            var(--request-soft);
+
+        color:
+            var(--request-accent);
+
+        border:
+            1px solid
+            var(--request-border);
+
+        font-size: .72rem;
+        font-weight: 900;
+    }
+
+
+    /* =========================================================
+       ملخص البيانات
+    ========================================================= */
+
+    .request-summary-grid {
+        display: grid;
+
+        grid-template-columns:
+            repeat(4, minmax(0, 1fr));
+
+        gap: .8rem;
+
+        margin-bottom: 1rem;
+    }
+
+    .summary-box {
+        display: flex;
+        align-items: center;
+
+        gap: .7rem;
+
+        min-height: 82px;
+
+        padding: .85rem;
+
+        background: #fff;
+
+        border:
+            1px solid
+            #e7e9ed;
+
+        border-radius: 14px;
+
+        transition:
+            transform .18s ease,
+            border-color .18s ease,
+            background .18s ease;
+    }
+
+    .summary-box:hover {
+        transform: translateY(-2px);
+
+        background:
+            var(--request-soft);
+
+        border-color:
+            var(--request-border);
+    }
+
+    .summary-icon {
+        width: 40px;
+        height: 40px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        flex: 0 0 40px;
+
+        border-radius: 11px;
+
+        color:
+            var(--request-accent);
+
+        background:
+            var(--request-soft);
+
+        border:
+            1px solid
+            var(--request-border);
+    }
+
+    .summary-icon svg {
+        width: 19px;
+        height: 19px;
+    }
+
+    .summary-label {
+        color:
+            var(--text-muted);
+
+        font-size: .66rem;
+
+        margin-bottom: .18rem;
+    }
+
+    .summary-value {
+        color: var(--text);
+
+        font-size: .82rem;
+        font-weight: 800;
+
+        line-height: 1.55;
+    }
+
+
+    /* =========================================================
+       تخطيط الصفحة
+    ========================================================= */
+
+    .request-main-grid {
+        display: grid;
+
+        grid-template-columns:
+            minmax(0, 1.6fr)
+            minmax(300px, .7fr);
+
+        gap: 1rem;
+
+        align-items: start;
+    }
+
+    .request-panel {
+        background: #fff;
+
+        border:
+            1px solid
+            #e5e7eb;
+
+        border-radius: 16px;
+
+        overflow: hidden;
+    }
+
+    .request-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+
+        gap: .75rem;
+
+        padding: .9rem 1rem;
+
+        background:
+            linear-gradient(
+                270deg,
+                var(--request-soft),
+                #fff 80%
+            );
+
+        border-bottom:
+            1px solid
+            var(--request-border);
+    }
+
+    .request-panel-title {
+        color: var(--text);
+
+        font-size: .88rem;
+        font-weight: 900;
+    }
+
+    .request-panel-count {
+        color:
+            var(--text-muted);
+
+        font-size: .68rem;
+    }
+
+    .request-panel-body {
+        padding: 1rem;
+    }
+
+
+    /* =========================================================
+       الأصناف
+    ========================================================= */
+
+    .products-grid {
+        display: grid;
+
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
+        gap: .8rem;
+    }
+
+    .product-card {
+        position: relative;
+
+        display: flex;
+        align-items: center;
+
+        gap: .8rem;
+
+        padding: .75rem;
+
+        background:
+            #fff;
+
+        border:
+            1px solid
+            #e7e9ed;
+
+        border-radius: 14px;
+
+        overflow: hidden;
+
+        transition:
+            transform .18s ease,
+            border-color .18s ease,
+            box-shadow .18s ease;
+    }
+
+    .product-card:hover {
+        transform: translateY(-2px);
+
+        border-color:
+            var(--request-border);
+
+        box-shadow:
+            0 7px 18px
+            rgba(15, 23, 42, .06);
+    }
+
+    .product-image {
+        width: 92px;
+        height: 92px;
+
+        flex: 0 0 92px;
+
+        overflow: hidden;
+
+        border-radius: 12px;
+
+        background:
+            #f5f6f8;
+
+        border:
+            1px solid
+            #e5e7eb;
+    }
+
+    .product-image img {
+        display: block;
+
+        width: 100%;
+        height: 100%;
+
+        object-fit: cover;
+
+        transition:
+            transform .25s ease;
+    }
+
+    .product-card:hover
+    .product-image img {
+        transform: scale(1.06);
+    }
+
+    .product-placeholder {
+        width: 100%;
+        height: 100%;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        color:
+            #9ca3af;
+
+        background:
+            linear-gradient(
+                135deg,
+                #fafafa,
+                #f0f2f4
+            );
+    }
+
+    .product-placeholder svg {
+        width: 30px;
+        height: 30px;
+    }
+
+    .product-details {
+        min-width: 0;
+        flex: 1;
+    }
+
+    .product-name {
+        color: var(--text);
+
+        font-size: .88rem;
+        font-weight: 900;
+
+        line-height: 1.5;
+    }
+
+    .product-category {
+        margin-top: .14rem;
+
+        color:
+            var(--text-muted);
+
+        font-size: .65rem;
+    }
+
+    .product-quantity {
+        display: inline-flex;
+        align-items: center;
+
+        gap: .3rem;
+
+        margin-top: .5rem;
+
+        padding: .28rem .55rem;
+
+        border-radius: 8px;
+
+        color:
+            var(--request-accent);
+
+        background:
+            var(--request-soft);
+
+        border:
+            1px solid
+            var(--request-border);
+
+        font-size: .72rem;
+        font-weight: 900;
+    }
+
+    .product-sku {
+        margin-top: .25rem;
+
+        color:
+            var(--text-muted);
+
+        font-size: .62rem;
+    }
+
+    .product-note {
+        margin-top: .4rem;
+
+        color:
+            var(--text-muted);
+
+        font-size: .65rem;
+
+        line-height: 1.6;
+    }
+
+
+    /* =========================================================
+       بيانات إضافية
+    ========================================================= */
+
+    .details-list {
+        display: flex;
+        flex-direction: column;
+
+        gap: .15rem;
+    }
+
+    .detail-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+
+        gap: 1rem;
+
+        padding: .72rem .15rem;
+
+        border-bottom:
+            1px solid
+            #eef0f2;
+    }
+
+    .detail-row:last-child {
+        border-bottom: 0;
+    }
+
+    .detail-label {
+        color:
+            var(--text-muted);
+
+        font-size: .7rem;
+    }
+
+    .detail-value {
+        color: var(--text);
+
+        font-size: .72rem;
+        font-weight: 700;
+
+        text-align: left;
+
+        max-width: 65%;
+    }
+
+
+    /* =========================================================
+       الملاحظات
+    ========================================================= */
+
+    .note-box {
+        display: flex;
+        align-items: flex-start;
+
+        gap: .55rem;
+
+        padding: .8rem;
+
+        margin-top: .8rem;
+
+        border-radius: 11px;
+
+        background:
+            var(--request-soft);
+
+        border:
+            1px solid
+            var(--request-border);
+
+        color:
+            var(--text-muted);
+
+        font-size: .7rem;
+
+        line-height: 1.7;
+    }
+
+    .note-box svg {
+        width: 17px;
+        height: 17px;
+
+        flex: 0 0 17px;
+
+        margin-top: 2px;
+
+        color:
+            var(--request-accent);
+    }
+
+    .note-box strong {
+        color: var(--text);
+    }
+
+
+    /* =========================================================
+       تحديث الحالة
+    ========================================================= */
+
+    .status-update-panel {
+        margin-top: 1rem;
+
+        background:
+            linear-gradient(
+                180deg,
+                var(--request-soft),
+                #fff 35%
+            );
+
+        border-color:
+            var(--request-border);
+    }
+
+    .status-update-form {
+        display: grid;
+
+        gap: .9rem;
+    }
+
+    .status-update-button {
+        width: 100%;
+
+        justify-content: center;
+    }
+
+
+    /* =========================================================
+       التاريخ / المسار
+    ========================================================= */
+
+    .request-route {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        gap: .5rem;
+
+        margin-bottom: 1rem;
+
+        padding: .7rem 1rem;
+
+        background:
+            var(--request-soft);
+
+        border:
+            1px solid
+            var(--request-border);
+
+        border-radius: 12px;
+
+        color: var(--text);
+
+        font-size: .72rem;
+        font-weight: 700;
+    }
+
+    .request-route-arrow {
+        color:
+            var(--request-accent);
+
+        font-size: 1rem;
+        font-weight: 900;
+    }
+
+
+    /* =========================================================
+       فارغ
+    ========================================================= */
+
+    .products-empty {
+        min-height: 180px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        color:
+            var(--text-muted);
+
+        font-size: .75rem;
+    }
+
+
+    /* =========================================================
+       Responsive
+    ========================================================= */
+
+    @media (max-width: 1200px) {
+
+        .request-summary-grid {
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+        }
+
+        .request-main-grid {
+            grid-template-columns: 1fr;
+        }
+
+    }
+
+    @media (max-width: 800px) {
+
+        .request-page-header {
+            align-items: flex-start;
+            flex-direction: column;
+        }
+
+        .request-page-actions {
+            width: 100%;
+        }
+
+        .request-summary-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .products-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .product-image {
+            width: 78px;
+            height: 78px;
+
+            flex-basis: 78px;
+        }
+
+    }
+</style>
+@endpush
+
+
+@section('content')
+
+@php
+    $statusValue = $showroomSweetsRequest->status instanceof \BackedEnum
+        ? $showroomSweetsRequest->status->value
+        : (string) $showroomSweetsRequest->status;
+
+    $statusLabel = $showroomSweetsRequest->status->label();
+
+    $cardTone = match ($statusValue) {
+        'submitted',
+        'sent_to_factory',
+        'pending',
+        'requested' => 'gold',
+
+        'processing',
+        'in_progress',
+        'preparing',
+        'in_preparation' => 'blue',
+
+        'completed',
+        'done',
+        'fulfilled' => 'green',
+
+        'rejected' => 'red',
+
+        'cancelled',
+        'canceled' => 'gray',
+
+        default => match ($statusLabel) {
+            'مرسل للمصنع' => 'gold',
+            'قيد التجهيز' => 'blue',
+            'تم التنفيذ' => 'green',
+            'مرفوض' => 'red',
+            'ملغي', 'ملغى' => 'gray',
+            default => 'gold',
+        },
+    };
+@endphp
+
+
+<div class="sweets-request-page tone-{{ $cardTone }}">
+
+    {{-- =========================================================
+         رأس الطلب
+    ========================================================== --}}
+
+    <div class="request-page-header">
+
+        <div class="request-page-title-wrap">
+
+            <div class="request-page-icon">
+
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                >
+                    <path d="M21 8a2 2 0 0 0-2-2h-3.5l-1-2h-5l-1 2H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2z"/>
+                    <path d="M8 13h8"/>
+                    <path d="M12 9v8"/>
+                </svg>
+
+            </div>
+
+
+            <div>
+
+                <div class="request-page-title">
+                    {{ $showroomSweetsRequest->request_number }}
+                </div>
+
+                <div class="request-page-subtitle">
+
+                    طلب حلويات من
+
+                    <strong>
+                        {{ $showroomSweetsRequest->requestingLocation?->name ?? 'الفرع' }}
+                    </strong>
+
+                    إلى
+
+                    <strong>
+                        {{ $showroomSweetsRequest->factoryLocation?->name ?? 'المصنع' }}
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="request-page-actions">
+
+            <span class="request-status">
+                {{ $statusLabel }}
+            </span>
+
+
+            @if($canCancel)
+
+                <form
+                    action="{{ route('showroom-sweets-requests.cancel', $showroomSweetsRequest) }}"
+                    method="POST"
+                    onsubmit="return confirm('هل تريد إلغاء هذا الطلب قبل بدء المصنع بالتجهيز؟')"
+                >
+
+                    @csrf
+                    @method('PATCH')
+
+                    <button
+                        class="btn btn-danger btn-sm"
+                        type="submit"
+                    >
+                        إلغاء الطلب
+                    </button>
+
+                </form>
+
+            @endif
+
+
+            <a
+                href="{{ route('showroom-sweets-requests.index') }}"
+                class="btn btn-ghost btn-sm"
+            >
+                رجوع
+            </a>
+
+        </div>
+
+    </div>
+
+
+    {{-- =========================================================
+         المسار
+    ========================================================== --}}
+
+    <div class="request-route">
+
+        <span>
+            {{ $showroomSweetsRequest->requestingLocation?->name ?? 'الفرع' }}
+        </span>
+
+        <span class="request-route-arrow">
+            ←
+        </span>
+
+        <span>
+            {{ $showroomSweetsRequest->factoryLocation?->name ?? 'المصنع' }}
+        </span>
+
+    </div>
+
+
+    {{-- =========================================================
+         ملخص
+    ========================================================== --}}
+
+    <div class="request-summary-grid">
+
+        {{-- تاريخ الحاجة --}}
+        <div class="summary-box">
+
+            <div class="summary-icon">
+
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                >
+                    <rect x="3" y="5" width="18" height="16" rx="2"/>
+                    <path d="M16 3v4"/>
+                    <path d="M8 3v4"/>
+                    <path d="M3 10h18"/>
+                </svg>
+
+            </div>
+
+            <div>
+
+                <div class="summary-label">
+                    تاريخ الحاجة
+                </div>
+
+                <div class="summary-value">
+                    {{ $showroomSweetsRequest->needed_by?->format('Y-m-d') ?? 'غير محدد' }}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        {{-- الأصناف --}}
+        <div class="summary-box">
+
+            <div class="summary-icon">
+
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                >
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+
+            </div>
+
+            <div>
+
+                <div class="summary-label">
+                    عدد الأصناف
+                </div>
+
+                <div class="summary-value">
+                    {{ $showroomSweetsRequest->items->count() }}
+                    صنف
+                </div>
+
+            </div>
+
+        </div>
+
+
+        {{-- وقت الإرسال --}}
+        <div class="summary-box">
+
+            <div class="summary-icon">
+
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                >
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M12 7v5l3 2"/>
+                </svg>
+
+            </div>
+
+            <div>
+
+                <div class="summary-label">
+                    وقت الإرسال
+                </div>
+
+                <div class="summary-value">
+                    {{ $showroomSweetsRequest->submitted_at?->format('Y-m-d H:i') ?? '—' }}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        {{-- الحالة --}}
+        <div class="summary-box">
+
+            <div class="summary-icon">
+
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                >
+                    <circle cx="12" cy="12" r="9"/>
+                    <path d="M8 12l2.5 2.5L16 9"/>
+                </svg>
+
+            </div>
+
+            <div>
+
+                <div class="summary-label">
+                    حالة الطلب
+                </div>
+
+                <div
+                    class="summary-value"
+                    style="color:var(--request-accent)"
+                >
+                    {{ $statusLabel }}
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {{-- =========================================================
+         المحتوى
+    ========================================================== --}}
+
+    <div class="request-main-grid">
+
+        {{-- =====================================================
+             الأصناف
+        ====================================================== --}}
+
+        <div class="request-panel">
+
+
+                                          <x-workflow-toolbar
+    type="showroom_sweets"
+    :record="$showroomSweetsRequest"
+/>
+
+            <div class="request-panel-header">
+
+                <div class="request-panel-title">
+                    أصناف الحلويات المطلوبة
+                </div>
+
+                <div class="request-panel-count">
+                    {{ $showroomSweetsRequest->items->count() }}
+                    صنف
+                </div>
+
+            </div>
+
+
+            <div class="request-panel-body">
+
+                @if($showroomSweetsRequest->items->isNotEmpty())
+
+                    <div class="products-grid">
+
+                        @foreach($showroomSweetsRequest->items as $index => $item)
+
+                            @php
+                                $quantity = rtrim(
+                                    rtrim(
+                                        number_format(
+                                            (float) $item->quantity,
+                                            3,
+                                            '.',
+                                            ''
+                                        ),
+                                        '0'
+                                    ),
+                                    '.'
+                                );
+
+                                $productImage = $item->product?->image;
+
+                                $productImageUrl = null;
+
+                                if ($productImage) {
+
+                                    if (
+                                        \Illuminate\Support\Str::startsWith(
+                                            $productImage,
+                                            ['http://', 'https://']
+                                        )
+                                    ) {
+                                        $productImageUrl = $productImage;
+                                    } else {
+                                        $productImageUrl =
+                                            \Illuminate\Support\Facades\Storage::url(
+                                                $productImage
+                                            );
+                                    }
+                                }
+                            @endphp
+
+
+                            <div class="product-card">
+
+                                {{-- الصورة --}}
+                                <div class="product-image">
+
+                                    @if($productImageUrl)
+
+                                        <img
+                                            src="{{ $productImageUrl }}"
+                                            alt="{{ $item->displayProductName() }}"
+                                            loading="lazy"
+                                        >
+
+                                    @else
+
+                                        <div class="product-placeholder">
+
+                                            <svg
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                stroke-width="1.5"
+                                            >
+                                                <rect
+                                                    x="3"
+                                                    y="3"
+                                                    width="18"
+                                                    height="18"
+                                                    rx="3"
+                                                />
+
+                                                <circle
+                                                    cx="8.5"
+                                                    cy="8.5"
+                                                    r="1.5"
+                                                />
+
+                                                <path d="M21 15l-5-5L5 21"/>
+                                            </svg>
+
+                                        </div>
+
+                                    @endif
+
+
+
+
+                                     
+
+                                </div>
+                                
+
+
+                                {{-- التفاصيل --}}
+                                <div class="product-details">
+
+                                                
+  
+
+                                       
+
+
+                                    {{-- طلب الكيك الخاص --}}
+
+                                    
+
+
+                                    <div class="product-category">
+                                        {{ $item->product?->category?->name_ar
+                                            ?? $item->product?->category?->name
+                                            ?? 'بدون فئة' }}
+                                    </div>
+
+
+                                    <div class="product-quantity">
+
+                                        {{ $quantity }}
+
+                                        <span>
+                                            {{ $item->requested_unit }}
+                                        </span>
+
+                                    </div>
+
+
+                                    @if($item->product?->sku)
+
+                                        <div class="product-sku">
+                                            الرمز:
+                                            {{ $item->product->sku }}
+                                        </div>
+
+                                    @endif
+
+
+                                    @if($item->notes)
+
+                                        <div class="product-note">
+
+                                            <strong>
+                                                ملاحظة:
+                                            </strong>
+
+                                            {{ $item->notes }}
+
+                                        </div>
+
+                                    @endif
+
+                                </div>
+
+                            </div>
+
+                        @endforeach
+
+                    </div>
+
+                @else
+
+                    <div class="products-empty">
+                        لا توجد أصناف في هذا الطلب.
+                    </div>
+
+                @endif
+
+            </div>
+
+        </div>
+
+
+        {{-- =====================================================
+             العمود الجانبي
+        ====================================================== --}}
+
+        <div>
+
+            {{-- بيانات الطلب --}}
+            <div class="request-panel">
+
+                <div class="request-panel-header">
+
+                    <div class="request-panel-title">
+                        بيانات الطلب
+                    </div>
+
+                </div>
+
+
+                <div class="request-panel-body">
+
+                    <div class="details-list">
+
+                        <div class="detail-row">
+
+                            <span class="detail-label">
+                                رقم الطلب
+                            </span>
+
+                            <span class="detail-value">
+                                {{ $showroomSweetsRequest->request_number }}
+                            </span>
+
+                        </div>
+
+
+                        <div class="detail-row">
+
+                            <span class="detail-label">
+                                الفرع الطالب
+                            </span>
+
+                            <span class="detail-value">
+                                {{ $showroomSweetsRequest->requestingLocation?->name ?? '—' }}
+                            </span>
+
+                        </div>
+
+
+                        <div class="detail-row">
+
+                            <span class="detail-label">
+                                المصنع
+                            </span>
+
+                            <span class="detail-value">
+                                {{ $showroomSweetsRequest->factoryLocation?->name ?? '—' }}
+                            </span>
+
+                        </div>
+
+
+                        <div class="detail-row">
+
+                            <span class="detail-label">
+                                أُنشئ بواسطة
+                            </span>
+
+                            <span class="detail-value">
+
+                                {{ $showroomSweetsRequest->creator?->employee?->full_name
+                                    ?? $showroomSweetsRequest->creator?->display_name
+                                    ?? '—' }}
+
+                            </span>
+
+                        </div>
+
+
+                        <div class="detail-row">
+
+                            <span class="detail-label">
+                                وقت الإنشاء
+                            </span>
+
+                            <span class="detail-value">
+                                {{ $showroomSweetsRequest->created_at?->format('Y-m-d H:i') ?? '—' }}
+                            </span>
+
+                        </div>
+
+
+                        @if($showroomSweetsRequest->fulfilled_at)
+
+                            <div class="detail-row">
+
+                                <span class="detail-label">
+                                    وقت التنفيذ
+                                </span>
+
+                                <span
+                                    class="detail-value"
+                                    style="color:#16a34a"
+                                >
+                                    {{ $showroomSweetsRequest->fulfilled_at->format('Y-m-d H:i') }}
+                                </span>
+
+                            </div>
+
+                        @endif
+
+                    </div>
+
+
+                    {{-- ملاحظات الفرع --}}
+                    @if($showroomSweetsRequest->notes)
+
+                        <div class="note-box">
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
+                            </svg>
+
+
+                            <div>
+
+                                <strong>
+                                    ملاحظات الفرع
+                                </strong>
+
+                                <div style="margin-top:.2rem">
+                                    {{ $showroomSweetsRequest->notes }}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    @endif
+
+
+                    {{-- ملاحظات المصنع --}}
+                    @if($showroomSweetsRequest->factory_notes)
+
+                        <div class="note-box">
+
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                            >
+                                <path d="M3 21V9l6 3V9l6 3V4h6v17z"/>
+                            </svg>
+
+
+                            <div>
+
+                                <strong>
+                                    ملاحظات المصنع
+                                </strong>
+
+                                <div style="margin-top:.2rem">
+                                    {{ $showroomSweetsRequest->factory_notes }}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    @endif
+
+                </div>
+
+            </div>
+
+
+            {{-- =================================================
+                 تحديث الحالة
+            ================================================== --}}
+
+            @can('showroom_sweets_requests.update_status')
+
+                @if(count($allowedTransitions) > 0)
+
+                    <div class="request-panel status-update-panel">
+
+                        <div class="request-panel-header">
+
+                            <div class="request-panel-title">
+                                تحديث حالة الطلب
+                            </div>
+
+                        </div>
+
+
+                        <div class="request-panel-body">
+
+                            <form
+                                action="{{ route('showroom-sweets-requests.status', $showroomSweetsRequest) }}"
+                                method="POST"
+                                class="status-update-form"
+                            >
+
+                                @csrf
+                                @method('PATCH')
+
+
+                                <div class="form-group">
+
+                                    <label class="form-label">
+                                        الحالة الجديدة
+                                    </label>
+
+                                    <select
+                                        name="status"
+                                        class="form-select"
+                                        required
+                                    >
+
+                                        @foreach($allowedTransitions as $nextStatus)
+
+                                            <option
+                                                value="{{ $nextStatus->value }}"
+                                            >
+                                                {{ $nextStatus->label() }}
+                                            </option>
+
+                                        @endforeach
+
+                                    </select>
+
+                                </div>
+
+
+                                <div class="form-group">
+
+                                    <label class="form-label">
+                                        ملاحظات المصنع
+                                    </label>
+
+                                    <textarea
+                                        name="factory_notes"
+                                        class="form-textarea"
+                                        rows="4"
+                                        placeholder="مثال: سيتم تجهيز 3 صدور بقلاوة صباحًا..."
+                                    >{{ old('factory_notes', $showroomSweetsRequest->factory_notes) }}</textarea>
+
+                                </div>
+
+
+                                <button
+                                    class="btn btn-gold status-update-button"
+                                    type="submit"
+                                >
+                                    تحديث حالة الطلب
+                                </button>
+
+                            </form>
+
+                        </div>
+
+                    </div>
+
+                @endif
+
+            @endcan
+
+        </div>
+
+    </div>
+
+</div>
+
+@endsection

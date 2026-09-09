@@ -1,0 +1,65 @@
+<?php
+
+namespace App\Http\Requests\Settings;
+
+use App\Models\SystemCurrency;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+
+class UpdateSystemCurrencyRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return (bool) $this->user()?->can('system_currencies.manage');
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'code' => strtoupper(trim((string) $this->input('code'))),
+            'name_ar' => trim((string) $this->input('name_ar')),
+            'name_en' => trim((string) $this->input('name_en')),
+            'symbol' => trim((string) $this->input('symbol')),
+            'icon' => trim((string) $this->input('icon')),
+            'is_active' => $this->boolean('is_active'),
+            'is_default' => $this->boolean('is_default'),
+        ]);
+    }
+
+    public function rules(): array
+    {
+        $currency = $this->route('system_currency');
+        $currencyId = $currency instanceof SystemCurrency
+            ? $currency->id
+            : $currency;
+
+        return [
+            'code' => [
+                'required',
+                'string',
+                'max:10',
+                'regex:/^[A-Z0-9]{2,10}$/',
+                Rule::unique('system_currencies', 'code')->ignore($currencyId),
+            ],
+            'name_ar' => ['required', 'string', 'max:120'],
+            'name_en' => ['nullable', 'string', 'max:120'],
+            'symbol' => ['required', 'string', 'max:20'],
+            'icon' => ['nullable', 'string', 'max:50'],
+            'image' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
+            'decimal_places' => ['required', 'integer', 'between:0,6'],
+            'is_active' => ['required', 'boolean'],
+            'is_default' => ['required', 'boolean'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999999'],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'code.regex' => 'كود العملة يجب أن يكون أحرفًا إنجليزية كبيرة أو أرقامًا فقط مثل USD أو ILS.',
+            'code.unique' => 'كود العملة مستخدم مسبقًا.',
+            'image.image' => 'ملف الصورة يجب أن يكون صورة صالحة.',
+        ];
+    }
+}

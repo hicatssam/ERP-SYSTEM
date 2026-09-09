@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#6D3E2B"/><stop offset="1" stop-color="#111827"/></linearGradient></defs>
+  <rect width="1200" height="900" rx="54" fill="url(#g)"/>
+  <circle cx="600" cy="355" r="210" fill="#F6D7A7" opacity=".16"/><circle cx="600" cy="355" r="150" fill="none" stroke="#F6D7A7" stroke-width="18"/>
+  <text x="600" y="320" text-anchor="middle" font-size="86" font-weight="700" fill="#F6D7A7">دهب</text>
+  <text x="600" y="410" text-anchor="middle" font-size="54" font-weight="700" fill="#fff" direction="rtl">إكلير شوكولاتة</text>
+  <text x="600" y="680" text-anchor="middle" font-size="42" fill="#fff">Chocolate Eclair</text>
+  <text x="600" y="750" text-anchor="middle" font-size="30" fill="#F6D7A7">GT-003</text>
+</svg>

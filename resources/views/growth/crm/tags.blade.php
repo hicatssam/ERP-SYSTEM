@@ -1,0 +1,7 @@
+@extends('layouts.app')
+@section('title','وسوم CRM')
+@section('content')
+@include('growth._styles')
+<div class="page-header"><div><h1 class="page-heading">وسوم CRM</h1><p class="page-subheading"><a href="{{ route('crm.index') }}">CRM</a> ‹ الوسوم</p></div></div>
+<div class="growth-grid-2"><div class="card"><div class="card-header"><span class="card-title">وسم جديد</span></div><div class="card-body"><form method="POST" action="{{ route('crm.tags.store') }}">@csrf<div class="form-group"><label class="form-label">الاسم</label><input class="form-input" name="name" required></div><div class="form-group"><label class="form-label">اللون</label><input class="form-input" name="color" placeholder="#C98516"></div><button class="btn btn-gold">إضافة</button></form></div></div><div class="card"><div class="card-header"><span class="card-title">الوسوم الحالية</span></div><div class="card-body">@foreach($tags as $tag)<form method="POST" action="{{ route('crm.tags.update',$tag) }}" class="growth-form-grid" style="margin-bottom:.7rem">@csrf @method('PATCH')<input class="form-input" name="name" value="{{ $tag->name }}"><input class="form-input" name="color" value="{{ $tag->color }}"><label class="form-check"><input type="checkbox" name="is_active" value="1" @checked($tag->is_active)> فعال</label><button class="btn btn-outline btn-sm">حفظ</button></form>@endforeach</div></div></div>
+@endsection

@@ -1,0 +1,16 @@
+{
+  "punches": [
+    {
+      "id": "log-1001",
+      "device_user_id": "23",
+      "punch_at": "2026-08-24T08:04:13+03:00",
+      "punch_type": "in"
+    },
+    {
+      "id": "log-1002",
+      "device_user_id": "23",
+      "punch_at": "2026-08-24T16:22:51+03:00",
+      "punch_type": "out"
+    }
+  ]
+}

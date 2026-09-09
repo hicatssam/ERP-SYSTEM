@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Dahab Floating Magazine Menu</title>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --gold: #d6a82c;
+      --gold-soft: #f8dfa0;
+      --glass: rgba(25, 18, 10, .74);
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top, rgba(214,168,44,.18), transparent 30%),
+        linear-gradient(135deg, #050505 0%, #15100b 55%, #020202 100%);
+      color: white;
+      overscroll-behavior: none;
+    }
+
+    body {
+      min-height: 100svh;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,.03), transparent 18%),
+        radial-gradient(circle at 80% 40%, rgba(255,255,255,.02), transparent 18%);
+      z-index: 0;
+    }
+
+    .particles {
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .particles span {
+      position: absolute;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(214,168,44,.4);
+      filter: blur(1px);
+      animation: floatUp linear infinite;
+    }
+
+    @keyframes floatUp {
+      from { transform: translateY(50px); opacity: 0; }
+      20% { opacity: 1; }
+      to { transform: translateY(-140px) translateX(24px); opacity: 0; }
+    }
+
+    .app {
+      width: 100vw;
+      height: 100svh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      place-items: center;
+      gap: clamp(8px, 2vw, 14px);
+      padding: calc(env(safe-area-inset-top) + 12px) clamp(10px, 3vw, 20px) calc(env(safe-area-inset-bottom) + 12px);
+      position: relative;
+      z-index: 5;
+    }
+
+    .title {
+      color: var(--gold-soft);
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 24px rgba(214,168,44,.42);
+      font-size: clamp(13px, 2.7vw, 18px);
+      text-align: center;
+      user-select: none;
+    }
+
+    .viewer {
+      width: min(92vw, 470px);
+      height: min(76svh, 760px);
+      max-height: calc(100svh - 150px);
+      position: relative;
+      display: grid;
+      place-items: center;
+      perspective: 2600px;
+      touch-action: pan-y;
+      user-select: none;
+    }
+
+    .floating-shadow {
+      position: absolute;
+      width: 84%;
+      height: 36px;
+      bottom: -18px;
+      background: radial-gradient(ellipse, rgba(0,0,0,.65), transparent 72%);
+      filter: blur(12px);
+      z-index: 0;
+    }
+
+    .magazine {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transform: rotateY(-7deg) rotateX(2deg);
+      transition: transform .6s ease;
+    }
+
+    @media (hover: hover) {
+      .magazine:hover { transform: rotateY(-4deg) rotateX(1deg) translateY(-4px); }
+    }
+
+    .page-stack {
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: rgba(255,255,255,.04);
+      transform: translateZ(-8px) translateX(6px) translateY(6px);
+      box-shadow: 0 30px 50px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.05);
+    }
+
+    .page-stack::before,
+    .page-stack::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      background: rgba(255,255,255,.03);
+    }
+
+    .page-stack::before { transform: translateZ(-8px) translateX(8px) translateY(8px); }
+    .page-stack::after { transform: translateZ(-16px) translateX(16px) translateY(16px); }
+
+    .page,
+    .flip-page {
+      position: absolute;
+      inset: 0;
+      border-radius: clamp(14px, 4vw, 22px);
+      overflow: hidden;
+      background: #fff;
+      transform-style: preserve-3d;
+      transform-origin: left center;
+      box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 24px rgba(214,168,44,.08);
+      backface-visibility: hidden;
+      will-change: transform, opacity, filter;
+    }
+
+    .page { z-index: 2; }
+    .flip-page { z-index: 5; display: none; pointer-events: none; }
+    .flip-page.active { display: block; }
+
+    .page::before,
+    .flip-page::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, rgba(0,0,0,.14), transparent 10%, transparent 88%, rgba(0,0,0,.08)),
+        radial-gradient(circle at 50% 50%, transparent 0 72%, rgba(214,168,44,.06));
+    }
+
+    .page::after,
+    .flip-page::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: -2px;
+      width: 90px;
+      height: 100%;
+      pointer-events: none;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), rgba(0,0,0,.12));
+      mix-blend-mode: soft-light;
+      z-index: 4;
+    }
+
+    .page img,
+    .flip-page img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #fff;
+      -webkit-user-drag: none;
+      user-select: none;
+    }
+
+    .flip-page.next-open { animation: floatingTurnNext 1.75s cubic-bezier(.16,.72,.12,1) forwards; }
+    .flip-page.prev-open { animation: floatingTurnPrev 1.75s cubic-bezier(.16,.72,.12,1) forwards; }
+
+    @keyframes floatingTurnNext {
+      0% { transform: rotateY(0deg) rotateZ(0deg) scale(1); filter: brightness(1); }
+      18% { transform: rotateY(-18deg) rotateZ(-.6deg) scale(.997) skewY(-.5deg); }
+      42% { transform: rotateY(-72deg) rotateZ(-1.4deg) scale(.965) skewY(-1.4deg); filter: brightness(.9); }
+      64% { transform: rotateY(-122deg) rotateZ(-.8deg) scale(.94) skewY(-.8deg); filter: brightness(.82); }
+      84% { transform: rotateY(-164deg) rotateZ(0deg) scale(.985); opacity: .58; }
+      100% { transform: rotateY(-178deg); opacity: 0; }
+    }
+
+    @keyframes floatingTurnPrev {
+      0% { transform: rotateY(-178deg); opacity: 0; }
+      18% { opacity: .58; }
+      44% { transform: rotateY(-118deg) rotateZ(1.5deg) scale(.94) skewY(1.4deg); }
+      68% { transform: rotateY(-62deg) rotateZ(.8deg) scale(.97) skewY(.8deg); }
+      86% { transform: rotateY(-18deg) rotateZ(.3deg) scale(.997); }
+      100% { transform: rotateY(0deg); opacity: 1; }
+    }
+
+    .controls {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(7px, 2vw, 12px);
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+
+    .btn,
+    .nav-btn {
+      border: 1px solid rgba(248,223,160,.65);
+      background: var(--glass);
+      color: var(--gold-soft);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+      transition: .2s ease;
+      font-weight: 900;
+    }
+
+    .btn {
+      padding: 11px 18px;
+      border-radius: 999px;
+      min-width: 112px;
+      font-size: clamp(12px, 2.5vw, 14px);
+    }
+
+    .btn:hover,
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(214,168,44,.2);
+      background: rgba(55,36,12,.82);
+    }
+
+    .btn:disabled,
+    .nav-btn:disabled {
+      opacity: .32;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .counter {
+      min-width: 72px;
+      text-align: center;
+      color: var(--gold-soft);
+      font-weight: 900;
+      font-size: clamp(12px, 2.5vw, 14px);
+    }
+
+    .nav-btn {
+      position: fixed;
+      top: 50%;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      font-size: 28px;
+      z-index: 20;
+    }
+
+    #prevFloat { left: 24px; transform: translateY(-50%); }
+    #nextFloat { right: 24px; transform: translateY(-50%); }
+
+    .swipe-hint {
+      display: none;
+      width: 100%;
+      text-align: center;
+      color: rgba(248,223,160,.72);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 700px) {
+      body { overflow: hidden; }
+
+      .app {
+        height: 100svh;
+        grid-template-rows: auto 1fr auto;
+        gap: 8px;
+        padding: calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px);
+      }
+
+      .viewer {
+        width: min(94vw, 420px);
+        height: auto;
+        aspect-ratio: 377 / 731;
+        max-height: calc(100svh - 150px);
+      }
+
+      .magazine { transform: none; }
+      .floating-shadow { bottom: -12px; height: 24px; }
+
+      .nav-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        background: rgba(10, 8, 5, .62);
+      }
+
+      #prevFloat { left: 7px; }
+      #nextFloat { right: 7px; }
+
+      .controls { gap: 7px; }
+      .btn { min-width: auto; padding: 10px 12px; }
+      #soundBtn { order: 5; }
+      .swipe-hint { display: block; }
+    }
+
+    @media (max-width: 380px) {
+      .title { font-size: 12px; }
+      .btn { padding: 9px 10px; font-size: 11px; }
+      .counter { min-width: 58px; }
+      .nav-btn { width: 40px; height: 40px; }
+    }
+
+    @media (min-width: 1000px) {
+      .viewer { width: min(36vw, 490px); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="particles">
+    <span style="left:10%;bottom:8%;animation-duration:7s"></span>
+    <span style="left:22%;bottom:14%;animation-duration:9s"></span>
+    <span style="left:38%;bottom:10%;animation-duration:6s"></span>
+    <span style="left:58%;bottom:12%;animation-duration:8s"></span>
+    <span style="left:76%;bottom:7%;animation-duration:10s"></span>
+    <span style="left:88%;bottom:15%;animation-duration:7s"></span>
+  </div>
+
+  <main class="app">
+    <div class="title">Dahab Sweets — Menu</div>
+
+    <button class="nav-btn" id="prevFloat" aria-label="السابق">‹</button>
+    <button class="nav-btn" id="nextFloat" aria-label="التالي">›</button>
+
+    <section class="viewer" id="viewer">
+      <div class="floating-shadow"></div>
+
+      <div class="magazine" id="magazine">
+        <div class="page-stack"></div>
+        <div class="page" id="pageBox"></div>
+        <div class="flip-page" id="flipPage"></div>
+      </div>
+    </section>
+
+    <div class="controls">
+      <button class="btn" id="prevBtn">السابق</button>
+      <span class="counter" id="counter">1 / 7</span>
+      <button class="btn" id="nextBtn">التالي</button>
+      
+      <div class="swipe-hint">اسحب يمين أو شمال للتنقل بين الصفحات</div>
+    </div>
+  </main>
+
+  <script>
+   const pages = [
+      'assets/intro.jpeg',
+      'assets/sheet1.jpeg',
+      'assets/sheet2.jpeg',
+      'assets/sheet3.jpeg',
+      'assets/sheet4.jpeg',
+      'assets/sheet5.jpeg',
+      'assets/sheet6.jpeg',
+      'assets/sheet7.jpeg',
+      'assets/outro.jpeg',
+    ];
+
+    const viewer = document.getElementById('viewer');
+    const magazine = document.getElementById('magazine');
+    const pageBox = document.getElementById('pageBox');
+    const flipPage = document.getElementById('flipPage');
+    const nextBtn = document.getElementById('nextBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextFloat = document.getElementById('nextFloat');
+    const prevFloat = document.getElementById('prevFloat');
+    const counter = document.getElementById('counter');
+    const soundBtn = document.getElementById('soundBtn');
+
+    let current = 0;
+    let locked = false;
+    let soundEnabled = true;
+    let audioCtx = null;
+    let startX = 0;
+    let startY = 0;
+    let dragging = false;
+
+    function imgHTML(index) {
+      return `<img src="${pages[index]}" alt="page ${index + 1}">`;
+    }
+
+    function render() {
+      pageBox.innerHTML = imgHTML(current);
+      counter.textContent = `${current + 1} / ${pages.length}`;
+      prevBtn.disabled = prevFloat.disabled = current === 0;
+      nextBtn.disabled = nextFloat.disabled = current === pages.length - 1;
+    }
+
+    function getAudioContext() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      return audioCtx;
+    }
+
+    function playSoftPageSound() {
+      if (!soundEnabled) return;
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const duration = 1.85;
+      const length = Math.floor(ctx.sampleRate * duration);
+      const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+
+      for (let i = 0; i < length; i++) {
+        const t = i / length;
+        const fade = Math.pow(1 - t, 2.4);
+        const noise = (Math.random() * 2 - 1) * 0.035;
+        const wave = Math.sin(t * Math.PI * 8) * 0.014;
+        const air = Math.sin(t * Math.PI * 3) * 0.035;
+        data[i] = (noise + wave + air) * fade;
+      }
+
+      const source = ctx.createBufferSource();
+      const lowpass = ctx.createBiquadFilter();
+      const gain = ctx.createGain();
+      source.buffer = buffer;
+      lowpass.type = 'lowpass';
+      lowpass.frequency.value = 1100;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.22);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+      source.connect(lowpass);
+      lowpass.connect(gain);
+      gain.connect(ctx.destination);
+      source.start();
+    }
+
+    function flash() {
+      pageBox.animate(
+        [{ filter: 'brightness(1)' }, { filter: 'brightness(1.05)' }, { filter: 'brightness(1)' }],
+        { duration: 700, easing: 'ease-out' }
+      );
+    }
+
+    function finishTurn() {
+      flipPage.className = 'flip-page';
+      flipPage.innerHTML = '';
+      locked = false;
+    }
+
+    function goNext() {
+      if (locked || current >= pages.length - 1) return;
+      locked = true;
+      const oldPage = current;
+      current++;
+      flipPage.innerHTML = imgHTML(oldPage);
+      render();
+      flipPage.className = 'flip-page active next-open';
+      playSoftPageSound();
+      flash();
+      setTimeout(finishTurn, 1780);
+    }
+
+    function goPrev() {
+      if (locked || current <= 0) return;
+      locked = true;
+      current--;
+      render();
+      flipPage.innerHTML = imgHTML(current);
+      flipPage.className = 'flip-page active prev-open';
+      playSoftPageSound();
+      flash();
+      setTimeout(finishTurn, 1780);
+    }
+
+    nextBtn.onclick = nextFloat.onclick = goNext;
+    prevBtn.onclick = prevFloat.onclick = goPrev;
+    pageBox.onclick = goNext;
+
+    soundBtn.onclick = () => {
+      soundEnabled = !soundEnabled;
+      // soundBtn.textContent = soundEnabled ? 'الصوت: تشغيل' : 'الصوت: إيقاف';
+    };
+
+    viewer.addEventListener('touchstart', (e) => {
+      if (!e.touches[0]) return;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      dragging = true;
+    }, { passive: true });
+
+    viewer.addEventListener('touchmove', (e) => {
+      if (!dragging || !e.touches[0]) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 12) {
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    viewer.addEventListener('touchend', (e) => {
+      if (!dragging) return;
+      dragging = false;
+      const touch = e.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (Math.abs(dx) < 55 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+      if (dx < 0) goNext();
+      else goPrev();
+    }, { passive: true });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') goNext();
+      if (e.key === 'ArrowLeft') goPrev();
+    });
+
+    render();
+  </script>
+
+</body>
+</html>
