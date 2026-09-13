@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Models\Payment;
 use App\Models\PaymentProofAnalysis;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -54,7 +55,7 @@ class PaymentProofAnalysisService
                 ->where('payment_id', '!=', $payment->id)
                 ->count();
 
-            $result = $this->callVisionModel($payment, $mime, $bytes);
+            $result = $this->callVisionModel($mime, $bytes);
             $signals = collect($result['risk_signals'] ?? [])
                 ->filter(fn ($signal) => is_string($signal) && trim($signal) !== '')
                 ->map(fn ($signal) => trim($signal))
@@ -123,7 +124,7 @@ class PaymentProofAnalysisService
         return $analysis->fresh();
     }
 
-    private function callVisionModel(Payment $payment, string $mime, string $bytes): array
+    private function callVisionModel(string $mime, string $bytes): array
     {
         $baseUrl = rtrim((string) config('services.payment_proof_ai.base_url'), '/');
         $apiKey = (string) config('services.payment_proof_ai.api_key');
@@ -165,9 +166,11 @@ PROMPT;
         $text = $payload['output_text'] ?? null;
 
         if (! is_string($text) || trim($text) === '') {
-            $text = collect($payload['output'] ?? [])
+            $outputItem = collect($payload['output'] ?? [])
                 ->flatMap(fn ($item) => is_array($item) ? ($item['content'] ?? []) : [])
-                ->first(fn ($item) => is_array($item) && ($item['type'] ?? null) === 'output_text')['text'] ?? null;
+                ->first(fn ($item) => is_array($item) && ($item['type'] ?? null) === 'output_text');
+
+            $text = is_array($outputItem) ? ($outputItem['text'] ?? null) : null;
         }
 
         if (! is_string($text) || trim($text) === '') {
@@ -210,6 +213,7 @@ PROMPT;
         if ($value === null || $value === '' || ! is_numeric($value)) {
             return null;
         }
+
         return round((float) $value, 2);
     }
 
@@ -221,7 +225,7 @@ PROMPT;
         }
 
         try {
-            return now()->parse($value)->format('Y-m-d H:i:s');
+            return Carbon::parse($value)->format('Y-m-d H:i:s');
         } catch (Throwable) {
             return null;
         }
