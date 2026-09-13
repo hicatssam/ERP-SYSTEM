@@ -12,7 +12,7 @@ class RestaurantContextService
     /**
      * Resolve the branch that the restaurant operation should use.
      *
-     * - System admins may select any active branch.
+     * - System admins / explicit global restaurant operators may select any active branch.
      * - Regular users are restricted to their active primary branch.
      * - If no location_id is supplied, the user's primary branch is preferred.
      */
@@ -28,7 +28,6 @@ class RestaurantContextService
 
         $primary = $user->primaryLocation();
 
-        // Non-admin users are always locked to their primary branch.
         if (! $this->canSelectAnyBranch($user)) {
             $branch = $locations->first();
 
@@ -42,7 +41,6 @@ class RestaurantContextService
             return $branch;
         }
 
-        // Admin explicitly selected a branch.
         if ($requestedLocationId !== null) {
             $selected = $locations->first(
                 fn (Location $location) =>
@@ -58,7 +56,6 @@ class RestaurantContextService
             return $selected;
         }
 
-        // Prefer the admin user's own primary branch when it is an active branch.
         if ($primary) {
             $primaryBranch = $locations->first(
                 fn (Location $location) =>
@@ -73,11 +70,7 @@ class RestaurantContextService
         return $locations->first();
     }
 
-    /**
-     * Branches the current user is allowed to operate.
-     *
-     * @return Collection<int, Location>
-     */
+    /** @return Collection<int, Location> */
     public function selectableLocations(User $user): Collection
     {
         if ($this->canSelectAnyBranch($user)) {
@@ -100,9 +93,7 @@ class RestaurantContextService
             ->whereKey($primary->id)
             ->first();
 
-        return $branch
-            ? collect([$branch])
-            : collect();
+        return $branch ? collect([$branch]) : collect();
     }
 
     private function canSelectAnyBranch(User $user): bool
@@ -115,6 +106,9 @@ class RestaurantContextService
             return true;
         }
 
-        return $user->can('roles.manage');
+        // roles.manage is not a branch-access permission. A branch manager may
+        // legitimately manage roles without being allowed to operate another
+        // branch's POS/tables. Cross-branch restaurant access must be explicit.
+        return $user->can('restaurant.view_all_locations');
     }
 }
