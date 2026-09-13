@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Validation\ValidationException;
 
 class Payment extends Model
 {
@@ -45,13 +46,55 @@ class Payment extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (Payment $payment): void {
+            $locationId = (int) ($payment->location_id ?? 0);
+            $methodId = (int) ($payment->payment_method_id ?? 0);
+
+            if ($locationId <= 0 || $methodId <= 0) {
+                throw ValidationException::withMessages([
+                    'payment_method_id' => 'بيانات الفرع وطريقة الدفع مطلوبة للحركة المالية.',
+                ]);
+            }
+
+            $method = PaymentMethod::query()
+                ->active()
+                ->find($methodId);
+
+            if (! $method || ! $method->isAvailableAt($locationId)) {
+                throw ValidationException::withMessages([
+                    'payment_method_id' => 'طريقة الدفع المحددة غير متاحة في هذا الفرع.',
+                ]);
+            }
+
+            if ($payment->location_payment_account_id) {
+                $account = LocationPaymentAccount::query()
+                    ->with('locationPaymentMethod')
+                    ->find($payment->location_payment_account_id);
+
+                $belongsToCanonicalMethod = $account
+                    && $account->is_active
+                    && $account->locationPaymentMethod
+                    && (int) $account->locationPaymentMethod->location_id === $locationId
+                    && (int) $account->locationPaymentMethod->payment_method_id === $methodId;
+
+                $belongsToLegacyPair = $account
+                    && $account->is_active
+                    && ! $account->location_payment_method_id
+                    && (int) $account->location_id === $locationId
+                    && (int) $account->payment_method_id === $methodId;
+
+                if (! $belongsToCanonicalMethod && ! $belongsToLegacyPair) {
+                    throw ValidationException::withMessages([
+                        'location_payment_account_id' => 'حساب الدفع المحدد لا يتبع طريقة الدفع والفرع المختارين.',
+                    ]);
+                }
+            }
+        });
+
         static::saved(function (Payment $payment): void {
             app(InvoiceService::class)->syncFromPayment($payment);
             app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
 
-            // Canonical safety net for every payment entry point (POS, admin,
-            // customer menu and PaymentService). FinancialPostingService is
-            // idempotent, so explicit service-level posting remains safe.
             if (
                 in_array($payment->statusValue(), ['confirmed', 'corrected'], true)
                 && $payment->received_by
