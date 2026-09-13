@@ -31,6 +31,14 @@ class OrderPolicy
 
     public function update(User $user, Order $order): bool
     {
+        // OrderController::complete historically called authorize('update') even
+        // though its route is protected by orders.complete. Keep normal edits
+        // restricted to orders.update, while allowing only the complete route to
+        // delegate to the dedicated completion policy.
+        if (request()?->routeIs('orders.complete')) {
+            return $this->complete($user, $order);
+        }
+
         if (! in_array(
             $this->statusValue($order),
             ['draft', 'confirmed'],
