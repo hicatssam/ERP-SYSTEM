@@ -50,7 +50,7 @@ class PaymentProofAnalysisService
                 throw new RuntimeException('AI analysis currently supports image proofs only. PDF remains available for manual review.');
             }
 
-            $duplicateCount = PaymentProofAnalysis::query()
+            $duplicateImageCount = PaymentProofAnalysis::query()
                 ->where('proof_sha256', $hash)
                 ->where('payment_id', '!=', $payment->id)
                 ->count();
@@ -61,7 +61,7 @@ class PaymentProofAnalysisService
                 ->map(fn ($signal) => trim($signal))
                 ->values();
 
-            if ($duplicateCount > 0) {
+            if ($duplicateImageCount > 0) {
                 $signals->push('تم استخدام نفس ملف إثبات الدفع في دفعة أخرى داخل النظام.');
             }
 
@@ -72,8 +72,26 @@ class PaymentProofAnalysisService
 
             $submittedReference = trim((string) ($payment->reference_number ?? ''));
             $extractedReference = trim((string) ($result['transaction_reference'] ?? ''));
-            if ($submittedReference !== '' && $extractedReference !== '' && ! $this->looselyMatches($submittedReference, $extractedReference)) {
+
+            if (
+                $submittedReference !== ''
+                && $extractedReference !== ''
+                && ! $this->looselyMatches($submittedReference, $extractedReference)
+            ) {
                 $signals->push('رقم المرجع المستخرج لا يطابق المرجع الذي أدخله العميل.');
+            }
+
+            $duplicateReferenceCount = 0;
+            if ($extractedReference !== '') {
+                $duplicateReferenceCount = PaymentProofAnalysis::query()
+                    ->where('payment_id', '!=', $payment->id)
+                    ->whereNotNull('transaction_reference')
+                    ->where('transaction_reference', $extractedReference)
+                    ->count();
+
+                if ($duplicateReferenceCount > 0) {
+                    $signals->push('رقم العملية المستخرج سبق استخدامه في دفعة أخرى داخل النظام.');
+                }
             }
 
             $expectedAccount = trim((string) (
@@ -82,17 +100,46 @@ class PaymentProofAnalysisService
                 ?? $payment->locationPaymentAccount?->phone_number
                 ?? ''
             ));
-            $extractedRecipient = trim((string) ($result['recipient_account'] ?? ''));
-            if ($expectedAccount !== '' && $extractedRecipient !== '' && ! $this->looselyMatches($expectedAccount, $extractedRecipient)) {
+            $extractedRecipientAccount = trim((string) ($result['recipient_account'] ?? ''));
+
+            if (
+                $expectedAccount !== ''
+                && $extractedRecipientAccount !== ''
+                && ! $this->looselyMatches($expectedAccount, $extractedRecipientAccount)
+            ) {
                 $signals->push('حساب المستفيد الظاهر في الإثبات لا يطابق حساب الفرع المحدد للدفعة.');
             }
 
+            $expectedRecipientName = trim((string) ($payment->locationPaymentAccount?->account_holder_name ?? ''));
+            $extractedRecipientName = trim((string) ($result['recipient_name'] ?? ''));
+
+            if (
+                $expectedRecipientName !== ''
+                && $extractedRecipientName !== ''
+                && ! $this->looselyMatches($expectedRecipientName, $extractedRecipientName)
+            ) {
+                $signals->push('اسم المستفيد الظاهر في الإثبات لا يطابق اسم صاحب حساب الفرع.');
+            }
+
             $riskLevel = $this->normalizeRiskLevel((string) ($result['risk_level'] ?? 'unknown'));
-            if ($duplicateCount > 0 || $signals->count() >= 3) {
+
+            if (
+                $duplicateImageCount > 0
+                || $duplicateReferenceCount > 0
+                || $signals->count() >= 3
+            ) {
                 $riskLevel = 'high';
             } elseif ($signals->isNotEmpty() && $riskLevel === 'low') {
                 $riskLevel = 'medium';
             }
+
+            $serverChecks = [
+                'duplicate_image_count' => $duplicateImageCount,
+                'duplicate_reference_count' => $duplicateReferenceCount,
+                'expected_recipient_account' => $expectedAccount ?: null,
+                'expected_recipient_name' => $expectedRecipientName ?: null,
+                'registered_payment_amount' => round((float) $payment->amount, 2),
+            ];
 
             $analysis->update([
                 'status' => 'completed',
@@ -108,7 +155,10 @@ class PaymentProofAnalysisService
                 'risk_level' => $riskLevel,
                 'risk_signals' => $signals->unique()->values()->all(),
                 'raw_text' => $this->nullableString($result['raw_text'] ?? null, 12000),
-                'raw_payload' => $result,
+                'raw_payload' => [
+                    'ai' => $result,
+                    'server_checks' => $serverChecks,
+                ],
                 'analyzed_at' => now(),
                 'failure_reason' => null,
             ]);
