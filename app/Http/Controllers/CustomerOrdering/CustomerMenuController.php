@@ -7,9 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CustomerOrdering\StoreCustomerMenuOrderRequest;
 use App\Models\Employee;
 use App\Models\Location;
+use App\Models\LocationPaymentMethod;
 use App\Models\Order;
-use App\Models\PaymentMethod;
-use App\Models\LocationPaymentAccount;
 use App\Models\SystemSetting;
 use App\Services\ModuleService;
 use App\Services\Restaurant\CustomerOrderingService;
@@ -106,25 +105,25 @@ class CustomerMenuController extends Controller
     {
         $this->assertMenuAvailable($location);
 
-        $methods = PaymentMethod::query()
+        $methods = LocationPaymentMethod::query()
+            ->with([
+                'paymentMethod',
+                'activeAccounts',
+            ])
+            ->where('location_id', $location->id)
             ->where('is_active', true)
-            ->whereHas('locationPaymentMethods', function ($query) use ($location): void {
-                $query
-                    ->where('location_id', $location->id)
-                    ->where('is_active', true);
-            })
-            ->orderBy('sort_order')
-            ->orderBy('id')
+            ->whereHas('paymentMethod', fn ($query) => $query->where('is_active', true))
             ->get()
-            ->map(function (PaymentMethod $method) use ($location): array {
-                $accounts = LocationPaymentAccount::query()
-                    ->where('location_id', $location->id)
-                    ->where('payment_method_id', $method->id)
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->orderBy('id')
-                    ->get()
-                    ->map(fn (LocationPaymentAccount $account): array => [
+            ->sortBy(fn (LocationPaymentMethod $row): string => sprintf(
+                '%010d-%010d',
+                (int) ($row->paymentMethod?->sort_order ?? 0),
+                (int) ($row->paymentMethod?->id ?? 0)
+            ))
+            ->map(function (LocationPaymentMethod $locationMethod): array {
+                $method = $locationMethod->paymentMethod;
+
+                $accounts = $locationMethod->activeAccounts
+                    ->map(fn ($account): array => [
                         'id' => (int) $account->id,
                         'name' => (string) $account->name,
                         'provider_name' => $account->provider_name,
@@ -132,12 +131,14 @@ class CustomerMenuController extends Controller
                         'account_number' => $account->account_number,
                         'iban' => $account->iban,
                         'phone_number' => $account->phone_number,
+                        'wallet_number' => $account->wallet_number,
                         'instructions' => $account->instructions,
                     ])
                     ->values();
 
                 return [
                     'id' => (int) $method->id,
+                    'location_payment_method_id' => (int) $locationMethod->id,
                     'name' => (string) ($method->name_ar ?: $method->name),
                     'code' => (string) $method->code,
                     'type' => (string) $method->type,
