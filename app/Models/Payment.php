@@ -97,10 +97,11 @@ class Payment extends Model
 
             if (
                 in_array($payment->statusValue(), ['confirmed', 'corrected'], true)
-                && $payment->received_by
+                && ($payment->verified_by || $payment->received_by)
                 && ($payment->wasRecentlyCreated || $payment->wasChanged(['status', 'amount']))
             ) {
-                $actor = User::query()->find($payment->received_by);
+                $actorId = (int) ($payment->verified_by ?: $payment->received_by);
+                $actor = User::query()->find($actorId);
 
                 if ($actor) {
                     app(FinancialPostingService::class)->collection($payment, $actor);
