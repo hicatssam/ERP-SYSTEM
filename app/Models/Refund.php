@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\Payments\OrderPaymentStatusSynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class Refund extends Model
 {
@@ -25,19 +26,27 @@ class Refund extends Model
     protected static function booted(): void
     {
         static::saved(function (Refund $refund): void {
-            $payment = $refund->payment()->first();
+            $paymentId = (int) $refund->payment_id;
 
-            if ($payment) {
-                app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
-            }
+            DB::afterCommit(function () use ($paymentId): void {
+                $payment = Payment::query()->find($paymentId);
+
+                if ($payment) {
+                    app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
+                }
+            });
         });
 
         static::deleted(function (Refund $refund): void {
-            $payment = $refund->payment()->first();
+            $paymentId = (int) $refund->payment_id;
 
-            if ($payment) {
-                app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
-            }
+            DB::afterCommit(function () use ($paymentId): void {
+                $payment = Payment::query()->find($paymentId);
+
+                if ($payment) {
+                    app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
+                }
+            });
         });
     }
 
