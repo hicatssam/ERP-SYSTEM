@@ -1,297 +1,47 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="csrf-token" content="{{ csrf_token() }}">
 <title>إتمام الطلب - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
+<style>.pay-account-card{margin-top:10px;padding:14px;border:1px solid color-mix(in srgb,var(--text) 10%,transparent);border-radius:14px;background:var(--surface)}.pay-account-card strong{display:block;margin-bottom:7px}.pay-account-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.pay-account-item{padding:9px;border-radius:10px;background:var(--background,#f7f3ee)}.pay-account-item small{display:block;color:var(--muted);font-size:.68rem}.pay-account-item b{display:block;margin-top:2px;font-size:.8rem;overflow-wrap:anywhere}.pay-instructions{margin-top:9px;font-size:.77rem;color:var(--muted);line-height:1.7}@media(max-width:560px){.pay-account-grid{grid-template-columns:1fr}}</style>
 </head>
-<body class="crisp-customer-menu">
-<div class="app crisp-menu-app">
+<body class="crisp-customer-menu"><div class="app crisp-menu-app">
 @include('customer-menu.partials.topbar', ['pageTitle' => 'إتمام الطلب', 'pageSubtitle' => $location->name, 'backUrl' => route('customer-menu.cart', $location->code)])
-
-<main class="menu-area">
- <div class="shell">
-  <div class="eta-banner" id="etaBanner" hidden>
-   <i class="fa-solid fa-clock"></i>
-   <span id="etaText"></span>
-  </div>
-
-  <div class="order-summary">
-   <div id="summaryItems"></div>
-   <div class="cart-total"><span>الإجمالي</span><span id="summaryTotal">0.00 ₪</span></div>
-  </div>
-
-  <form id="checkoutForm" enctype="multipart/form-data">
-   <div class="checkout-grid">
-    <label>الاسم<input name="name" required maxlength="120"></label>
-    <label>رقم الجوال<input name="phone" required maxlength="20" inputmode="tel"></label>
-    <label>نوع الطلب
-     <select name="service_type" id="serviceType" required>
-      @foreach(($serviceOptions ?? []) as $option)
-       <option value="{{ $option['value'] ?? $option }}">{{ $option['label'] ?? $option }}</option>
-      @endforeach
-     </select>
-    </label>
-    <label id="tableField" class="full" hidden>
-     <span>الطاولة</span>
-     <div class="table-legend">
-      <span><span class="dot" style="background:#22a35c"></span> متاحة</span>
-      <span><span class="dot" style="background:#d64545"></span> مشغولة</span>
-     </div>
-     <div class="table-grid" id="tableGrid">
-      @foreach(($tables ?? []) as $table)
-       @php $isAvailable = (bool) ($table['available'] ?? true); @endphp
-       <button type="button"
-               class="table-card {{ $isAvailable ? 'available' : 'occupied' }}"
-               data-table-id="{{ $table['id'] }}"
-               {{ $isAvailable ? '' : 'disabled' }}>
-        <span class="dot {{ $isAvailable ? 'available' : 'occupied' }}"></span>
-        {{ $table['name'] ?? ('طاولة '.$table['id']) }}
-        <small>{{ $isAvailable ? 'متاحة' : 'مشغولة' }}</small>
-       </button>
-      @endforeach
-     </div>
-     <input type="hidden" name="restaurant_table_id" id="tableIdInput">
-    </label>
-    <label class="full" id="addressField" hidden>عنوان التوصيل<textarea name="address" maxlength="500"></textarea></label>
-    <label class="full">ملاحظات الطلب<textarea name="notes" maxlength="700"></textarea></label>
-   </div>
-
-   <h3>طريقة الدفع</h3>
-   <div class="payment-methods" id="paymentMethods">جاري تحميل طرق الدفع...</div>
-   <div id="paymentAccountDetails"></div>
-   <input type="hidden" name="payment_method_id" id="paymentMethodId">
-   <input type="hidden" name="payment_account_id" id="paymentAccountId">
-
-   <div id="paymentReferenceField" hidden style="margin-top:12px">
-    <label>رقم مرجع العملية (اختياري)
-     <input type="text" name="payment_reference" id="paymentReferenceInput" maxlength="150" placeholder="مثال: TX123456">
-    </label>
-   </div>
-
-   <div id="paymentProofField" hidden style="margin-top:12px">
-    <label class="upload-field" for="paymentProofInput">
-     <i class="fa-solid fa-cloud-arrow-up"></i>
-     <span>إرفاق إشعار إثبات الدفع (صورة أو PDF) <span class="required-star" id="proofRequiredStar" hidden>*</span></span>
-     <input type="file" id="paymentProofInput" name="payment_proof" accept=".jpg,.jpeg,.png,.webp,.pdf">
-    </label>
-    <div class="upload-preview" id="uploadPreview" hidden></div>
-   </div>
-
-   <div class="error" id="checkoutError"></div>
-   <button class="submit-order" id="checkoutSubmit" type="submit">تأكيد وإرسال الطلب</button>
-  </form>
- </div>
-</main>
+<main class="menu-area"><div class="shell">
+<div class="eta-banner" id="etaBanner" hidden><i class="fa-solid fa-clock"></i><span id="etaText"></span></div>
+<div class="order-summary"><div id="summaryItems"></div><div class="cart-total"><span>الإجمالي</span><span id="summaryTotal">0.00 ₪</span></div></div>
+<form id="checkoutForm" enctype="multipart/form-data">
+<div class="checkout-grid">
+<label>الاسم<input name="name" required maxlength="120"></label><label>رقم الجوال<input name="phone" required maxlength="20" inputmode="tel"></label>
+<label>نوع الطلب<select name="service_type" id="serviceType" required>@foreach(($serviceOptions ?? []) as $option)<option value="{{ $option['value'] ?? $option }}">{{ $option['label'] ?? $option }}</option>@endforeach</select></label>
+<label id="tableField" class="full" hidden><span>الطاولة</span><div class="table-legend"><span><span class="dot" style="background:#22a35c"></span> متاحة</span><span><span class="dot" style="background:#d64545"></span> مشغولة</span></div><div class="table-grid" id="tableGrid">@foreach(($tables ?? []) as $table)@php $isAvailable=(bool)($table['available']??true); @endphp<button type="button" class="table-card {{ $isAvailable?'available':'occupied' }}" data-table-id="{{ $table['id'] }}" {{ $isAvailable?'':'disabled' }}><span class="dot {{ $isAvailable?'available':'occupied' }}"></span>{{ $table['name'] ?? ('طاولة '.$table['id']) }}<small>{{ $isAvailable?'متاحة':'مشغولة' }}</small></button>@endforeach</div><input type="hidden" name="restaurant_table_id" id="tableIdInput"></label>
+<label class="full" id="addressField" hidden>عنوان التوصيل<textarea name="address" maxlength="500"></textarea></label><label class="full">ملاحظات الطلب<textarea name="notes" maxlength="700"></textarea></label>
 </div>
-
+<h3>طريقة الدفع</h3><div class="payment-methods" id="paymentMethods">جاري تحميل طرق الدفع...</div><div id="paymentAccountDetails"></div><input type="hidden" name="payment_method_id" id="paymentMethodId"><input type="hidden" name="payment_account_id" id="paymentAccountId">
+<div id="paymentReferenceField" hidden style="margin-top:12px"><label>رقم مرجع العملية <span class="required-star" id="referenceRequiredStar" hidden>*</span><input type="text" name="payment_reference" id="paymentReferenceInput" maxlength="150" placeholder="مثال: TX123456"></label></div>
+<div id="paymentProofField" hidden style="margin-top:12px"><label class="upload-field" for="paymentProofInput"><i class="fa-solid fa-cloud-arrow-up"></i><span>إرفاق إثبات الدفع (صورة أو PDF) <span class="required-star" id="proofRequiredStar" hidden>*</span></span><input type="file" id="paymentProofInput" name="payment_proof" accept=".jpg,.jpeg,.png,.webp,.pdf"></label><div class="upload-preview" id="uploadPreview" hidden></div></div>
+<div class="error" id="checkoutError"></div><button class="submit-order" id="checkoutSubmit" type="submit">تأكيد وإرسال الطلب</button>
+</form></div></main></div>
 @include('customer-menu.partials.bottom-nav', ['activeNav' => 'cart'])
 @include('customer-menu.partials.pwa-install')
 @include('customer-menu.partials.cart-engine')
-
 <script>
-const CM = window.CustomerMenu;
-const ORDER_URL = @json(route('customer-menu.orders.store', $location->code));
-const PAYMENT_URL = @json(route('customer-menu.payment-options', $location->code));
-const QUEUE_URL = @json(route('customer-menu.queue-status', $location->code));
-const CART_URL = @json(route('customer-menu.cart', $location->code));
-const TRACK_BASE = @json(route('customer-menu.show', $location->code));
-const REQUEST_TOKEN = @json($requestToken ?? '');
-const CSRF = document.querySelector('meta[name="csrf-token"]').content;
-let methods = [];
-
-function renderSummary() {
-    const rows = CM.cartRows();
-    if (!rows.length) { window.location.href = CART_URL; return; }
-    document.getElementById('summaryItems').innerHTML = rows.map(x => {
-        const modifierLine = (x.modifiers || []).length
-            ? x.modifiers.map(m => `${m.name}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join('، ')
-            : '';
-        const subtitle = [x.variant_name, modifierLine].filter(Boolean).join(' — ');
-        return `
-      <div class="cart-row">
-        <div class="cart-thumb">${x.image ? `<img src="${CM.esc(x.image)}" alt="">` : ''}</div>
-        <div class="row-copy">
-          <strong>${CM.esc(x.name.split(' - ')[0])}</strong>
-          ${subtitle ? `<span style="display:block;font-size:.74rem;color:var(--muted)">${CM.esc(subtitle)}</span>` : ''}
-          <small>${x.quantity} × ${CM.money(x.price)}</small>
-        </div>
-        <div class="row-copy"><strong>${CM.money(x.price * x.quantity)}</strong></div>
-      </div>`;
-    }).join('');
-    document.getElementById('summaryTotal').textContent = CM.money(CM.cartTotal());
-}
-
-function serviceFields() {
-    const value = document.getElementById('serviceType').value;
-    document.getElementById('tableField').hidden = value !== 'dine_in';
-    document.getElementById('addressField').hidden = value !== 'delivery';
-}
-
-document.getElementById('tableGrid').addEventListener('click', e => {
-    const card = e.target.closest('.table-card');
-    if (!card || card.disabled) return;
-    document.querySelectorAll('.table-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    document.getElementById('tableIdInput').value = card.dataset.tableId;
-});
-
-async function loadPayments() {
-    try {
-        const response = await fetch(PAYMENT_URL, { headers: { Accept: 'application/json' } });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'تعذر تحميل طرق الدفع');
-        methods = data.payment_methods || data.methods || [];
-        renderPayments();
-    } catch (e) {
-        document.getElementById('paymentMethods').innerHTML = '<div class="error">' + CM.esc(e.message) + '</div>';
-    }
-}
-
-function paymentIcon(type) {
-    switch (String(type || '').toLowerCase()) {
-        case 'cash': return 'fa-solid fa-money-bill-wave';
-        case 'card_pos': return 'fa-solid fa-credit-card';
-        case 'bank_transfer': return 'fa-solid fa-building-columns';
-        case 'electronic_wallet': return 'fa-solid fa-wallet';
-        default: return 'fa-solid fa-circle-dollar-to-slot';
-    }
-}
-
-function renderPayments() {
-    document.getElementById('paymentMethods').innerHTML = methods.length
-        ? methods.map(m => `
-          <button class="payment-card" type="button" data-pay="${m.id}">
-            <span class="radio"></span>
-            <span class="p-icon">${m.logo ? `<img src="${CM.esc(m.logo)}" alt="${CM.esc(m.name)}">` : `<i class="${paymentIcon(m.type)}"></i>`}</span>
-            <span class="p-copy"><strong>${CM.esc(m.name)}</strong><small>${CM.esc(m.type || '')}</small></span>
-          </button>`).join('')
-        : 'لا توجد طرق دفع مفعلة.';
-}
-
-function choosePayment(id) {
-    const method = methods.find(x => String(x.id) === String(id));
-    if (!method) return;
-    document.getElementById('paymentMethodId').value = method.id;
-    document.querySelectorAll('[data-pay]').forEach(b => b.classList.toggle('active', String(b.dataset.pay) === String(id)));
-    const accounts = method.accounts || [];
-    document.getElementById('paymentAccountDetails').innerHTML = accounts.length
-        ? `<label>الحساب<select id="paymentAccountSelect"><option value="">اختر الحساب</option>${accounts.map(a => `<option value="${a.id}">${CM.esc(a.name || a.provider_name || a.account_number || 'حساب')}</option>`).join('')}</select></label>`
-        : '';
-
-    const isPureCash = String(method.type || '').toLowerCase().includes('cash') && !method.requires_reference && !method.requires_verification;
-
-    const refField = document.getElementById('paymentReferenceField');
-    const refInput = document.getElementById('paymentReferenceInput');
-    refField.hidden = isPureCash;
-    if (isPureCash) refInput.value = '';
-
-    const proofField = document.getElementById('paymentProofField');
-    const proofInput = document.getElementById('paymentProofInput');
-    const proofStar = document.getElementById('proofRequiredStar');
-    proofField.hidden = isPureCash;
-    proofInput.required = !!method.requires_verification;
-    proofStar.hidden = !method.requires_verification;
-    if (isPureCash) { proofInput.value = ''; document.getElementById('uploadPreview').hidden = true; }
-}
-
-document.getElementById('paymentProofInput').addEventListener('change', e => {
-    const file = e.target.files[0];
-    const preview = document.getElementById('uploadPreview');
-    if (!file) { preview.hidden = true; return; }
-    const isImage = file.type.startsWith('image/');
-    preview.hidden = false;
-    preview.innerHTML = `${isImage ? `<img src="${URL.createObjectURL(file)}" alt="">` : `<i class="fa-solid fa-file-pdf" style="font-size:1.6rem;color:var(--primary)"></i>`}<span>${CM.esc(file.name)}</span>`;
-});
-
-document.addEventListener('click', e => {
-    const pay = e.target.closest('[data-pay]');
-    if (pay) choosePayment(pay.dataset.pay);
-});
-
-document.addEventListener('change', e => {
-    if (e.target.id === 'paymentAccountSelect') document.getElementById('paymentAccountId').value = e.target.value;
-});
-
-document.getElementById('serviceType').addEventListener('change', serviceFields);
-
-document.getElementById('checkoutForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const rows = CM.cartRows();
-    if (!rows.length) return;
-
-    document.getElementById('checkoutError').textContent = '';
-    const button = document.getElementById('checkoutSubmit');
-    button.disabled = true;
-    button.textContent = 'جاري إرسال الطلب...';
-
-    try {
-        const formData = new FormData(e.currentTarget);
-        formData.append('request_token', REQUEST_TOKEN);
-        rows.forEach((row, i) => {
-            formData.append(`items[${i}][product_id]`, row.product_id);
-            formData.append(`items[${i}][quantity]`, row.quantity);
-            if (row.variant_id) {
-                formData.append(`items[${i}][product_variant_id]`, row.variant_id);
-            }
-            (row.modifiers || []).forEach((m, j) => {
-                formData.append(`items[${i}][modifiers][${j}][modifier_id]`, m.modifier_id);
-                formData.append(`items[${i}][modifiers][${j}][quantity]`, m.quantity);
-            });
-        });
-
-        const response = await fetch(ORDER_URL, {
-            method: 'POST',
-            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: formData,
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || Object.values(data.errors || {}).flat()[0] || 'تعذر إرسال الطلب');
-
-        CM.pushOrder({
-            order_id: data.order_id || null,
-            order_number: data.order_number,
-            location: CM.LOCATION_CODE,
-            url: data.track_url,
-            created_at: data.created_at || new Date().toLocaleString('ar'),
-        });
-
-        CM.clearCart();
-        CM.toast('تم استلام طلبك بنجاح');
-        setTimeout(() => { window.location.href = data.track_url || TRACK_BASE; }, 700);
-    } catch (err) {
-        document.getElementById('checkoutError').textContent = err.message;
-    } finally {
-        button.disabled = false;
-        button.textContent = 'تأكيد وإرسال الطلب';
-    }
-});
-
-renderSummary();
-serviceFields();
-loadPayments();
-
-(async function loadEta() {
-    try {
-        const response = await fetch(QUEUE_URL, { headers: { Accept: 'application/json' } });
-        const data = await response.json();
-        if (!response.ok) return;
-
-        const cartMax = Math.max(0, ...CM.cartRows().map(r => Number(r.prep_time_minutes) || 0));
-        const basePrep = cartMax || Number(data.default_prep_minutes) || 12;
-        const totalMinutes = basePrep + (Number(data.queue_count) || 0) * (Number(data.queue_minutes_per_order) || 0);
-
-        document.getElementById('etaText').textContent = `الوقت المتوقع لتجهيز طلبك: حوالي ${totalMinutes} دقيقة`;
-        document.getElementById('etaBanner').hidden = false;
-    } catch (e) {
-        // Silently skip the ETA banner if the queue endpoint is unreachable —
-        // it's a nice-to-have, not something that should block checkout.
-    }
-})();
-</script>
-</body>
-</html>
+const CM=window.CustomerMenu,ORDER_URL=@json(route('customer-menu.orders.store',$location->code)),PAYMENT_URL=@json(route('customer-menu.payment-options',$location->code)),QUEUE_URL=@json(route('customer-menu.queue-status',$location->code)),CART_URL=@json(route('customer-menu.cart',$location->code)),TRACK_BASE=@json(route('customer-menu.show',$location->code)),REQUEST_TOKEN=@json($requestToken??''),CSRF=document.querySelector('meta[name="csrf-token"]').content;let methods=[];
+function renderSummary(){const rows=CM.cartRows();if(!rows.length){location.href=CART_URL;return}document.getElementById('summaryItems').innerHTML=rows.map(x=>{const mods=(x.modifiers||[]).map(m=>`${m.name}${m.quantity>1?' ×'+m.quantity:''}`).join('، '),sub=[x.variant_name,mods].filter(Boolean).join(' — ');return `<div class="cart-row"><div class="cart-thumb">${x.image?`<img src="${CM.esc(x.image)}" alt="">`:''}</div><div class="row-copy"><strong>${CM.esc(x.name.split(' - ')[0])}</strong>${sub?`<span style="display:block;font-size:.74rem;color:var(--muted)">${CM.esc(sub)}</span>`:''}<small>${x.quantity} × ${CM.money(x.price)}</small></div><div class="row-copy"><strong>${CM.money(x.price*x.quantity)}</strong></div></div>`}).join('');document.getElementById('summaryTotal').textContent=CM.money(CM.cartTotal())}
+function serviceFields(){const v=document.getElementById('serviceType').value;document.getElementById('tableField').hidden=v!=='dine_in';document.getElementById('addressField').hidden=v!=='delivery'}
+document.getElementById('tableGrid').addEventListener('click',e=>{const c=e.target.closest('.table-card');if(!c||c.disabled)return;document.querySelectorAll('.table-card').forEach(x=>x.classList.remove('selected'));c.classList.add('selected');document.getElementById('tableIdInput').value=c.dataset.tableId});
+async function loadPayments(){try{const r=await fetch(PAYMENT_URL,{headers:{Accept:'application/json'},cache:'no-store'}),d=await r.json();if(!r.ok)throw new Error(d.message||'تعذر تحميل طرق الدفع');methods=d.payment_methods||d.methods||[];document.getElementById('paymentMethods').innerHTML=methods.length?methods.map(m=>`<button class="payment-card" type="button" data-pay="${m.id}"><span class="radio"></span><span class="p-icon">${m.logo?`<img src="${CM.esc(m.logo)}" alt="${CM.esc(m.name)}">`:`<i class="${paymentIcon(m.type)}"></i>`}</span><span class="p-copy"><strong>${CM.esc(m.name)}</strong><small>${CM.esc(m.type||'')}</small></span></button>`).join(''):'لا توجد طرق دفع مفعلة.'}catch(e){document.getElementById('paymentMethods').innerHTML=`<div class="error">${CM.esc(e.message)}</div>`}}
+function paymentIcon(t){switch(String(t||'').toLowerCase()){case'cash':return'fa-solid fa-money-bill-wave';case'card_pos':return'fa-solid fa-credit-card';case'bank_transfer':return'fa-solid fa-building-columns';case'electronic_wallet':return'fa-solid fa-wallet';default:return'fa-solid fa-circle-dollar-to-slot'}}
+function accountDetailHtml(a){if(!a)return'';const rows=[['مزود الخدمة',a.provider_name],['اسم صاحب الحساب',a.account_holder_name],['رقم الحساب',a.account_number],['IBAN',a.iban],['رقم الجوال/المحفظة',a.phone_number]].filter(x=>x[1]);return `<div class="pay-account-card"><strong>${CM.esc(a.name||a.provider_name||'بيانات التحويل')}</strong>${rows.length?`<div class="pay-account-grid">${rows.map(([k,v])=>`<div class="pay-account-item"><small>${CM.esc(k)}</small><b>${CM.esc(v)}</b></div>`).join('')}</div>`:''}${a.instructions?`<div class="pay-instructions">${CM.esc(a.instructions)}</div>`:''}</div>`}
+function renderAccount(method){const accounts=method.accounts||[],holder=document.getElementById('paymentAccountDetails');document.getElementById('paymentAccountId').value='';if(!accounts.length){holder.innerHTML='';return}holder.innerHTML=`<label style="display:block;margin-top:12px">حساب التحويل<select id="paymentAccountSelect" required><option value="">اختر الحساب</option>${accounts.map(a=>`<option value="${a.id}">${CM.esc(a.name||a.provider_name||a.account_number||'حساب')}</option>`).join('')}</select></label><div id="selectedAccountDetails"></div>`}
+function choosePayment(id){const m=methods.find(x=>String(x.id)===String(id));if(!m)return;document.getElementById('paymentMethodId').value=m.id;document.querySelectorAll('[data-pay]').forEach(b=>b.classList.toggle('active',String(b.dataset.pay)===String(id)));renderAccount(m);const pureCash=String(m.type||'').toLowerCase()==='cash'&&!m.requires_reference&&!m.requires_verification,refField=document.getElementById('paymentReferenceField'),ref=document.getElementById('paymentReferenceInput'),refStar=document.getElementById('referenceRequiredStar');refField.hidden=pureCash;ref.required=!pureCash&&!!m.requires_reference;refStar.hidden=!ref.required;if(pureCash)ref.value='';const proofField=document.getElementById('paymentProofField'),proof=document.getElementById('paymentProofInput'),proofStar=document.getElementById('proofRequiredStar');proofField.hidden=pureCash;proof.required=!pureCash&&!!m.requires_verification;proofStar.hidden=!proof.required;if(pureCash){proof.value='';document.getElementById('uploadPreview').hidden=true}}
+document.addEventListener('click',e=>{const p=e.target.closest('[data-pay]');if(p)choosePayment(p.dataset.pay)});
+document.addEventListener('change',e=>{if(e.target.id==='paymentAccountSelect'){const method=methods.find(x=>String(x.id)===String(document.getElementById('paymentMethodId').value)),account=(method?.accounts||[]).find(x=>String(x.id)===String(e.target.value));document.getElementById('paymentAccountId').value=e.target.value;const target=document.getElementById('selectedAccountDetails');if(target)target.innerHTML=accountDetailHtml(account)}});
+document.getElementById('paymentProofInput').addEventListener('change',e=>{const f=e.target.files[0],p=document.getElementById('uploadPreview');if(!f){p.hidden=true;return}p.hidden=false;p.innerHTML=`${f.type.startsWith('image/')?`<img src="${URL.createObjectURL(f)}" alt="">`:`<i class="fa-solid fa-file-pdf" style="font-size:1.6rem;color:var(--primary)"></i>`}<span>${CM.esc(f.name)}</span>`});
+document.getElementById('serviceType').addEventListener('change',serviceFields);
+document.getElementById('checkoutForm').addEventListener('submit',async e=>{e.preventDefault();const rows=CM.cartRows();if(!rows.length)return;const err=document.getElementById('checkoutError'),btn=document.getElementById('checkoutSubmit');err.textContent='';if(!document.getElementById('paymentMethodId').value){err.textContent='اختر طريقة الدفع.';return}btn.disabled=true;btn.textContent='جاري إرسال الطلب...';try{const fd=new FormData(e.currentTarget);fd.append('request_token',REQUEST_TOKEN);rows.forEach((row,i)=>{fd.append(`items[${i}][product_id]`,row.product_id);fd.append(`items[${i}][quantity]`,row.quantity);if(row.variant_id)fd.append(`items[${i}][product_variant_id]`,row.variant_id);(row.modifiers||[]).forEach((m,j)=>{fd.append(`items[${i}][modifiers][${j}][modifier_id]`,m.modifier_id);fd.append(`items[${i}][modifiers][${j}][quantity]`,m.quantity)})});const r=await fetch(ORDER_URL,{method:'POST',headers:{Accept:'application/json','X-CSRF-TOKEN':CSRF},body:fd}),d=await r.json();if(!r.ok)throw new Error(d.message||Object.values(d.errors||{}).flat()[0]||'تعذر إرسال الطلب');CM.pushOrder({order_id:d.order_id||null,order_number:d.order_number,location:CM.LOCATION_CODE,url:d.track_url,created_at:d.created_at||new Date().toLocaleString('ar')});CM.clearCart();CM.toast('تم استلام طلبك بنجاح');setTimeout(()=>location.href=d.track_url||TRACK_BASE,700)}catch(ex){err.textContent=ex.message}finally{btn.disabled=false;btn.textContent='تأكيد وإرسال الطلب'}});
+renderSummary();serviceFields();loadPayments();(async()=>{try{const r=await fetch(QUEUE_URL,{headers:{Accept:'application/json'},cache:'no-store'}),d=await r.json();if(!r.ok)return;const max=Math.max(0,...CM.cartRows().map(x=>Number(x.prep_time_minutes)||0)),mins=(max||Number(d.default_prep_minutes)||12)+(Number(d.queue_count)||0)*(Number(d.queue_minutes_per_order)||0);document.getElementById('etaText').textContent=`الوقت المتوقع لتجهيز طلبك: حوالي ${mins} دقيقة`;document.getElementById('etaBanner').hidden=false}catch(e){}})();
+</script></body></html>
