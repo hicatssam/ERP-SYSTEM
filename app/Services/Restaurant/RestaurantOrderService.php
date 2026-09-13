@@ -40,7 +40,13 @@ class RestaurantOrderService
 
             $payload['location_id'] = $locationId;
             $payload['restaurant_service_type'] = $serviceType->value;
-            $payload['waiter_id'] = $user->id;
+            $payload['order_source'] = $data['order_source'] ?? 'restaurant_pos';
+
+            // created_by records the operator/cashier for every POS order.
+            // waiter_id is meaningful only for table service.
+            $payload['waiter_id'] = $serviceType === RestaurantServiceType::DineIn
+                ? $user->id
+                : null;
 
             $payload['guest_count'] =
                 $serviceType === RestaurantServiceType::DineIn
@@ -76,7 +82,10 @@ class RestaurantOrderService
                 $payload['restaurant_table_session_id'] = null;
             }
 
-            $requiresVerification = $this->requiresPaymentVerification($payload);
+            $requiresVerification = $this->requiresPaymentVerification(
+                $payload,
+                $locationId
+            );
 
             $order = $this->orders->createOrder(
                 $payload,
@@ -102,6 +111,7 @@ class RestaurantOrderService
                 metadata: [
                     'location_id' => $locationId,
                     'source' => 'restaurant_pos',
+                    'operator_id' => $user->id,
                 ],
             );
 
@@ -127,7 +137,7 @@ class RestaurantOrderService
         ]);
     }
 
-    private function requiresPaymentVerification(array $data): bool
+    private function requiresPaymentVerification(array $data, int $locationId): bool
     {
         if (($data['payment_arrangement'] ?? null) === 'pending_verification') {
             return true;
@@ -141,6 +151,18 @@ class RestaurantOrderService
             ->active()
             ->find($data['payment_method_id']);
 
-        return (bool) $method?->requires_verification;
+        if (! $method) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'طريقة الدفع المحددة غير مفعلة.',
+            ]);
+        }
+
+        if (! $method->isAvailableAt($locationId)) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'طريقة الدفع المحددة غير متاحة في هذا الفرع.',
+            ]);
+        }
+
+        return (bool) $method->requires_verification;
     }
 }
