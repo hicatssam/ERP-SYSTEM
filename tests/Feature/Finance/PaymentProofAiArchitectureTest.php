@@ -10,6 +10,7 @@ class PaymentProofAiArchitectureTest extends TestCase
     public function test_payment_proof_ai_routes_are_registered_and_protected(): void
     {
         foreach ([
+            'payments.proof-review.index',
             'payments.proof-analysis.show',
             'payments.proof-analysis.store',
         ] as $name) {
@@ -47,13 +48,14 @@ class PaymentProofAiArchitectureTest extends TestCase
         $this->assertStringContainsString('لا يثبت وحده أن الحوالة صحيحة أو مزورة', $view);
     }
 
-    public function test_payment_model_exposes_ai_analysis_history(): void
+    public function test_payment_model_exposes_ai_analysis_history_and_only_auto_analyzes_pending_payments(): void
     {
         $payment = file_get_contents(app_path('Models/Payment.php'));
 
         $this->assertIsString($payment);
         $this->assertStringContainsString('function proofAnalyses()', $payment);
         $this->assertStringContainsString('function latestProofAnalysis()', $payment);
+        $this->assertStringContainsString('&& $payment->isPendingVerification()', $payment);
     }
 
     public function test_review_view_shows_extracted_financial_identity_fields(): void
@@ -65,5 +67,19 @@ class PaymentProofAiArchitectureTest extends TestCase
         $this->assertStringContainsString('حساب المحوّل', $view);
         $this->assertStringContainsString('رقم العملية', $view);
         $this->assertStringContainsString('مؤشرات الاشتباه والمطابقة', $view);
+    }
+
+    public function test_review_queue_exposes_risk_and_sender_filters(): void
+    {
+        $controller = file_get_contents(app_path('Http/Controllers/Finance/PaymentProofReviewController.php'));
+        $view = file_get_contents(resource_path('views/finance/payments/proof-review.blade.php'));
+
+        $this->assertIsString($controller);
+        $this->assertIsString($view);
+        $this->assertStringContainsString("whereNotNull('payment_proof')", $controller);
+        $this->assertStringContainsString("latestProofAnalysis", $controller);
+        $this->assertStringContainsString('اسم المحوّل', $view);
+        $this->assertStringContainsString('مستوى المخاطرة', $view);
+        $this->assertStringContainsString('payments.proof-analysis.show', $view);
     }
 }
