@@ -7,6 +7,7 @@
 <title>سلة الطلب - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
+@include('customer-menu.partials.pwa-head')
 </head>
 <body class="crisp-customer-menu">
 <div class="app crisp-menu-app">
@@ -27,6 +28,7 @@
 </div>
 
 @include('customer-menu.partials.bottom-nav', ['activeNav' => 'cart'])
+@include('customer-menu.partials.pwa-install')
 @include('customer-menu.partials.cart-engine')
 
 <script>

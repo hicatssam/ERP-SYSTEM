@@ -69,6 +69,30 @@ Route::middleware([
                     ->middleware('can:restaurant_menu.manage');
             });
 
+        Route::middleware('can:restaurant_menu.view')
+            ->prefix('menu/banners')
+            ->name('menu.banners.')
+            ->group(function (): void {
+                Route::get('/', [\App\Http\Controllers\Restaurant\MenuBannerController::class, 'index'])
+                    ->name('index');
+
+                Route::post('/', [\App\Http\Controllers\Restaurant\MenuBannerController::class, 'store'])
+                    ->name('store')
+                    ->middleware('can:restaurant_menu.manage');
+
+                Route::post('/{banner}', [\App\Http\Controllers\Restaurant\MenuBannerController::class, 'update'])
+                    ->name('update')
+                    ->middleware('can:restaurant_menu.manage');
+
+                Route::post('/{banner}/toggle-active', [\App\Http\Controllers\Restaurant\MenuBannerController::class, 'toggleActive'])
+                    ->name('toggle-active')
+                    ->middleware('can:restaurant_menu.manage');
+
+                Route::delete('/{banner}', [\App\Http\Controllers\Restaurant\MenuBannerController::class, 'destroy'])
+                    ->name('destroy')
+                    ->middleware('can:restaurant_menu.manage');
+            });
+
         Route::middleware([
             EnsureModuleEnabled::class . ':restaurant_pos',
             'can:restaurant_pos.use',

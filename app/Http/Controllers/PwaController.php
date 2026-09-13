@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Location;
 use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\File;
@@ -31,6 +32,58 @@ class PwaController extends Controller
             'scope' => '/',
             'display' => 'standalone',
             'orientation' => 'any',
+            'theme_color' => $themeColor,
+            'background_color' => $backgroundColor,
+            'icons' => [
+                [
+                    'src' => route('pwa.icon', ['size' => 192, 'v' => $version], false),
+                    'sizes' => '192x192',
+                    'type' => 'image/png',
+                    'purpose' => 'any',
+                ],
+                [
+                    'src' => route('pwa.icon', ['size' => 512, 'v' => $version], false),
+                    'sizes' => '512x512',
+                    'type' => 'image/png',
+                    'purpose' => 'any maskable',
+                ],
+            ],
+        ], 200, [
+            'Content-Type' => 'application/manifest+json; charset=UTF-8',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /**
+     * A separate, per-branch manifest for the public ordering menu (as
+     * opposed to manifest() above, which is for installing the staff/admin
+     * dashboard). Scoped to /menu/{code} so installing it never tries to
+     * claim admin pages, and named/colored using the customer-menu branding
+     * rather than the admin theme.
+     */
+    public function customerMenuManifest(Location $location): JsonResponse
+    {
+        $nameAr = trim((string) SystemSetting::get('system_name', ''));
+        $nameEn = trim((string) SystemSetting::get('system_name_en', ''));
+        $brandName = $nameAr !== '' ? $nameAr : ($nameEn !== '' ? $nameEn : config('app.name', 'Menu'));
+        $name = trim($brandName . ' - ' . $location->name);
+
+        $themeColor = $this->validColor(SystemSetting::get('customer_menu_primary'), '#C40035');
+        $backgroundColor = $this->validColor(SystemSetting::get('customer_menu_background'), '#F7F2E8');
+        $version = $this->brandVersion();
+        $scope = '/menu/' . $location->code;
+
+        return response()->json([
+            'id' => $scope,
+            'name' => $name,
+            'short_name' => mb_substr($brandName, 0, 12),
+            'description' => 'اطلب من ' . $location->name . ' مباشرة من هاتفك.',
+            'lang' => 'ar',
+            'dir' => 'rtl',
+            'start_url' => $scope . '?source=pwa',
+            'scope' => $scope,
+            'display' => 'standalone',
+            'orientation' => 'portrait',
             'theme_color' => $themeColor,
             'background_color' => $backgroundColor,
             'icons' => [

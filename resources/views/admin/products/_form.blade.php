@@ -128,4 +128,10 @@
     <div class="form-group"><label class="form-label">الوصف</label><textarea name="description" class="form-textarea">{{ old('description',$product->description ?? '') }}</textarea></div>
 
     <div class="form-group"><label class="form-label">صورة المنتج</label><input type="file" name="image" class="form-input" accept="image/jpeg,image/png,image/webp">@if($editing && $product->image)<label style="display:flex;gap:.5rem;align-items:center;margin-top:.5rem"><input type="checkbox" name="remove_image" value="1"> حذف الصورة الحالية</label>@endif</div>
+
+    <div class="form-group">
+        <label class="form-label">وقت التحضير المتوقع (دقائق)</label>
+        <input type="number" name="prep_time_minutes" min="0" max="600" class="form-input" value="{{ old('prep_time_minutes', $product->prep_time_minutes ?? '') }}" placeholder="مثال: 10">
+        <small style="color:var(--text-muted)">يُستخدم لحساب الوقت المتوقع لتجهيز طلب الزبون في منيو الطلب الإلكتروني. اتركه فارغًا لاستخدام القيمة الافتراضية للفرع.</small>
+    </div>
 </div>

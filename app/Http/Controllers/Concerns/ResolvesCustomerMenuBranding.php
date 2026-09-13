@@ -247,6 +247,7 @@ trait ResolvesCustomerMenuBranding
                     'category_icon_color' => $product->category?->icon_color ?: '#111111',
                     'sku' => $product->sku,
                     'price' => (float) $product->getEffectivePriceForLocation((int) $location->id),
+                    'prep_time_minutes' => $product->prep_time_minutes !== null ? (int) $product->prep_time_minutes : null,
                     'available' => (bool) ($locationProduct?->is_available ?? false),
                     'delivery_available' => (bool) $menuItem->show_in_delivery,
                     'is_variant_product' => (bool) $product->isVariantProduct(),
@@ -368,6 +369,11 @@ trait ResolvesCustomerMenuBranding
                 'enabled' => (bool) SystemSetting::get('customer_menu_allow_takeaway', true),
             ],
             [
+                'value' => RestaurantServiceType::Outdoor->value,
+                'label' => RestaurantServiceType::Outdoor->label(),
+                'enabled' => (bool) SystemSetting::get('customer_menu_allow_outdoor', false),
+            ],
+            [
                 'value' => RestaurantServiceType::Delivery->value,
                 'label' => RestaurantServiceType::Delivery->label(),
                 'enabled' => (bool) SystemSetting::get('customer_menu_allow_delivery', false),
@@ -376,6 +382,53 @@ trait ResolvesCustomerMenuBranding
             ->where('enabled', true)
             ->values()
             ->all();
+    }
+
+    /**
+     * Active promotional banners for this branch (global ones + ones
+     * scoped specifically to it), ready for the home page's rotator.
+     */
+    protected function bannersFor(Location $location): Collection
+    {
+        return \App\Models\MenuBanner::query()
+            ->visibleFor((int) $location->id)
+            ->get()
+            ->map(fn ($banner): array => [
+                'id' => (int) $banner->id,
+                'image' => $this->assetFromPath($banner->image),
+                'title' => $banner->title,
+                'subtitle' => $banner->subtitle,
+                'badge_text' => $banner->badge_text,
+                'link_url' => $banner->link_url,
+            ])
+            ->filter(fn (array $banner) => filled($banner['image']))
+            ->values();
+    }
+
+    /**
+     * Shared knobs for the "estimated prep time" feature: how long an
+     * item takes when no per-product time is set, and how much each
+     * order already ahead in the kitchen queue adds to the wait.
+     */
+    protected function etaSettings(): array
+    {
+        return [
+            'default_prep_minutes' => max(1, (int) SystemSetting::get('customer_menu_default_prep_minutes', 12)),
+            'queue_minutes_per_order' => max(0, (int) SystemSetting::get('customer_menu_queue_minutes_per_order', 4)),
+        ];
+    }
+
+    /**
+     * How many orders are still active (not yet completed/cancelled) at
+     * this branch right now — i.e. how many are "ahead" in the kitchen.
+     */
+    protected function activeQueueCount(Location $location, ?int $excludeOrderId = null): int
+    {
+        return \App\Models\Order::query()
+            ->where('location_id', $location->id)
+            ->whereIn('status', ['draft', 'confirmed'])
+            ->when($excludeOrderId, fn ($query) => $query->where('id', '!=', $excludeOrderId))
+            ->count();
     }
 
     protected function guessCategoryIcon(?string $text): string

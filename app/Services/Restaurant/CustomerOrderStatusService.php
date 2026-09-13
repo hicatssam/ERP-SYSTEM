@@ -78,9 +78,12 @@ class CustomerOrderStatusService
             'service_label' => match ($serviceType) {
                 'dine_in' => 'داخل المطعم',
                 'takeaway', 'take_away' => 'سفري',
+                'outdoor' => 'استلام من الباب',
                 'delivery' => 'توصيل',
                 default => 'طلب مطعم',
             },
+
+            'estimated_ready_minutes' => $this->estimatedReadyMinutes($order, $statusKey),
 
             'table' => $table
                 ? [
@@ -252,6 +255,42 @@ class CustomerOrderStatusService
             'default_label' => 'تم استلام طلبك',
             'default_description' => 'وصل طلبك للفرع وهو بانتظار القبول.',
         ];
+    }
+
+    /**
+     * A rough "ready in ~N minutes" estimate for the customer while the
+     * order hasn't started cooking yet. Once the kitchen actually marks
+     * it ready/completed (or it's cancelled), a queue-based guess is no
+     * longer useful, so this returns null and the page can hide it.
+     */
+    private function estimatedReadyMinutes(Order $order, string $statusKey): ?int
+    {
+        if (in_array($statusKey, ['ready', 'completed', 'cancelled'], true)) {
+            return null;
+        }
+
+        $defaultPrepMinutes = max(1, (int) SystemSetting::get('customer_menu_default_prep_minutes', 12));
+        $queueMinutesPerOrder = max(0, (int) SystemSetting::get('customer_menu_queue_minutes_per_order', 4));
+
+        $basePrepMinutes = $order->items()
+            ->with('product:id,prep_time_minutes')
+            ->get()
+            ->pluck('product.prep_time_minutes')
+            ->filter()
+            ->max();
+
+        $basePrepMinutes = $basePrepMinutes !== null ? (int) $basePrepMinutes : $defaultPrepMinutes;
+
+        $ordersAhead = $order->location_id
+            ? Order::query()
+                ->where('location_id', $order->location_id)
+                ->where('id', '!=', $order->id)
+                ->whereIn('status', ['draft', 'confirmed'])
+                ->where('created_at', '<', $order->created_at)
+                ->count()
+            : 0;
+
+        return $basePrepMinutes + ($ordersAhead * $queueMinutesPerOrder);
     }
 
     private function latestTicketTime(Collection $tickets, string $field): ?string

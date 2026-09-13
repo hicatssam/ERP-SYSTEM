@@ -47,6 +47,7 @@ class CustomerMenuController extends Controller
             'location' => $location,
             'menuItems' => $this->menuItemsFor($location),
             'categories' => $this->categoriesFor(),
+            'banners' => $this->bannersFor($location),
             'tables' => $tables,
             'selectedTable' => $this->resolveSelectedTable($tables, (string) $request->query('table', '')),
             'branding' => $this->branding($location),
@@ -182,6 +183,22 @@ class CustomerMenuController extends Controller
             ])
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->header('Pragma', 'no-cache');
+    }
+
+    /**
+     * How busy the kitchen is right now, so the checkout page can show a
+     * realistic "estimated prep time" before the order is even placed.
+     */
+    public function queueStatus(Location $location): JsonResponse
+    {
+        $this->assertMenuAvailable($location);
+
+        return response()
+            ->json(array_merge(
+                $this->etaSettings(),
+                ['queue_count' => $this->activeQueueCount($location)]
+            ))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     public function myOrders(Location $location): View

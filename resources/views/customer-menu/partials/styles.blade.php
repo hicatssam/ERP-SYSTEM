@@ -202,6 +202,8 @@ a{color:inherit;text-decoration:none}
 
 /* ---------- cart summary ---------- */
 .order-summary{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin:16px 0}
+.eta-banner{display:flex;align-items:center;gap:10px;background:color-mix(in srgb, var(--accent) 16%, var(--surface));color:var(--primary);border-radius:14px;padding:12px 14px;margin:14px 0 0;font-weight:700;font-size:.86rem}
+.eta-banner i{font-size:1rem}
 .summary-row{display:flex;justify-content:space-between;font-size:.88rem;color:var(--muted);padding:5px 0}
 .cart-total{display:flex;justify-content:space-between;font-size:1.1rem;font-weight:900;padding:14px 0 4px;border-top:1px solid var(--line);margin-top:6px}
 .cart-note{font-size:.76rem;color:var(--muted);margin:2px 0 14px}
@@ -240,6 +242,24 @@ a{color:inherit;text-decoration:none}
 .bottom-nav{display:none}
 .toast{position:fixed;z-index:1500;bottom:96px;left:50%;transform:translate(-50%,20px);background:var(--text);color:#fff;padding:10px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:.25s;font-size:.85rem}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ---------- PWA install button + iOS instructions sheet ---------- */
+.pwa-install-btn{
+ position:fixed;left:16px;bottom:calc(80px + var(--safe-bottom));z-index:90;
+ display:flex;align-items:center;gap:8px;border:0;border-radius:999px;
+ background:var(--primary);color:var(--on-primary);padding:11px 16px;
+ font-weight:800;font-size:.8rem;box-shadow:0 10px 24px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+.pwa-install-btn i{font-size:.9rem}
+@media(min-width:560px){ .pwa-install-btn{ bottom:20px; } }
+
+.pwa-ios-sheet{position:fixed;inset:0;background:rgba(10,8,6,.5);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.pwa-ios-sheet.open{display:flex}
+.pwa-ios-card{width:min(420px,100%);background:var(--surface);border-radius:20px 20px 0 0;padding:22px;position:relative}
+.pwa-ios-close{position:absolute;top:14px;left:14px;width:32px;height:32px;border-radius:50%;background:var(--bg);border:0;color:var(--text)}
+.pwa-ios-card h3{margin:0 0 12px;font-size:1rem}
+.pwa-ios-card ol{margin:0;padding-inline-start:20px;display:flex;flex-direction:column;gap:8px;font-size:.86rem;color:var(--muted)}
+@media(min-width:560px){ .pwa-ios-card{border-radius:20px;margin-bottom:20px} }
 
 .menu-area{padding-bottom:100px}
 

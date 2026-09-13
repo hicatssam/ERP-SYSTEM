@@ -24,6 +24,7 @@ window.CustomerMenu = (function () {
         category: String(x.category_id ?? x.category?.id ?? 'uncategorized'),
         category_name: x.category ?? '',
         price: Number(x.price ?? 0),
+        prepTimeMinutes: x.prep_time_minutes ?? null,
         available: x.available !== false && x.available !== 0 && x.available !== '0',
         isVariantProduct: !!x.is_variant_product,
         variants: Array.isArray(x.variants) ? x.variants : [],
@@ -153,6 +154,7 @@ window.CustomerMenu = (function () {
                 price: unitPrice,
                 quantity: 0,
                 image: p.image || '',
+                prep_time_minutes: p.prepTimeMinutes ?? null,
             };
         }
         cart[key].quantity = Math.min(50, Number(cart[key].quantity || 0) + Number(qty || 1));

@@ -19,6 +19,7 @@ Route::prefix('menu')->name('customer-menu.')->group(function (): void {
     // further down, regardless of registration order.
     Route::get('{location:code}/my-orders', [CustomerMenuController::class, 'myOrders'])->name('my-orders');
     Route::get('{location:code}/tables', [CustomerMenuController::class, 'tables'])->name('tables');
+    Route::get('{location:code}/queue-status', [CustomerMenuController::class, 'queueStatus'])->name('queue-status');
     Route::get('{location:code}/payment-options', [CustomerMenuController::class, 'paymentOptions'])->name('payment-options');
 
     Route::get('{location:code}/products', [CustomerMenuController::class, 'products'])->name('products');

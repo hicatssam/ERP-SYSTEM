@@ -7,6 +7,7 @@
 <title>{{ $branding['name'] ?? 'حلويات دهب' }} - {{ $location->name }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
+@include('customer-menu.partials.pwa-head')
 <style>
 .intro{position:fixed;inset:0;z-index:1000;background:var(--primary);display:grid;place-items:center;transition:opacity .5s ease,visibility .5s ease}
 .intro.hide{opacity:0;visibility:hidden;pointer-events:none}
@@ -56,12 +57,39 @@
    <button class="filter-square" type="button" onclick="window.location.href='{{ route('customer-menu.products', $location->code) }}'" aria-label="المنيو الكامل"><i class="fa-solid fa-sliders"></i></button>
   </div>
 
-  <section class="promo-card">
-   <i class="fa-solid fa-bowl-food"></i>
-   <span class="tag">خصم 30%</span>
-   <h3>على أول طلب إلك اليوم</h3>
-   <p>لفترة محدودة، طلباتك المفضلة بسعر أقل.</p>
-  </section>
+  @if($banners->isNotEmpty())
+   <section class="banner-rotator" id="bannerRotator">
+    <div class="banner-track" id="bannerTrack">
+     @foreach($banners as $banner)
+      @php $slide = view()->exists('') ?: null; @endphp
+      @if($banner['link_url'])<a href="{{ $banner['link_url'] }}" class="banner-slide" target="_blank" rel="noopener">@else<div class="banner-slide">@endif
+       <img src="{{ $banner['image'] }}" alt="{{ $banner['title'] }}">
+       @if($banner['badge_text'] || $banner['title'] || $banner['subtitle'])
+        <div class="banner-copy">
+         @if($banner['badge_text'])<span class="tag">{{ $banner['badge_text'] }}</span>@endif
+         @if($banner['title'])<h3>{{ $banner['title'] }}</h3>@endif
+         @if($banner['subtitle'])<p>{{ $banner['subtitle'] }}</p>@endif
+        </div>
+       @endif
+      @if($banner['link_url'])</a>@else</div>@endif
+     @endforeach
+    </div>
+    @if($banners->count() > 1)
+     <div class="banner-dots" id="bannerDots">
+      @foreach($banners as $i => $banner)
+       <span class="{{ $i === 0 ? 'active' : '' }}" data-dot="{{ $i }}"></span>
+      @endforeach
+     </div>
+    @endif
+   </section>
+  @else
+   <section class="promo-card">
+    <i class="fa-solid fa-bowl-food"></i>
+    <span class="tag">خصم 30%</span>
+    <h3>على أول طلب إلك اليوم</h3>
+    <p>لفترة محدودة، طلباتك المفضلة بسعر أقل.</p>
+   </section>
+  @endif
 
   <div class="categories" id="categories">
    <button class="cat active" type="button" data-cat="all"><b>الكل</b></button>
@@ -83,6 +111,7 @@
 </div>
 
 @include('customer-menu.partials.bottom-nav', ['activeNav' => 'home'])
+@include('customer-menu.partials.pwa-install')
 @include('customer-menu.partials.cart-engine')
 
 <script>

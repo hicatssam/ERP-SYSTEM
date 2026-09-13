@@ -7,6 +7,7 @@
 <title>إتمام الطلب - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
+@include('customer-menu.partials.pwa-head')
 </head>
 <body class="crisp-customer-menu">
 <div class="app crisp-menu-app">
@@ -14,6 +15,11 @@
 
 <main class="menu-area">
  <div class="shell">
+  <div class="eta-banner" id="etaBanner" hidden>
+   <i class="fa-solid fa-clock"></i>
+   <span id="etaText"></span>
+  </div>
+
   <div class="order-summary">
    <div id="summaryItems"></div>
    <div class="cart-total"><span>الإجمالي</span><span id="summaryTotal">0.00 ₪</span></div>
@@ -84,12 +90,14 @@
 </div>
 
 @include('customer-menu.partials.bottom-nav', ['activeNav' => 'cart'])
+@include('customer-menu.partials.pwa-install')
 @include('customer-menu.partials.cart-engine')
 
 <script>
 const CM = window.CustomerMenu;
 const ORDER_URL = @json(route('customer-menu.orders.store', $location->code));
 const PAYMENT_URL = @json(route('customer-menu.payment-options', $location->code));
+const QUEUE_URL = @json(route('customer-menu.queue-status', $location->code));
 const CART_URL = @json(route('customer-menu.cart', $location->code));
 const TRACK_BASE = @json(route('customer-menu.show', $location->code));
 const REQUEST_TOKEN = @json($requestToken ?? '');
@@ -266,6 +274,24 @@ document.getElementById('checkoutForm').addEventListener('submit', async e => {
 renderSummary();
 serviceFields();
 loadPayments();
+
+(async function loadEta() {
+    try {
+        const response = await fetch(QUEUE_URL, { headers: { Accept: 'application/json' } });
+        const data = await response.json();
+        if (!response.ok) return;
+
+        const cartMax = Math.max(0, ...CM.cartRows().map(r => Number(r.prep_time_minutes) || 0));
+        const basePrep = cartMax || Number(data.default_prep_minutes) || 12;
+        const totalMinutes = basePrep + (Number(data.queue_count) || 0) * (Number(data.queue_minutes_per_order) || 0);
+
+        document.getElementById('etaText').textContent = `الوقت المتوقع لتجهيز طلبك: حوالي ${totalMinutes} دقيقة`;
+        document.getElementById('etaBanner').hidden = false;
+    } catch (e) {
+        // Silently skip the ETA banner if the queue endpoint is unreachable —
+        // it's a nice-to-have, not something that should block checkout.
+    }
+})();
 </script>
 </body>
 </html>

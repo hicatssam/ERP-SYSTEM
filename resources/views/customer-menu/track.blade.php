@@ -294,6 +294,8 @@
                 </div>
             </div>
 
+            <div class="notice" id="eta"></div>
+
             <div class="notice" id="payment"></div>
 
             <div class="sectionTitle">
@@ -327,6 +329,7 @@
         const url = @json(route('customer-menu.status',$order->public_token));
         const label = document.querySelector('#label span:last-child');
         const payment = document.querySelector('#payment');
+        const eta = document.querySelector('#eta');
         const card = document.querySelector('#trackingCard');
         const stages = [...document.querySelectorAll('[data-stage]')];
 
@@ -342,15 +345,39 @@
             canceled: 'تم إلغاء الطلب'
         };
 
-        function updateTracking(data) {
-            const status = String(data.status || 'pending').toLowerCase();
-            const kitchen = (data.kitchen || []).map(value => String(value).toLowerCase());
-            const cancelled = status === 'cancelled' || status === 'canceled';
-            let stage = 0;
+        let lastNotifiedState = null;
 
-            if (['confirmed','accepted'].includes(status) || kitchen.length) stage = 1;
-            if (['preparing','ready','completed'].includes(status) || kitchen.includes('preparing') || kitchen.includes('ready')) stage = 2;
-            if (['ready','completed'].includes(status) || kitchen.includes('ready')) stage = 3;
+        function notifyIfReady(data) {
+            const state = String(data.state || '').toLowerCase();
+            const isNewReadyState = ['ready', 'completed'].includes(state) && state !== lastNotifiedState;
+            lastNotifiedState = state;
+
+            if (!isNewReadyState) return;
+
+            if (navigator.vibrate) navigator.vibrate([120, 60, 120]);
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(data.label || 'طلبك جاهز 🎉', {
+                    body: data.description || 'طلبك جاهز الآن للاستلام.',
+                    icon: @json($branding['favicon'] ?? $branding['logo'] ?? null) || undefined,
+                    tag: 'order-status-' + @json($order->order_number),
+                });
+            }
+        }
+
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        function updateTracking(data) {
+            // The backend already computes the correct step (1=received,
+            // 2=accepted, 3=preparing, 4=ready/completed) from the real
+            // kitchen ticket states — trust it directly instead of
+            // re-guessing progress from the order's own status field,
+            // which never actually changes to "preparing"/"ready" itself.
+            const state = String(data.state || 'received').toLowerCase();
+            const cancelled = state === 'cancelled';
+            const stage = cancelled ? 0 : Math.max(0, Math.min(3, Number(data.step || 1) - 1));
 
             stages.forEach(item => {
                 const value = Number(item.dataset.stage);
@@ -359,12 +386,19 @@
             });
 
             card.classList.toggle('cancelled', cancelled);
-            label.textContent = statusText[status] || 'جاري تجهيز طلبك';
+            label.textContent = data.label || statusText[state] || 'جاري تجهيز طلبك';
 
             const paymentStatus = String(data.payment_status || '').toLowerCase();
             const needsReview = paymentStatus === 'pending_payment_verification';
             payment.textContent = needsReview ? 'إثبات الدفع قيد المراجعة — سنحدّث الحالة فور اعتماد العملية.' : '';
             payment.classList.toggle('show', needsReview);
+
+            const minutes = Number(data.estimated_ready_minutes);
+            const showEta = !cancelled && Number.isFinite(minutes) && minutes > 0;
+            eta.textContent = showEta ? `⏱️ الوقت المتوقع لتجهيز طلبك: حوالي ${minutes} دقيقة` : '';
+            eta.classList.toggle('show', showEta);
+
+            notifyIfReady(data);
         }
 
         async function poll() {

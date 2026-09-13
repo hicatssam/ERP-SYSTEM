@@ -50,6 +50,8 @@ class UpdateProductRequest extends FormRequest
                 'max:2048',
             ],
 
+            'prep_time_minutes' => ['nullable', 'integer', 'min:0', 'max:600'],
+
             'remove_image' => [
                 'nullable',
                 'boolean',

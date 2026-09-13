@@ -49,6 +49,8 @@ class StoreProductRequest extends FormRequest
                 'mimes:jpeg,jpg,png,webp',
                 'max:2048',
             ],
+
+            'prep_time_minutes' => ['nullable', 'integer', 'min:0', 'max:600'],
         ];
     }
 

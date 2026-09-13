@@ -35,6 +35,7 @@ class StoreCustomerMenuOrderRequest extends FormRequest
             'service_type' => ['required', Rule::in([
                 RestaurantServiceType::DineIn->value,
                 RestaurantServiceType::Takeaway->value,
+                RestaurantServiceType::Outdoor->value,
                 RestaurantServiceType::Delivery->value,
             ])],
             'restaurant_table_id' => ['nullable', 'integer', 'exists:restaurant_tables,id'],

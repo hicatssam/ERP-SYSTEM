@@ -1584,6 +1584,31 @@ a.app-page-btn:hover {
 
                     @endcan
 
+                    @can('restaurant_menu.view')
+
+                        @if(\Illuminate\Support\Facades\Route::has('restaurant.menu.banners.index'))
+
+                            <a href="{{ route('restaurant.menu.banners.index') }}"
+                               class="nav-item {{ request()->routeIs('restaurant.menu.banners.*') ? 'active' : '' }}">
+
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+
+                                    <rect x="3" y="5" width="18" height="12" rx="2" />
+
+                                    <path d="M3 9h18" />
+
+                                    <path d="M7 15h4" />
+
+                                </svg>
+
+                                <span>بطاقات إعلانات المنيو</span>
+
+                            </a>
+
+                        @endif
+
+                    @endcan
+
                     @if($moduleEnabled('restaurant_tables'))
 
                     @can('restaurant_tables.view')

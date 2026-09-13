@@ -19,7 +19,7 @@ class Product extends Model
 
     protected $fillable = [
         'category_id', 'brand_id', 'name', 'name_ar', 'sku', 'barcode',
-        'description', 'image', 'unit', 'unit_id', 'product_type',
+        'description', 'image', 'prep_time_minutes', 'unit', 'unit_id', 'product_type',
         'base_selling_price', 'is_active', 'tracks_batch', 'tracks_expiry',
     ];
 
