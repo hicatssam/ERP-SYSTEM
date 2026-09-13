@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\OrderType;
 use App\Enums\PaymentStatus;
 use App\Jobs\AnalyzePaymentProof;
+use App\Services\Finance\FinancialPostingService;
 use App\Services\Invoices\InvoiceService;
 use App\Services\Payments\OrderPaymentStatusSynchronizer;
 use Illuminate\Database\Eloquent\Model;
@@ -47,6 +48,21 @@ class Payment extends Model
         static::saved(function (Payment $payment): void {
             app(InvoiceService::class)->syncFromPayment($payment);
             app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
+
+            // Canonical safety net for every payment entry point (POS, admin,
+            // customer menu and PaymentService). FinancialPostingService is
+            // idempotent, so explicit service-level posting remains safe.
+            if (
+                in_array($payment->statusValue(), ['confirmed', 'corrected'], true)
+                && $payment->received_by
+                && ($payment->wasRecentlyCreated || $payment->wasChanged(['status', 'amount']))
+            ) {
+                $actor = User::query()->find($payment->received_by);
+
+                if ($actor) {
+                    app(FinancialPostingService::class)->collection($payment, $actor);
+                }
+            }
 
             if (
                 config('services.payment_proof_ai.enabled')
