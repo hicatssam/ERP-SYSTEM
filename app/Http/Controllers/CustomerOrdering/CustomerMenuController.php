@@ -31,12 +31,6 @@ class CustomerMenuController extends Controller
     ) {
     }
 
-    /**
-     * The main scroll-story menu page: hero, categories, popular combos,
-     * promo strip. Cart / checkout / product details / favorites now link
-     * out to their own dedicated pages below instead of living only inside
-     * on-page overlays.
-     */
     public function show(Request $request, Location $location): View
     {
         $this->assertMenuAvailable($location);
@@ -58,9 +52,6 @@ class CustomerMenuController extends Controller
         ]);
     }
 
-    /**
-     * Full, searchable/filterable product catalog for this branch.
-     */
     public function products(Request $request, Location $location): View
     {
         $this->assertMenuAvailable($location);
@@ -76,10 +67,6 @@ class CustomerMenuController extends Controller
         ]);
     }
 
-    /**
-     * A single product's own shareable page (used by "product details"
-     * links and anything shared outside the app).
-     */
     public function productShow(Location $location, int $product): View
     {
         $this->assertMenuAvailable($location);
@@ -103,11 +90,6 @@ class CustomerMenuController extends Controller
         ]);
     }
 
-    /**
-     * Favorites live in the browser's storage (no login on the public
-     * menu), so this page just needs the branded shell plus the full
-     * product catalog to resolve favorited IDs against.
-     */
     public function favorites(Location $location): View
     {
         $this->assertMenuAvailable($location);
@@ -185,10 +167,6 @@ class CustomerMenuController extends Controller
             ->header('Pragma', 'no-cache');
     }
 
-    /**
-     * How busy the kitchen is right now, so the checkout page can show a
-     * realistic "estimated prep time" before the order is even placed.
-     */
     public function queueStatus(Location $location): JsonResponse
     {
         $this->assertMenuAvailable($location);
@@ -248,7 +226,7 @@ class CustomerMenuController extends Controller
 
         return view('customer-menu.track', [
             'order' => $order,
-            'branding' => $this->branding(),
+            'branding' => $this->branding($order->location),
             'theme' => $this->theme(),
             'statusPayload' => $this->orderStatus->payload($order),
         ]);
@@ -265,15 +243,30 @@ class CustomerMenuController extends Controller
             ->header('Expires', '0');
     }
 
+    public function invoice(string $token): View
+    {
+        $order = $this->publicOrder($token);
+        $invoice = $order->invoice()
+            ->with(['items.product', 'location', 'customer'])
+            ->firstOrFail();
+
+        app(\App\Services\Invoices\InvoiceService::class)
+            ->syncPaymentAmounts($invoice);
+
+        $invoice->refresh()->load(['items.product', 'location', 'customer']);
+        $statusPayload = $this->orderStatus->payload($order);
+
+        return view('customer-menu.invoice', [
+            'order' => $order,
+            'invoice' => $invoice,
+            'payment' => $statusPayload['payment'] ?? [],
+            'branding' => $this->branding($order->location),
+            'theme' => $this->theme(),
+        ]);
+    }
+
     private function assertMenuAvailable(Location $location): void
     {
-        /*
-         * Keep the public menu reachable for every active branch.
-         *
-         * CustomerOrderingService still validates customer_menu_enabled and
-         * the enabled service type before an order is actually created, so
-         * removing the module/settings 404 here does not bypass order rules.
-         */
         abort_unless(
             (bool) $location->is_active && $location->isBranch(),
             404
