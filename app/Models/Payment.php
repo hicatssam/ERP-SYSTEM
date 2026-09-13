@@ -4,10 +4,12 @@ namespace App\Models;
 
 use App\Enums\OrderType;
 use App\Enums\PaymentStatus;
+use App\Jobs\AnalyzePaymentProof;
 use App\Services\Invoices\InvoiceService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Payment extends Model
 {
@@ -43,6 +45,15 @@ class Payment extends Model
     {
         static::saved(function (Payment $payment): void {
             app(InvoiceService::class)->syncFromPayment($payment);
+
+            if (
+                config('services.payment_proof_ai.enabled')
+                && config('services.payment_proof_ai.auto_analyze')
+                && filled($payment->payment_proof)
+                && ($payment->wasRecentlyCreated || $payment->wasChanged('payment_proof'))
+            ) {
+                AnalyzePaymentProof::dispatchAfterResponse((int) $payment->id);
+            }
         });
 
         static::deleted(function (Payment $payment): void {
@@ -83,6 +94,16 @@ class Payment extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);
+    }
+
+    public function proofAnalyses(): HasMany
+    {
+        return $this->hasMany(PaymentProofAnalysis::class);
+    }
+
+    public function latestProofAnalysis(): HasOne
+    {
+        return $this->hasOne(PaymentProofAnalysis::class)->latestOfMany();
     }
 
     public function isConfirmed(): bool
