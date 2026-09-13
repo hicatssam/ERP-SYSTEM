@@ -93,6 +93,12 @@ class RestaurantOrderService
                 $locationId
             );
 
+            if ($paymentMethod && ! $user->can('payments.record')) {
+                throw ValidationException::withMessages([
+                    'payment_method_id' => 'ليس لديك صلاحية تحصيل دفعة من نقطة البيع. اختر الدفع عند الاستلام أو سلّم التحصيل للكاشير.',
+                ]);
+            }
+
             $this->assertOpenCashSessionIfRequired(
                 $payload,
                 $paymentMethod,
