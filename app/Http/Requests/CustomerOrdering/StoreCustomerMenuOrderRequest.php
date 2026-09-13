@@ -44,6 +44,10 @@ class StoreCustomerMenuOrderRequest extends FormRequest
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:50'],
             'items.*.kitchen_notes' => ['nullable', 'string', 'max:300'],
+            'items.*.product_variant_id' => ['nullable', 'integer', 'exists:product_variants,id'],
+            'items.*.modifiers' => ['nullable', 'array', 'max:30'],
+            'items.*.modifiers.*.modifier_id' => ['required', 'integer', 'exists:modifiers,id'],
+            'items.*.modifiers.*.quantity' => ['nullable', 'integer', 'min:1', 'max:20'],
 
             // Payment IDs are re-validated against the route location inside CustomerOrderingService.
             'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],

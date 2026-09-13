@@ -62,6 +62,27 @@ class SettingsController extends Controller
         'customer_menu_primary','customer_menu_accent','customer_menu_background','customer_menu_surface',
         'customer_menu_text','customer_menu_muted','customer_menu_radius','customer_menu_columns',
         'customer_menu_hero_height','customer_menu_show_hero',
+        'customer_menu_enabled','customer_menu_experience_preset','customer_menu_title','customer_menu_subtitle',
+        'customer_menu_primary_color','customer_menu_accent_color','customer_menu_background_color','customer_menu_surface_color',
+        'customer_menu_text_color','customer_menu_muted_color','customer_menu_border_color','customer_menu_content_width',
+        'customer_menu_section_gap','customer_menu_product_card_radius','customer_menu_product_card_shadow',
+        'customer_menu_nav_style','customer_menu_font_family','customer_menu_card_image_ratio','customer_menu_image_fit',
+        'customer_menu_show_featured','customer_menu_featured_title','customer_menu_featured_limit','customer_menu_cover_overlay',
+        'customer_menu_intro_mode','customer_menu_intro_align','customer_menu_intro_eyebrow','customer_menu_intro_title',
+        'customer_menu_intro_subtitle','customer_menu_intro_cta','customer_menu_intro_show_logo','customer_menu_intro_duration',
+        'customer_menu_showcase_enabled','customer_menu_showcase_dark_color','customer_menu_showcase_eyebrow',
+        'customer_menu_showcase_title','customer_menu_showcase_subtitle','customer_menu_showcase_primary_cta',
+        'customer_menu_showcase_secondary_cta','customer_menu_showcase_height','customer_menu_showcase_diagonal_depth',
+        'customer_menu_showcase_show_info_cards','customer_menu_showcase_show_category_strip',
+        'customer_menu_show_team','customer_menu_team_limit','customer_menu_team_title','customer_menu_team_subtitle',
+        'customer_menu_team_card_style','customer_menu_allow_dine_in','customer_menu_allow_takeaway',
+        'customer_menu_allow_delivery','customer_menu_show_search','customer_menu_show_categories',
+        'customer_menu_show_descriptions','customer_menu_checkout_button_text','customer_menu_show_footer',
+        'customer_menu_footer_text','customer_menu_status_sound_enabled','customer_menu_status_toast_enabled',
+        'customer_menu_ad_enabled','customer_menu_ad_eyebrow','customer_menu_ad_title','customer_menu_ad_subtitle',
+        'customer_menu_ad_cta','customer_menu_discount_enabled','customer_menu_discount_eyebrow',
+        'customer_menu_discount_title','customer_menu_discount_subtitle','customer_menu_discount_badge',
+        'customer_menu_discount_cta',
 
         // Chat
         'chat_theme_preset','chat_message_sound_enabled','chat_message_sound_volume','chat_background_color',
@@ -78,6 +99,7 @@ class SettingsController extends Controller
         // Customer Order Display
         'customer_display_background_image',
         'customer_menu_cover',
+        'customer_menu_cover_image','customer_menu_intro_image','customer_menu_ad_image','customer_menu_discount_image',
     ];
 
     public function index()
@@ -306,6 +328,11 @@ class SettingsController extends Controller
             'customer_menu_hero_height' => ['nullable', 'integer', 'min:220', 'max:720'],
             'customer_menu_show_hero' => ['nullable', 'boolean'],
             'customer_menu_cover' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:12288'],
+            'customer_menu_cover_image' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:12288'],
+            'customer_menu_intro_image' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:12288'],
+            'customer_menu_ad_image' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:12288'],
+            'customer_menu_discount_image' => ['nullable', 'file', 'mimes:png,jpg,jpeg,webp', 'max:12288'],
+            'customer_menu_intro_duration' => ['nullable', 'integer', 'min:600', 'max:6000'],
 
             /*
             |--------------------------------------------------------------------------

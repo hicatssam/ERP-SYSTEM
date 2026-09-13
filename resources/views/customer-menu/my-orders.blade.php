@@ -64,7 +64,7 @@ rows=rows.filter(item=>item&&item.location===locationCode&&item.url).slice(0,30)
 root.innerHTML=rows.length?rows.map(item=>`
 <a class="order" href="${esc(item.url)}">
 <span class="orderIcon">✓</span>
-<span class="orderInfo"><strong>طلب #${esc(item.number||'—')}</strong><small>اضغط لعرض التفاصيل وتتبع الحالة</small></span>
+<span class="orderInfo"><strong>طلب #${esc(item.order_number||item.number||'—')}</strong><small>اضغط لعرض التفاصيل وتتبع الحالة</small></span>
 <span class="arrow">←</span>
 </a>`).join(''):`<div class="empty"><div class="emptyIcon">🛍️</div><h2>لا توجد طلبات بعد</h2><p>بعد إرسال أول طلب سيظهر هنا تلقائيًا.</p><a class="primary" href="${menuUrl}">ابدأ طلبًا جديدًا</a></div>`;
 </script>

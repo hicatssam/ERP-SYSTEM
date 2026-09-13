@@ -1,1 +1,60 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ffc928"><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/responsive.css"><link rel="apple-touch-icon" href="assets/icons/icon-192.svg"><title>Favorites</title></head><body><main class="app"><div id="top"></div><div class="grid" id="grid"></div><div id="nav"></div></main><div class="toast"></div><div class="sheet" onclick="if(event.target===this)this.classList.remove('show')"><div><h2>Install this app on your iPhone</h2><p>1. Tap the Share button in Safari.<br><br>2. Select <b>Add to Home Screen</b>.<br><br>3. Tap <b>Add</b>.</p><button class="primary" onclick="this.closest('.sheet').classList.remove('show')">Got it</button></div></div><script src="js/products.js"></script><script src="js/app.js"></script><script src="js/cart.js"></script><script src="js/pwa.js"></script><script>$('#top').innerHTML=top('Favorites',true);$('#nav').innerHTML=nav('fav');function draw(){let f=favorites();$('#grid').innerHTML=PRODUCTS.filter(p=>f.includes(p.id)).map(productCard).join('')||'<div class="empty">No favorites yet.</div>';bindCards()}draw();renderBadges();</script></body></html>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>المفضلة - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
+@if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
+@include('customer-menu.partials.styles')
+</head>
+<body class="crisp-customer-menu">
+<div class="app crisp-menu-app">
+@include('customer-menu.partials.topbar', ['pageTitle' => 'المفضلة', 'pageSubtitle' => $location->name])
+
+<main class="menu-area">
+ <div class="shell">
+  <div id="favoritesItems"></div>
+ </div>
+</main>
+</div>
+
+@include('customer-menu.partials.bottom-nav', ['activeNav' => 'favorites'])
+@include('customer-menu.partials.cart-engine')
+
+<script>
+const CM = window.CustomerMenu;
+const PRODUCT_URL_BASE = @json(route('customer-menu.product.show', [$location->code, '__ID__']));
+const PRODUCTS_URL = @json(route('customer-menu.products', $location->code));
+
+function renderFavorites() {
+    const rows = CM.favorites().map(id => CM.product(id)).filter(Boolean);
+    document.getElementById('favoritesItems').innerHTML = rows.length
+        ? rows.map(p => `
+          <div class="fav-row">
+            <div class="fav-thumb">${CM.image(p)}</div>
+            <div class="row-copy"><strong>${CM.esc(p.name)}</strong><small>${CM.money(p.price)}</small></div>
+            <div class="row-actions">
+              <a href="${PRODUCT_URL_BASE.replace('__ID__', p.id)}"><i class="fa-solid fa-eye"></i></a>
+              <button type="button" data-fav="${p.id}"><i class="fa-solid fa-heart"></i></button>
+              <button type="button" data-add="${p.id}"><i class="fa-solid fa-bag-shopping"></i></button>
+            </div>
+          </div>`).join('')
+        : `<div class="empty">لا توجد أصناف في المفضلة. <br><a href="${PRODUCTS_URL}">تصفّح المنيو</a></div>`;
+}
+
+document.addEventListener('click', e => {
+    const fav = e.target.closest('[data-fav]'); if (fav) { CM.toggleFavorite(fav.dataset.fav); renderFavorites(); return; }
+    const add = e.target.closest('[data-add]');
+    if (add) {
+        const p = CM.product(add.dataset.add);
+        if (p && p.requiresChoices) { window.location.href = PRODUCT_URL_BASE.replace('__ID__', p.id); return; }
+        CM.addToCart(add.dataset.add, 1);
+        return;
+    }
+});
+
+renderFavorites();
+</script>
+</body>
+</html>

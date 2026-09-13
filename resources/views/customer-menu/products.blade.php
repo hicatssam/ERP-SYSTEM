@@ -1,1 +1,172 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#ffc928"><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="css/style.css"><link rel="stylesheet" href="css/responsive.css"><link rel="apple-touch-icon" href="assets/icons/icon-192.svg"><title>Popular Items</title></head><body><main class="app"><div id="top"></div><div class="search-row"><div class="search-wrap"><span class="si">⌕</span><input id="q" class="search" placeholder="Search items..."></div></div><div class="tabs"><button class="tab active" data-t="food">Food Item</button><button class="tab" data-t="drink">Drink Item</button><button class="tab" data-t="dessert">Dessert Item</button></div><div class="grid" id="grid"></div><div id="nav"></div></main><div class="toast"></div><div class="sheet" onclick="if(event.target===this)this.classList.remove('show')"><div><h2>Install this app on your iPhone</h2><p>1. Tap the Share button in Safari.<br><br>2. Select <b>Add to Home Screen</b>.<br><br>3. Tap <b>Add</b>.</p><button class="primary" onclick="this.closest('.sheet').classList.remove('show')">Got it</button></div></div><script src="js/products.js"></script><script src="js/app.js"></script><script src="js/cart.js"></script><script src="js/pwa.js"></script><script>$('#top').innerHTML=top('Popular Items',true);$('#nav').innerHTML=nav('order');let t='food';function draw(){$$('.tab').forEach(x=>x.classList.toggle('active',x.dataset.t===t));let q=$('#q').value.toLowerCase();$('#grid').innerHTML=PRODUCTS.filter(p=>p.category===t&&p.name.toLowerCase().includes(q)).map(productCard).join('');bindCards()}$$('.tab').forEach(x=>x.onclick=()=>{t=x.dataset.t;draw()});$('#q').oninput=draw;draw();renderBadges();</script></body></html>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="csrf-token" content="{{ csrf_token() }}">
+<title>المنيو - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
+@if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
+@include('customer-menu.partials.styles')
+</head>
+<body class="crisp-customer-menu">
+<div class="app crisp-menu-app">
+@include('customer-menu.partials.topbar', ['pageTitle' => 'المنيو الكامل', 'pageSubtitle' => $location->name])
+
+<main class="menu-area" id="menu">
+ <div class="shell">
+  <div class="tools">
+   <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="searchInput" type="search" placeholder="ابحث عن صنفك المفضل..." autocomplete="off" value="{{ $initialSearch }}"></div>
+   <button class="filter-square" type="button" id="openFilters" aria-label="تصفية الأصناف"><i class="fa-solid fa-sliders"></i></button>
+  </div>
+
+  <div class="categories" id="categories">
+   <button class="cat {{ $initialCategory === 'all' || $initialCategory === '' ? 'active' : '' }}" type="button" data-cat="all"><b>الكل</b></button>
+   @foreach(($categories ?? []) as $category)
+    <button class="cat {{ (string) $initialCategory === (string) $category['id'] ? 'active' : '' }}" type="button" data-cat="{{ $category['id'] }}">
+     @if(!empty($category['image']))<img src="{{ $category['image'] }}" alt="" onerror="this.remove()">@endif
+     <b>{{ $category['name'] }}</b>
+    </button>
+   @endforeach
+  </div>
+
+  <div class="section-title"><div><h2>كل الأصناف</h2></div><small id="resultCount" style="color:var(--muted);font-size:.8rem"></small></div>
+  <div class="grid" id="productGrid"></div>
+ </div>
+</main>
+</div>
+
+<div class="filter-sheet-overlay" id="filterOverlay">
+ <div class="filter-sheet">
+  <div class="filter-sheet-head">
+   <button class="close-btn" type="button" id="closeFilters"><i class="fa-solid fa-xmark"></i></button>
+   <h2>تصفية الأصناف</h2>
+   <button type="button" id="resetFilters">إعادة ضبط</button>
+  </div>
+
+  <div class="filter-group">
+   <h4>نطاق السعر</h4>
+   <div class="chip-row" id="priceChips">
+    <button class="chip active" type="button" data-price="all">الكل</button>
+    <button class="chip" type="button" data-price="0-20">أقل من 20 ₪</button>
+    <button class="chip" type="button" data-price="20-50">20 - 50 ₪</button>
+    <button class="chip" type="button" data-price="50-999999">أكثر من 50 ₪</button>
+   </div>
+  </div>
+
+  <div class="filter-group">
+   <h4>الترتيب</h4>
+   <div class="chip-row" id="sortChips">
+    <button class="chip active" type="button" data-sort="default">الافتراضي</button>
+    <button class="chip" type="button" data-sort="price_asc">السعر: من الأقل</button>
+    <button class="chip" type="button" data-sort="price_desc">السعر: من الأعلى</button>
+   </div>
+  </div>
+
+  <button class="filter-apply" type="button" id="applyFilters">عرض النتائج</button>
+ </div>
+</div>
+
+@include('customer-menu.partials.bottom-nav', ['activeNav' => 'menu'])
+@include('customer-menu.partials.cart-engine')
+
+<script>
+const CM = window.CustomerMenu;
+const PRODUCT_URL_BASE = @json(route('customer-menu.product.show', [$location->code, '__ID__']));
+function productUrl(id) { return PRODUCT_URL_BASE.replace('__ID__', id); }
+
+let activeCat = @json($initialCategory ?: 'all');
+let priceRange = 'all';
+let sortMode = 'default';
+
+function renderCard(p) {
+    return `<a class="product" href="${productUrl(p.id)}" data-id="${CM.esc(p.id)}">
+      <div class="product-media">${CM.image(p)}<button class="fav ${CM.isFavorite(p.id) ? 'active' : ''}" type="button" data-fav="${CM.esc(p.id)}"><i class="${CM.isFavorite(p.id) ? 'fa-solid' : 'fa-regular'} fa-heart"></i></button></div>
+      <div class="product-body">
+        ${!p.available ? `<div class="sold-out">غير متوفر حالياً</div>` : ``}
+        <h3>${CM.esc(p.name)}</h3>
+        <div class="product-rating"><i class="fa-solid fa-star"></i> 4.8 <small>(+100)</small></div>
+        <div class="product-foot">
+          <span class="price">${CM.money(p.price)}</span>
+          <button class="details" type="button" data-add="${CM.esc(p.id)}">${!p.available ? 'غير متوفر' : (p.requiresChoices ? 'اختر' : 'أضف')}</button>
+        </div>
+      </div>
+    </a>`;
+}
+
+function priceMatches(price) {
+    if (priceRange === 'all') return true;
+    const [min, max] = priceRange.split('-').map(Number);
+    return price >= min && price <= max;
+}
+
+function renderProducts() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    let rows = CM.PRODUCTS.filter(p =>
+        (activeCat === 'all' || p.category === String(activeCat)) &&
+        priceMatches(Number(p.price)) &&
+        (!q || (p.name + ' ' + p.description + ' ' + p.category_name).toLowerCase().includes(q))
+    );
+
+    if (sortMode === 'price_asc') rows = rows.slice().sort((a, b) => a.price - b.price);
+    if (sortMode === 'price_desc') rows = rows.slice().sort((a, b) => b.price - a.price);
+
+    document.getElementById('resultCount').textContent = rows.length + ' صنف';
+    document.getElementById('productGrid').innerHTML = rows.length
+        ? rows.map(renderCard).join('')
+        : `<div class="empty">لا توجد أصناف مطابقة.</div>`;
+
+    document.getElementById('openFilters').classList.toggle('has-filters', priceRange !== 'all' || sortMode !== 'default');
+}
+
+document.addEventListener('click', e => {
+    const fav = e.target.closest('[data-fav]');
+    if (fav) { e.preventDefault(); e.stopPropagation(); CM.toggleFavorite(fav.dataset.fav); renderProducts(); return; }
+
+    const add = e.target.closest('[data-add]');
+    if (add) {
+        e.preventDefault(); e.stopPropagation();
+        const p = CM.product(add.dataset.add);
+        if (p && p.requiresChoices) { window.location.href = productUrl(p.id); return; }
+        CM.addToCart(add.dataset.add, 1);
+        return;
+    }
+});
+
+document.getElementById('categories').addEventListener('click', e => {
+    const btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    activeCat = btn.dataset.cat;
+    document.querySelectorAll('.cat').forEach(x => x.classList.toggle('active', x === btn));
+    renderProducts();
+});
+
+document.getElementById('searchInput').addEventListener('input', renderProducts);
+
+// filter sheet
+const filterOverlay = document.getElementById('filterOverlay');
+document.getElementById('openFilters').addEventListener('click', () => filterOverlay.classList.add('open'));
+document.getElementById('closeFilters').addEventListener('click', () => filterOverlay.classList.remove('open'));
+document.getElementById('applyFilters').addEventListener('click', () => { filterOverlay.classList.remove('open'); renderProducts(); });
+filterOverlay.addEventListener('click', e => { if (e.target === filterOverlay) filterOverlay.classList.remove('open'); });
+
+document.getElementById('priceChips').addEventListener('click', e => {
+    const chip = e.target.closest('[data-price]'); if (!chip) return;
+    priceRange = chip.dataset.price;
+    document.querySelectorAll('#priceChips .chip').forEach(c => c.classList.toggle('active', c === chip));
+});
+document.getElementById('sortChips').addEventListener('click', e => {
+    const chip = e.target.closest('[data-sort]'); if (!chip) return;
+    sortMode = chip.dataset.sort;
+    document.querySelectorAll('#sortChips .chip').forEach(c => c.classList.toggle('active', c === chip));
+});
+document.getElementById('resetFilters').addEventListener('click', () => {
+    priceRange = 'all'; sortMode = 'default';
+    document.querySelectorAll('#priceChips .chip').forEach(c => c.classList.toggle('active', c.dataset.price === 'all'));
+    document.querySelectorAll('#sortChips .chip').forEach(c => c.classList.toggle('active', c.dataset.sort === 'default'));
+    renderProducts();
+});
+
+renderProducts();
+</script>
+</body>
+</html>

@@ -56,6 +56,13 @@ Route::middleware('guest')->group(function (): void {
         ->name('login.post');
 });
 
+
+Route::view('/', 'pages.home')->name('home');
+Route::view('/about', 'pages.about')->name('about');
+Route::view('/services', 'pages.services')->name('services');
+Route::view('/details', 'pages.details')->name('details');
+Route::view('/contact', 'pages.contact')->name('contact');
+
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout')->middleware('auth');
 
 // ─── Authenticated ─────────────────────────────────────────────────────────

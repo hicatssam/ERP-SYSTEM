@@ -57,6 +57,7 @@
     @if(!empty($branding['favicon']))
         <link rel="icon" href="{{ $branding['favicon'] }}">
     @endif
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root{
             --primary:{{ $theme['primary'] ?? '#704C34' }};
@@ -275,19 +276,19 @@
             <div class="progress" aria-label="مراحل الطلب">
                 <div class="progressLine">
                     <div class="progressItem on" data-stage="0">
-                        <span class="dot">1</span>
+                        <span class="dot"><i class="fa-solid fa-bag-shopping"></i></span>
                         <span>تم الاستلام</span>
                     </div>
                     <div class="progressItem" data-stage="1">
-                        <span class="dot">2</span>
+                        <span class="dot"><i class="fa-solid fa-check"></i></span>
                         <span>تم التأكيد</span>
                     </div>
                     <div class="progressItem" data-stage="2">
-                        <span class="dot">3</span>
+                        <span class="dot"><i class="fa-solid fa-fire-burner"></i></span>
                         <span>قيد التحضير</span>
                     </div>
                     <div class="progressItem" data-stage="3">
-                        <span class="dot">4</span>
+                        <span class="dot"><i class="fa-solid fa-house"></i></span>
                         <span>جاهز</span>
                     </div>
                 </div>

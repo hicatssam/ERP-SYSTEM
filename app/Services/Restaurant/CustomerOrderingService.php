@@ -426,26 +426,57 @@ class CustomerOrderingService
         array $requestedItems
     ): array {
         $requested = collect($requestedItems)
-            ->map(fn (array $item): array => [
-                'product_id' => (int) $item['product_id'],
-                'quantity' => max(1, (int) $item['quantity']),
-                'kitchen_notes' => filled($item['kitchen_notes'] ?? null)
-                    ? trim((string) $item['kitchen_notes'])
-                    : null,
-            ])
-            ->groupBy('product_id')
-            ->map(function ($rows, $productId): array {
+            ->map(function (array $item): array {
+                $modifiers = collect($item['modifiers'] ?? [])
+                    ->filter(fn ($row) => is_array($row) && filled($row['modifier_id'] ?? null))
+                    ->map(fn (array $row): array => [
+                        'modifier_id' => (int) $row['modifier_id'],
+                        'quantity' => max(1, (int) ($row['quantity'] ?? 1)),
+                    ])
+                    ->sortBy('modifier_id')
+                    ->values()
+                    ->all();
+
+                $variantId = filled($item['product_variant_id'] ?? null)
+                    ? (int) $item['product_variant_id']
+                    : null;
+
                 return [
-                    'product_id' => (int) $productId,
-                    'quantity' => min(
-                        50,
-                        (int) $rows->sum('quantity')
-                    ),
+                    'product_id' => (int) $item['product_id'],
+                    'quantity' => max(1, (int) $item['quantity']),
+                    'kitchen_notes' => filled($item['kitchen_notes'] ?? null)
+                        ? trim((string) $item['kitchen_notes'])
+                        : null,
+                    'product_variant_id' => $variantId,
+                    'modifiers' => $modifiers,
+                    // Two lines are "the same line" only if product, variant,
+                    // and the exact set of modifiers all match — otherwise a
+                    // small cake and a large cake (or a cake with vs without
+                    // an add-on) would incorrectly merge into one line and
+                    // lose the customer's choice.
+                    'combo_key' => implode('|', [
+                        $item['product_id'],
+                        $variantId ?? 0,
+                        collect($modifiers)
+                            ->map(fn (array $m): string => $m['modifier_id'] . ':' . $m['quantity'])
+                            ->implode(','),
+                    ]),
+                ];
+            })
+            ->groupBy('combo_key')
+            ->map(function ($rows): array {
+                $first = $rows->first();
+
+                return [
+                    'product_id' => $first['product_id'],
+                    'quantity' => min(50, (int) $rows->sum('quantity')),
                     'kitchen_notes' => $rows
                         ->pluck('kitchen_notes')
                         ->filter()
                         ->unique()
                         ->implode(' | ') ?: null,
+                    'product_variant_id' => $first['product_variant_id'],
+                    'modifiers' => $first['modifiers'],
                 ];
             })
             ->values();

@@ -92,6 +92,7 @@
         <button type="button" data-cmv4-tab="intro">الافتتاحية</button>
         <button type="button" data-cmv4-tab="layout">التصميم</button>
         <button type="button" data-cmv4-tab="showcase">Showcase V5</button>
+        <button type="button" data-cmv4-tab="campaigns">الإعلانات والخصومات</button>
         <button type="button" data-cmv4-tab="team">طاقم العمل</button>
         <button type="button" data-cmv4-tab="ordering">الطلب</button>
         <button type="button" data-cmv4-tab="status">حالة الطلب</button>
@@ -298,6 +299,26 @@
             <div><label class="form-label">شريط الفئات داخل Hero</label><select class="form-input" name="customer_menu_showcase_show_category_strip"><option value="1" @selected((string)$cmSetting('customer_menu_showcase_show_category_strip',1)==='1')>إظهار</option><option value="0" @selected((string)$cmSetting('customer_menu_showcase_show_category_strip',1)==='0')>إخفاء</option></select></div>
         </div>
         <div class="cmv4-note">المنتج الرئيسي يُختار تلقائياً من أول صنف متاح لديه صورة. الخلفية تستخدم صورة Hero الحالية، لذلك تقدر تغيرها من تبويب التصميم بدون تعديل الكود.</div>
+    </div>
+
+    <div class="cmv4-pane" data-cmv4-pane="campaigns">
+        <div class="cmv4-grid">
+            <div><label class="form-label">مدة حركة الشعار (ms)</label><input class="form-input" type="number" name="customer_menu_intro_duration" min="600" max="6000" value="{{ $cmSetting('customer_menu_intro_duration',1900) }}"></div>
+            <div><label class="form-label">تشغيل إعلان المنيو</label><select class="form-input" name="customer_menu_ad_enabled"><option value="1" @selected((string)$cmSetting('customer_menu_ad_enabled',1)==='1')>نعم</option><option value="0" @selected((string)$cmSetting('customer_menu_ad_enabled',1)==='0')>لا</option></select></div>
+            <div><label class="form-label">وسم الإعلان</label><input class="form-input" name="customer_menu_ad_eyebrow" value="{{ $cmSetting('customer_menu_ad_eyebrow','لفترة محدودة') }}" maxlength="80"></div>
+            <div><label class="form-label">عنوان الإعلان</label><input class="form-input" name="customer_menu_ad_title" value="{{ $cmSetting('customer_menu_ad_title','اطلب مباشرة') }}" maxlength="140"></div>
+            <div class="wide"><label class="form-label">وصف الإعلان</label><input class="form-input" name="customer_menu_ad_subtitle" value="{{ $cmSetting('customer_menu_ad_subtitle','اختر طلبك وسنجهزه لك') }}" maxlength="220"></div>
+            <div><label class="form-label">نص زر الإعلان</label><input class="form-input" name="customer_menu_ad_cta" value="{{ $cmSetting('customer_menu_ad_cta','اطلب الآن') }}" maxlength="60"></div>
+            <div class="wide"><label class="form-label">صورة إعلان المنيو</label><input class="form-input" type="file" name="customer_menu_ad_image" accept="image/png,image/jpeg,image/webp">@if($cmSetting('customer_menu_ad_image',''))<label class="cmv4-remove"><input type="checkbox" name="remove_customer_menu_ad_image" value="1"> حذف الصورة الحالية</label>@endif</div>
+            <div><label class="form-label">تشغيل بطاقة الخصم</label><select class="form-input" name="customer_menu_discount_enabled"><option value="1" @selected((string)$cmSetting('customer_menu_discount_enabled',1)==='1')>نعم</option><option value="0" @selected((string)$cmSetting('customer_menu_discount_enabled',1)==='0')>لا</option></select></div>
+            <div><label class="form-label">وسم الخصم</label><input class="form-input" name="customer_menu_discount_eyebrow" value="{{ $cmSetting('customer_menu_discount_eyebrow','عرض حصري') }}" maxlength="80"></div>
+            <div><label class="form-label">عنوان الخصم</label><input class="form-input" name="customer_menu_discount_title" value="{{ $cmSetting('customer_menu_discount_title','خصم على أصناف مختارة') }}" maxlength="140"></div>
+            <div><label class="form-label">شارة الخصم</label><input class="form-input" name="customer_menu_discount_badge" value="{{ $cmSetting('customer_menu_discount_badge','30%') }}" maxlength="20"></div>
+            <div class="wide"><label class="form-label">وصف الخصم</label><input class="form-input" name="customer_menu_discount_subtitle" value="{{ $cmSetting('customer_menu_discount_subtitle','لفترة محدودة') }}" maxlength="220"></div>
+            <div><label class="form-label">نص زر الخصم</label><input class="form-input" name="customer_menu_discount_cta" value="{{ $cmSetting('customer_menu_discount_cta','اطلب الآن') }}" maxlength="60"></div>
+            <div class="wide"><label class="form-label">صورة تصميم الخصم</label><input class="form-input" type="file" name="customer_menu_discount_image" accept="image/png,image/jpeg,image/webp">@if($cmSetting('customer_menu_discount_image',''))<label class="cmv4-remove"><input type="checkbox" name="remove_customer_menu_discount_image" value="1"> حذف الصورة الحالية</label>@endif</div>
+        </div>
+        <div class="cmv4-note">صور الإعلان والخصم تظهر مباشرة داخل إطار الهاتف في منيو العميل. عند عدم رفع صورة، يستخدم الإعلان صورة الـ Hero الحالية.</div>
     </div>
 
     <div class="cmv4-pane" data-cmv4-pane="team">
