@@ -58,6 +58,17 @@ class PaymentProofAiArchitectureTest extends TestCase
         $this->assertStringContainsString('&& $payment->isPendingVerification()', $payment);
     }
 
+    public function test_ai_service_checks_duplicate_file_reference_amount_and_recipient(): void
+    {
+        $service = file_get_contents(app_path('Services/Payments/PaymentProofAnalysisService.php'));
+
+        $this->assertIsString($service);
+        $this->assertStringContainsString('duplicate_image_count', $service);
+        $this->assertStringContainsString('duplicate_reference_count', $service);
+        $this->assertStringContainsString('المبلغ المستخرج من الإثبات لا يطابق مبلغ الدفعة المسجل', $service);
+        $this->assertStringContainsString('اسم المستفيد الظاهر في الإثبات لا يطابق اسم صاحب حساب الفرع', $service);
+    }
+
     public function test_review_view_shows_extracted_financial_identity_fields(): void
     {
         $view = file_get_contents(resource_path('views/finance/payments/proof-analysis.blade.php'));
