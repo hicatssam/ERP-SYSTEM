@@ -67,12 +67,38 @@ class OrderPolicy
             return false;
         }
 
+        // Never consume stock / create the invoice while an electronic payment
+        // is still waiting for verification.
+        $paymentStatus = $order->payment_status instanceof \BackedEnum
+            ? $order->payment_status->value
+            : (string) $order->payment_status;
+
+        if ($paymentStatus === 'pending_payment_verification') {
+            return false;
+        }
+
         if ($user->isAdmin()) {
             return true;
         }
 
-        return $user->hasPermissionTo('orders.confirm')
-            && $this->belongsToUserLocation($user, $order);
+        if (! $this->belongsToUserLocation($user, $order)) {
+            return false;
+        }
+
+        // Preserve the explicit Dahab rule: Branch Manager does not confirm
+        // sales orders. Restaurant operators may accept only restaurant drafts
+        // (POS/QR/customer-menu), never generic ERP sales orders.
+        if ($user->hasRole('Branch Manager')) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(['Cashier', 'Waiter'])) {
+            return $user->hasPermissionTo('orders.confirm')
+                && $user->hasPermissionTo('restaurant_pos.use')
+                && $order->isRestaurantOrder();
+        }
+
+        return $user->hasPermissionTo('orders.confirm');
     }
 
     public function cancel(User $user, Order $order): bool
