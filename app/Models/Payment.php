@@ -50,6 +50,7 @@ class Payment extends Model
                 config('services.payment_proof_ai.enabled')
                 && config('services.payment_proof_ai.auto_analyze')
                 && filled($payment->payment_proof)
+                && $payment->isPendingVerification()
                 && ($payment->wasRecentlyCreated || $payment->wasChanged('payment_proof'))
             ) {
                 AnalyzePaymentProof::dispatchAfterResponse((int) $payment->id);
