@@ -6,6 +6,7 @@ use App\Enums\OrderType;
 use App\Enums\PaymentStatus;
 use App\Jobs\AnalyzePaymentProof;
 use App\Services\Invoices\InvoiceService;
+use App\Services\Payments\OrderPaymentStatusSynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -45,6 +46,7 @@ class Payment extends Model
     {
         static::saved(function (Payment $payment): void {
             app(InvoiceService::class)->syncFromPayment($payment);
+            app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
 
             if (
                 config('services.payment_proof_ai.enabled')
@@ -59,6 +61,7 @@ class Payment extends Model
 
         static::deleted(function (Payment $payment): void {
             app(InvoiceService::class)->syncFromPayment($payment);
+            app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
         });
     }
 
