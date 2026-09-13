@@ -18,20 +18,21 @@ return new class extends Migration
 
         $matrix = [
             // Cashier needs the actual underscore-style restaurant permissions.
-            // The legacy prefix "restaurant.pos." never matched restaurant_pos.use.
+            // Confirmation remains policy-limited to restaurant orders only.
             'Cashier' => [
                 'restaurant.view',
                 'restaurant_pos.use',
                 'orders.view',
                 'orders.create',
                 'orders.update',
+                'orders.confirm',
                 'orders.complete',
                 'cash_sessions.manage',
             ],
 
-            // Waiter creates table orders, watches the kitchen hand-off, marks a
-            // ready ticket served and completes service. Financial confirmation,
-            // cancellation and order editing remain excluded from this role.
+            // Waiter may accept a verified/pay-on-pickup restaurant draft, serve
+            // kitchen tickets and complete service. Generic sales-order confirm,
+            // cancellation, deletion and financial editing remain policy-blocked.
             'Waiter' => [
                 'restaurant.view',
                 'restaurant_pos.use',
@@ -40,12 +41,14 @@ return new class extends Migration
                 'restaurant_tables.close_session',
                 'orders.view',
                 'orders.create',
+                'orders.confirm',
                 'orders.complete',
                 'kitchen.view',
                 'kitchen.ticket.serve',
             ],
 
-            // Branch manager is the operational fallback for POS/table sessions.
+            // Branch manager keeps the existing business restriction: no generic
+            // order confirmation/cancellation, but may operate POS/table sessions.
             'Branch Manager' => [
                 'restaurant.view',
                 'restaurant_pos.use',
