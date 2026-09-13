@@ -26,6 +26,18 @@ class CustomerMenuPaymentFlowArchitectureTest extends TestCase
         $this->assertStringContainsString('inv?.url', $view);
     }
 
+    public function test_checkout_displays_branch_payment_account_details_and_required_fields(): void
+    {
+        $view = file_get_contents(resource_path('views/customer-menu/checkout/checkout.blade.php'));
+
+        $this->assertIsString($view);
+        $this->assertStringContainsString('paymentAccountSelect', $view);
+        $this->assertStringContainsString('account_holder_name', $view);
+        $this->assertStringContainsString('account_number', $view);
+        $this->assertStringContainsString('referenceRequiredStar', $view);
+        $this->assertStringContainsString('proofRequiredStar', $view);
+    }
+
     public function test_public_invoice_has_image_export_button(): void
     {
         $view = file_get_contents(resource_path('views/customer-menu/invoice.blade.php'));
