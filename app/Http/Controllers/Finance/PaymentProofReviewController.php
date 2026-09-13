@@ -31,7 +31,10 @@ class PaymentProofReviewController extends Controller
             ->where('payment_proof', '!=', '');
 
         if ($request->filled('payment_status')) {
-            $query->where('status', $request->string('payment_status'));
+            $query->where(
+                'status',
+                $request->string('payment_status')->toString()
+            );
         }
 
         if ($request->filled('risk_level')) {
@@ -39,7 +42,7 @@ class PaymentProofReviewController extends Controller
 
             if ($risk === 'not_analyzed') {
                 $query->whereDoesntHave('latestProofAnalysis');
-            } else {
+            } elseif (in_array($risk, ['low', 'medium', 'high', 'unknown'], true)) {
                 $query->whereHas('latestProofAnalysis', function ($analysisQuery) use ($risk): void {
                     $analysisQuery->where('risk_level', $risk);
                 });
@@ -48,26 +51,36 @@ class PaymentProofReviewController extends Controller
 
         if ($request->filled('analysis_status')) {
             $analysisStatus = $request->string('analysis_status')->toString();
-            $query->whereHas('latestProofAnalysis', function ($analysisQuery) use ($analysisStatus): void {
-                $analysisQuery->where('status', $analysisStatus);
-            });
+
+            if (in_array($analysisStatus, ['pending', 'processing', 'completed', 'failed'], true)) {
+                $query->whereHas('latestProofAnalysis', function ($analysisQuery) use ($analysisStatus): void {
+                    $analysisQuery->where('status', $analysisStatus);
+                });
+            }
         }
 
         if ($request->filled('location_id') && $canViewAll) {
-            $query->where('location_id', (int) $request->input('location_id'));
+            $requestedLocationId = (int) $request->input('location_id');
+
+            if ($locationIds->contains($requestedLocationId)) {
+                $query->where('location_id', $requestedLocationId);
+            }
         }
 
         if ($request->filled('q')) {
             $term = trim($request->string('q')->toString());
-            $query->where(function ($search) use ($term): void {
-                $search->where('id', ctype_digit($term) ? (int) $term : -1)
-                    ->orWhere('reference_number', 'like', '%' . $term . '%')
-                    ->orWhereHas('latestProofAnalysis', function ($analysis) use ($term): void {
-                        $analysis->where('sender_name', 'like', '%' . $term . '%')
-                            ->orWhere('sender_account', 'like', '%' . $term . '%')
-                            ->orWhere('transaction_reference', 'like', '%' . $term . '%');
-                    });
-            });
+
+            if ($term !== '') {
+                $query->where(function ($search) use ($term): void {
+                    $search->where('id', ctype_digit($term) ? (int) $term : -1)
+                        ->orWhere('reference_number', 'like', '%' . $term . '%')
+                        ->orWhereHas('latestProofAnalysis', function ($analysis) use ($term): void {
+                            $analysis->where('sender_name', 'like', '%' . $term . '%')
+                                ->orWhere('sender_account', 'like', '%' . $term . '%')
+                                ->orWhere('transaction_reference', 'like', '%' . $term . '%');
+                        });
+                });
+            }
         }
 
         $payments = $query
