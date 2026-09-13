@@ -44,11 +44,15 @@ class RestaurantOrderService
             $payload['restaurant_service_type'] = $serviceType->value;
             $payload['order_source'] = $data['order_source'] ?? 'restaurant_pos';
 
-            // created_by records the operator/cashier for every POS order.
-            // waiter_id is meaningful only for table service.
-            $payload['waiter_id'] = $serviceType === RestaurantServiceType::DineIn
-                ? $user->id
-                : null;
+            // created_by always identifies the actual POS operator. Do not label
+            // a cashier as the waiter merely because the order is dine-in. Until
+            // the POS exposes an explicit waiter selector, auto-assign only users
+            // who actually carry the Waiter role.
+            $payload['waiter_id'] =
+                $serviceType === RestaurantServiceType::DineIn
+                && $user->hasRole('Waiter')
+                    ? $user->id
+                    : null;
 
             $payload['guest_count'] =
                 $serviceType === RestaurantServiceType::DineIn
