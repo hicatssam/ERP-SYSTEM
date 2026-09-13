@@ -18,7 +18,7 @@ return [
 
     'slack' => [
         'notifications' => [
-            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
+            'bot_user_oauth_token' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
@@ -40,6 +40,15 @@ return [
         ),
         'timeout' => env('WHATSAPP_TIMEOUT', 15),
         'retries' => env('WHATSAPP_RETRIES', 2),
+    ],
+
+    'payment_proof_ai' => [
+        'enabled' => env('PAYMENT_PROOF_AI_ENABLED', false),
+        'auto_analyze' => env('PAYMENT_PROOF_AI_AUTO_ANALYZE', false),
+        'base_url' => rtrim((string) env('PAYMENT_PROOF_AI_BASE_URL', 'https://api.openai.com/v1'), '/'),
+        'api_key' => env('PAYMENT_PROOF_AI_API_KEY'),
+        'model' => env('PAYMENT_PROOF_AI_MODEL', 'gpt-5.6-luna'),
+        'timeout' => (int) env('PAYMENT_PROOF_AI_TIMEOUT', 45),
     ],
 
 ];
