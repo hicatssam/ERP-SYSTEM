@@ -247,9 +247,18 @@ class PaymentService
 
     private function syncSourcePaymentStatus(Order|SpecialCakeOrder $source, string $type): void
     {
-        $total = $type === 'order' ? (float) $source->total_amount : (float) ($source->net_price ?? $source->total_price);
+        if ($type === 'order' && $source instanceof Order) {
+            app(OrderPaymentStatusSynchronizer::class)->sync($source);
+            return;
+        }
+
+        // Special-cake orders keep their existing simpler financial state model.
+        $total = (float) ($source->net_price ?? $source->total_price);
         $paid = $this->effectivePaid($type, (int) $source->id);
-        $status = $paid <= 0 ? 'payment_pending' : ($paid + 0.004 >= $total ? 'paid' : 'partially_paid');
+        $status = $paid <= 0
+            ? 'payment_pending'
+            : ($paid + 0.004 >= $total ? 'paid' : 'partially_paid');
+
         $source->update(['payment_status' => $status]);
     }
 }
