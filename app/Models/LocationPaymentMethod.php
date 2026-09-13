@@ -4,43 +4,31 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LocationPaymentMethod extends Model
 {
     protected $fillable = [
-
         'location_id',
-
         'payment_method_id',
 
+        // Legacy detail columns kept temporarily for existing installations.
         'mobile_number',
-
         'account_holder_name',
-
         'bank_name',
-
         'bank_account_number',
-
         'iban',
-
         'wallet_number',
-
         'payment_instructions',
-
         'details',
-
         'is_active',
-
     ];
 
     protected function casts(): array
     {
         return [
-
             'is_active' => 'boolean',
-
             'details' => 'array',
-
         ];
     }
 
@@ -52,5 +40,20 @@ class LocationPaymentMethod extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function accounts(): HasMany
+    {
+        return $this->hasMany(LocationPaymentAccount::class)
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
+    public function activeAccounts(): HasMany
+    {
+        return $this->hasMany(LocationPaymentAccount::class)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('id');
     }
 }
