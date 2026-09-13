@@ -66,24 +66,43 @@ class Payment extends Model
                 ]);
             }
 
+            $activeAccounts = LocationPaymentAccount::query()
+                ->where('is_active', true)
+                ->where(function ($query) use ($locationId, $methodId): void {
+                    $query->whereHas('locationPaymentMethod', function ($parent) use ($locationId, $methodId): void {
+                        $parent
+                            ->where('location_id', $locationId)
+                            ->where('payment_method_id', $methodId)
+                            ->where('is_active', true);
+                    })->orWhere(function ($legacy) use ($locationId, $methodId): void {
+                        $legacy
+                            ->whereNull('location_payment_method_id')
+                            ->where('location_id', $locationId)
+                            ->where('payment_method_id', $methodId);
+                    });
+                })
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+
+            // POS/admin legacy screens do not yet expose an account selector.
+            // When there is exactly one valid account, bind it automatically so
+            // AI verification and payment reporting still know the destination.
+            if (
+                ! $payment->location_payment_account_id
+                && (string) $method->type !== 'cash'
+                && $activeAccounts->count() === 1
+            ) {
+                $payment->location_payment_account_id = $activeAccounts->first()->id;
+            }
+
             if ($payment->location_payment_account_id) {
-                $account = LocationPaymentAccount::query()
-                    ->with('locationPaymentMethod')
-                    ->find($payment->location_payment_account_id);
+                $account = $activeAccounts->firstWhere(
+                    'id',
+                    (int) $payment->location_payment_account_id
+                );
 
-                $belongsToCanonicalMethod = $account
-                    && $account->is_active
-                    && $account->locationPaymentMethod
-                    && (int) $account->locationPaymentMethod->location_id === $locationId
-                    && (int) $account->locationPaymentMethod->payment_method_id === $methodId;
-
-                $belongsToLegacyPair = $account
-                    && $account->is_active
-                    && ! $account->location_payment_method_id
-                    && (int) $account->location_id === $locationId
-                    && (int) $account->payment_method_id === $methodId;
-
-                if (! $belongsToCanonicalMethod && ! $belongsToLegacyPair) {
+                if (! $account) {
                     throw ValidationException::withMessages([
                         'location_payment_account_id' => 'حساب الدفع المحدد لا يتبع طريقة الدفع والفرع المختارين.',
                     ]);
