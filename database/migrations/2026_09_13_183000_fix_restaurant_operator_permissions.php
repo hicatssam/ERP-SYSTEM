@@ -29,8 +29,9 @@ return new class extends Migration
                 'cash_sessions.manage',
             ],
 
-            // Waiter may create table orders and finish service, but must not
-            // confirm/cancel/delete/edit financial order data.
+            // Waiter creates table orders, watches the kitchen hand-off, marks a
+            // ready ticket served and completes service. Financial confirmation,
+            // cancellation and order editing remain excluded from this role.
             'Waiter' => [
                 'restaurant.view',
                 'restaurant_pos.use',
@@ -40,6 +41,8 @@ return new class extends Migration
                 'orders.view',
                 'orders.create',
                 'orders.complete',
+                'kitchen.view',
+                'kitchen.ticket.serve',
             ],
 
             // Branch manager is the operational fallback for POS/table sessions.
