@@ -6,9 +6,30 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Services\Payments\PaymentProofAnalysisService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\View\View;
 
 class PaymentProofAnalysisController extends Controller
 {
+    public function show(Payment $payment): View
+    {
+        $this->authorize('verify', $payment);
+
+        $payment->load([
+            'paymentMethod',
+            'location',
+            'locationPaymentAccount',
+            'receivedBy',
+            'verifiedBy',
+            'latestProofAnalysis',
+        ]);
+
+        return view('finance.payments.proof-analysis', [
+            'payment' => $payment,
+            'analysis' => $payment->latestProofAnalysis,
+            'aiEnabled' => (bool) config('services.payment_proof_ai.enabled'),
+        ]);
+    }
+
     public function store(
         Payment $payment,
         PaymentProofAnalysisService $service
