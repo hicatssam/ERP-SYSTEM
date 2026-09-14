@@ -8,6 +8,7 @@ use App\Http\Requests\CustomerOrdering\StoreCustomerMenuOrderRequest;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\PaymentMethod;
 use App\Models\LocationPaymentAccount;
 use App\Models\SystemSetting;
@@ -42,16 +43,35 @@ class CustomerMenuController extends Controller
         $this->assertMenuAvailable($location);
 
         $tables = $this->tableOptions($location);
+        $menuItems = $this->menuItemsFor($location);
+        $theme = $this->theme();
+
+        // Rank the reference design's "most ordered" cards from real sales
+        // at this branch. New catalogs gracefully fall back to menu sort order.
+        $popularProductIds = OrderItem::query()
+            ->whereNotNull('product_id')
+            ->whereHas('order', fn ($query) => $query
+                ->where('location_id', (int) $location->id)
+                ->whereNotIn('status', ['draft', 'cancelled']))
+            ->select('product_id')
+            ->selectRaw('SUM(quantity) as units_sold')
+            ->groupBy('product_id')
+            ->orderByDesc('units_sold')
+            ->limit((int) ($theme['featured_limit'] ?? 4))
+            ->pluck('product_id')
+            ->map(fn ($id): int => (int) $id)
+            ->values();
 
         return view('customer-menu.show', [
             'location' => $location,
-            'menuItems' => $this->menuItemsFor($location),
+            'menuItems' => $menuItems,
+            'popularProductIds' => $popularProductIds,
             'categories' => $this->categoriesFor(),
             'banners' => $this->bannersFor($location),
             'tables' => $tables,
             'selectedTable' => $this->resolveSelectedTable($tables, (string) $request->query('table', '')),
             'branding' => $this->branding($location),
-            'theme' => $this->theme(),
+            'theme' => $theme,
             'requestToken' => (string) Str::uuid(),
             'serviceOptions' => $this->serviceOptions(),
             'team' => $this->teamMembers($location),
