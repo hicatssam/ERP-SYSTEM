@@ -35,9 +35,24 @@ class CustomerMenuController extends Controller
         $this->assertMenuAvailable($location);
 
         $tables = $this->tableOptions($location);
+        $branches = Location::query()
+            ->branches()
+            ->active()
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'address', 'phone'])
+            ->map(fn (Location $branch): array => [
+                'id' => (int) $branch->id,
+                'name' => (string) $branch->name,
+                'code' => (string) $branch->code,
+                'address' => trim((string) ($branch->address ?? '')),
+                'phone' => trim((string) ($branch->phone ?? '')),
+                'url' => route('customer-menu.show', $branch->code),
+            ])
+            ->values();
 
         return view('customer-menu.show', [
             'location' => $location,
+            'branches' => $branches,
             'menuItems' => $this->menuItemsFor($location),
             'categories' => $this->categoriesFor(),
             'banners' => $this->bannersFor($location),
