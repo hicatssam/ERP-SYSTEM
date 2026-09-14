@@ -2,7 +2,7 @@
 
 namespace Tests\Feature\Restaurant;
 
-use App\Http\Controllers\Restaurant\CustomerMenuController;
+use App\Http\Controllers\CustomerOrdering\CustomerMenuController;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
@@ -26,7 +26,10 @@ class CustomerMenuArchitectureTest extends TestCase
     #[Test]
     public function every_customer_menu_action_exists_and_is_public(): void
     {
-        foreach (['show', 'tables', 'store', 'myOrders', 'track', 'status'] as $action) {
+        foreach ([
+            'show', 'products', 'productShow', 'favorites', 'tables',
+            'queueStatus', 'paymentOptions', 'store', 'myOrders', 'track', 'status',
+        ] as $action) {
             $method = new ReflectionMethod(CustomerMenuController::class, $action);
             $this->assertTrue($method->isPublic(), "CustomerMenuController::{$action} must be public.");
         }
