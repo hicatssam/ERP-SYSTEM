@@ -27,6 +27,7 @@ class MenuBanner extends Model
     protected function casts(): array
     {
         return [
+            'location_id' => 'integer',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
             'starts_at' => 'datetime',
@@ -40,8 +41,12 @@ class MenuBanner extends Model
     }
 
     /**
-     * Active, in-date-range banners visible at a given branch: global
-     * banners (location_id null) plus ones scoped to this branch.
+     * Active, in-date-range banners visible at a given branch.
+     *
+     * New records use NULL for "all branches". Some older MySQL installs
+     * stored an empty branch select as 0, so we also treat location_id=0 as
+     * global during the compatibility period. That keeps existing banners
+     * visible without weakening real branch-specific scoping.
      */
     public function scopeVisibleFor(Builder $query, int $locationId): Builder
     {
@@ -49,9 +54,19 @@ class MenuBanner extends Model
 
         return $query
             ->where('is_active', true)
-            ->where(fn (Builder $q) => $q->whereNull('location_id')->orWhere('location_id', $locationId))
-            ->where(fn (Builder $q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
-            ->where(fn (Builder $q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
+            ->where(function (Builder $q) use ($locationId): void {
+                $q->whereNull('location_id')
+                    ->orWhere('location_id', 0)
+                    ->orWhere('location_id', $locationId);
+            })
+            ->where(function (Builder $q) use ($now): void {
+                $q->whereNull('starts_at')
+                    ->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function (Builder $q) use ($now): void {
+                $q->whereNull('ends_at')
+                    ->orWhere('ends_at', '>=', $now);
+            })
             ->orderBy('sort_order')
             ->orderBy('id');
     }
