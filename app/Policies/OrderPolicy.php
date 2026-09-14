@@ -31,11 +31,6 @@ class OrderPolicy
 
     public function update(User $user, Order $order): bool
     {
-        // Compatibility bridge for the existing order details/controller:
-        // - the Complete button is rendered with @can('update') on orders.show
-        // - OrderController::complete also authorizes 'update'
-        // Allow completion-only operators only in those two confirmed-order
-        // contexts. Normal edit/update routes still require orders.update.
         if (
             $this->statusValue($order) === 'confirmed'
             && request()?->routeIs('orders.show', 'orders.complete')
@@ -67,18 +62,7 @@ class OrderPolicy
             return false;
         }
 
-        /*
-         * Block confirmation only when there is a REAL payment row still
-         * waiting for verification. Do not rely only on orders.payment_status:
-         * that field is a denormalized summary and can be stale after an older
-         * verification flow. A stale pending_payment_verification value used to
-         * hide the confirm button forever even though no pending payment existed.
-         */
-        $hasPendingVerification = $order->payments()
-            ->where('status', 'pending_verification')
-            ->exists();
-
-        if ($hasPendingVerification) {
+        if ($order->payments()->where('status', 'pending_verification')->exists()) {
             return false;
         }
 
@@ -87,13 +71,6 @@ class OrderPolicy
         }
 
         if (! $this->belongsToUserLocation($user, $order)) {
-            return false;
-        }
-
-        // Preserve the explicit Dahab rule: Branch Manager does not confirm
-        // sales orders. Restaurant operators may accept only restaurant drafts
-        // (POS/QR/customer-menu), never generic ERP sales orders.
-        if ($user->hasRole('Branch Manager')) {
             return false;
         }
 
