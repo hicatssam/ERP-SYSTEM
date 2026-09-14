@@ -223,6 +223,8 @@ class CustomerMenuController extends Controller
             $request->validated()
         );
 
+        $status = $this->orderStatus->payload($order);
+
         return response()->json([
             'ok' => true,
             'message' => 'تم استلام طلبك بنجاح.',
@@ -230,6 +232,9 @@ class CustomerMenuController extends Controller
             'order_id' => (int) $order->id,
             'public_token' => (string) $order->public_token,
             'created_at' => $order->created_at?->toIso8601String(),
+            'status' => $status['status'],
+            'state' => $status['state'],
+            'status_label' => $status['label'],
             'location' => [
                 'id' => (int) $location->id,
                 'name' => (string) $location->name,
@@ -237,6 +242,10 @@ class CustomerMenuController extends Controller
             ],
             'track_url' => route(
                 'customer-menu.track',
+                ['token' => $order->public_token]
+            ),
+            'status_url' => route(
+                'customer-menu.status',
                 ['token' => $order->public_token]
             ),
         ], 201);
