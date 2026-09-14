@@ -8,7 +8,7 @@
 --}}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Tajawal:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 :root{
@@ -19,13 +19,13 @@
  --text:{{ $theme['text'] ?? '#17130F' }};
  --muted:{{ $theme['muted'] ?? '#8A8177' }};
  --radius:{{ $theme['radius'] ?? 22 }}px;
- --line:color-mix(in srgb, var(--text) 9%, transparent);
+ --line:{{ $theme['border'] ?? 'color-mix(in srgb, var(--text) 9%, transparent)' }};
  --shadow:0 14px 34px color-mix(in srgb, var(--text) 8%, transparent);
  --safe-bottom:env(safe-area-inset-bottom,0px);
  --on-primary:#ffffff;
 }
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;font-family:Tajawal,sans-serif;background:var(--bg);color:var(--text)}
+html,body{margin:0;min-height:100%;font-family:{{ $theme['font_family'] ?? 'Tajawal' }},Tajawal,sans-serif;background:var(--bg);color:var(--text)}
 body{overflow-x:hidden}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
@@ -118,7 +118,7 @@ a{color:inherit;text-decoration:none}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .product{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);position:relative;display:block;transition:.2s}
 .product:active{transform:scale(.98)}
-.product-media{height:118px;background:color-mix(in srgb, var(--accent) 22%, var(--bg));position:relative;overflow:hidden}
+.product-media{display:block;height:118px;background:color-mix(in srgb, var(--accent) 22%, var(--bg));position:relative;overflow:hidden}
 .product-media img{width:100%;height:100%;object-fit:contain;padding:8px;background:color-mix(in srgb, var(--accent) 12%, var(--bg))}
 .product-placeholder{width:100%;height:100%;display:grid;place-items:center;font-size:1.6rem;font-weight:900;color:color-mix(in srgb, var(--primary) 60%, var(--muted))}
 .fav{position:absolute;top:9px;left:9px;width:32px;height:32px;border:0;border-radius:50%;background:rgba(255,255,255,.92);color:var(--muted);box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:2;font-size:.85rem}
@@ -267,13 +267,16 @@ a{color:inherit;text-decoration:none}
 
 @media(max-width:560px){
  .bottom-nav{
-  position:fixed;z-index:100;bottom:0;right:0;left:0;height:calc(66px + var(--safe-bottom));
-  padding:6px 6px var(--safe-bottom);background:var(--surface);border-top:1px solid var(--line);
+  position:fixed;z-index:100;bottom:0;right:0;left:0;height:calc(76px + var(--safe-bottom));
+  padding:7px 6px var(--safe-bottom);background:color-mix(in srgb,var(--surface) 96%,transparent);
+  border-top:1px solid var(--line);box-shadow:0 -9px 30px rgba(25,18,20,.07);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   display:grid;grid-template-columns:repeat(5,1fr);align-items:center;
  }
- .nav-btn{height:54px;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;position:relative}
- .nav-btn i{font-size:18px}
+ .nav-btn{height:61px;border:0;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:11px;font-weight:800;position:relative}
+ .nav-btn i{font-size:20px;transition:transform .2s ease}
  .nav-btn.active{color:var(--primary)}
- .nav-badge{position:absolute;top:1px;left:50%;margin-left:8px;min-width:16px;height:16px;border-radius:12px;background:var(--primary);color:#fff;font-size:9px;font-weight:900;display:grid;place-items:center;padding:0 3px}
+ .nav-btn.active i{transform:translateY(-2px);font-size:22px}
+ .nav-badge{position:absolute;top:0;left:50%;margin-left:9px;min-width:19px;height:19px;border:2px solid var(--surface);border-radius:12px;background:var(--primary);color:#fff;font-size:9px;font-weight:900;display:grid;place-items:center;padding:0 3px}
 }
 </style>
