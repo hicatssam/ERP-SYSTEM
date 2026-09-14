@@ -29,7 +29,7 @@ a{text-decoration:none;color:inherit}.wrap{width:min(720px,calc(100% - 28px));ma
 main{padding:22px 0}.titleRow{margin-bottom:18px}.titleRow h1{margin:0 0 4px;font-size:1.35rem}.titleRow p{margin:0;color:var(--muted);font-size:.8rem}
 .orders{display:grid;gap:10px}.order{display:flex;align-items:center;gap:12px;padding:14px;background:var(--surface);border-radius:17px;border:1px solid color-mix(in srgb,var(--text) 7%,transparent)}
 .orderIcon{width:48px;height:48px;flex:0 0 48px;display:grid;place-items:center;border-radius:14px;background:color-mix(in srgb,var(--accent) 18%,var(--surface));color:var(--primary);font-size:20px}
-.orderInfo{min-width:0;flex:1}.orderInfo strong{display:block;font-size:.92rem}.orderInfo small{display:block;color:var(--muted);font-size:.7rem;margin-top:3px}
+.orderInfo{min-width:0;flex:1}.orderInfo strong{display:block;font-size:.92rem}.orderInfo small{display:block;color:var(--muted);font-size:.7rem;margin-top:3px}.orderInfo .orderStatus{color:var(--primary);font-weight:900}.orderInfo .orderStatus[data-state="cancelled"]{color:#c73f3f}.orderInfo .orderStatus[data-state="ready"],.orderInfo .orderStatus[data-state="completed"]{color:#18864b}
 .arrow{color:var(--primary);font-size:20px}.empty{text-align:center;padding:70px 20px}.emptyIcon{font-size:42px}.empty h2{font-size:1rem;margin:12px 0 5px}.empty p{font-size:.78rem;color:var(--muted);margin:0 0 16px}.primary{display:inline-flex;padding:11px 18px;border-radius:13px;background:var(--primary);color:#fff;font-weight:900;font-size:.82rem}
 .mobileNav{position:fixed;right:12px;bottom:12px;z-index:60;width:calc(100% - 24px);height:72px;display:grid;grid-template-columns:repeat(4,1fr);border-radius:22px;overflow:hidden;box-shadow:0 16px 45px #00000020;background:color-mix(in srgb,var(--surface) 97%,transparent);border-top:1px solid color-mix(in srgb,var(--text) 8%,transparent);backdrop-filter:blur(18px)}
 .mobileNav a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:.61rem;font-weight:800}.mobileNav a.active{color:var(--primary)}.ico{font-size:18px}
@@ -58,14 +58,69 @@ main{padding:22px 0}.titleRow{margin-bottom:18px}.titleRow h1{margin:0 0 4px;fon
 const root=document.querySelector('#orders');
 const locationCode=@json($location->code);
 const menuUrl=@json(route('customer-menu.show',$location->code));
+const ordersKey='customer_menu_orders';
 function esc(value){return String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));}
-let rows=[];try{rows=JSON.parse(localStorage.getItem('customer_menu_orders')||'[]')||[]}catch(e){rows=[]}
-rows=rows.filter(item=>item&&item.location===locationCode&&item.url).slice(0,30);
-root.innerHTML=rows.length?rows.map(item=>`
-<a class="order" href="${esc(item.url)}">
-<span class="orderIcon">✓</span>
-<span class="orderInfo"><strong>طلب #${esc(item.order_number||item.number||'—')}</strong><small>اضغط لعرض التفاصيل وتتبع الحالة</small></span>
-<span class="arrow">←</span>
-</a>`).join(''):`<div class="empty"><div class="emptyIcon">🛍️</div><h2>لا توجد طلبات بعد</h2><p>بعد إرسال أول طلب سيظهر هنا تلقائيًا.</p><a class="primary" href="${menuUrl}">ابدأ طلبًا جديدًا</a></div>`;
+
+function localUrl(value){
+    try {
+        const url=new URL(String(value||''),window.location.origin);
+        return url.origin===window.location.origin?url.href:null;
+    } catch(e) { return null; }
+}
+
+function statusUrl(item){
+    const explicit=localUrl(item.status_url);
+    if(explicit)return explicit;
+    const track=localUrl(item.url);
+    return track?track.replace(/\/$/,'')+'/status':null;
+}
+
+const fallbackLabels={
+    received:'تم استلام الطلب',accepted:'تم تأكيد الطلب',preparing:'قيد التحضير',
+    ready:'الطلب جاهز',completed:'تم التسليم',cancelled:'تم إلغاء الطلب'
+};
+
+let rows=[];try{rows=JSON.parse(localStorage.getItem(ordersKey)||'[]')||[]}catch(e){rows=[]}
+rows=rows
+    .filter(item=>item&&String(item.location||item.location_code||'')===String(locationCode)&&localUrl(item.url))
+    .slice(-30)
+    .reverse();
+
+root.innerHTML=rows.length?rows.map((item,index)=>{
+    const state=String(item.state||'received').toLowerCase();
+    const status=item.status_label||fallbackLabels[state]||'جاري تحديث الحالة';
+    return `<a class="order" href="${esc(localUrl(item.url))}" data-order-index="${index}">
+        <span class="orderIcon">✓</span>
+        <span class="orderInfo">
+            <strong>طلب #${esc(item.order_number||item.number||'—')}</strong>
+            <small class="orderStatus" data-state="${esc(state)}">${esc(status)}</small>
+            <small>اضغط لعرض التفاصيل وتتبع الحالة</small>
+        </span>
+        <span class="arrow">←</span>
+    </a>`;
+}).join(''):`<div class="empty"><div class="emptyIcon">🛍️</div><h2>لا توجد طلبات بعد</h2><p>بعد إرسال أول طلب سيظهر هنا تلقائيًا.</p><a class="primary" href="${menuUrl}">ابدأ طلبًا جديدًا</a></div>`;
+
+async function refreshStatuses(){
+    if(document.hidden||!rows.length)return;
+
+    await Promise.allSettled(rows.map(async(item,index)=>{
+        const endpoint=statusUrl(item);
+        if(!endpoint)return;
+
+        const response=await fetch(endpoint,{headers:{Accept:'application/json'},cache:'no-store'});
+        if(!response.ok)return;
+
+        const data=await response.json();
+        const element=root.querySelector(`[data-order-index="${index}"] .orderStatus`);
+        if(!element)return;
+
+        const state=String(data.state||'received').toLowerCase();
+        element.dataset.state=state;
+        element.textContent=data.label||fallbackLabels[state]||'تم تحديث الطلب';
+    }));
+}
+
+refreshStatuses();
+setInterval(refreshStatuses,10000);
 </script>
 </body></html>
