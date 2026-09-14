@@ -40,11 +40,7 @@ class OrderPolicy
             return true;
         }
 
-        if (! in_array(
-            $this->statusValue($order),
-            ['draft', 'confirmed'],
-            true
-        )) {
+        if (! in_array($this->statusValue($order), ['draft', 'confirmed'], true)) {
             return false;
         }
 
@@ -62,12 +58,16 @@ class OrderPolicy
             return false;
         }
 
-        if ($order->payments()->where('status', 'pending_verification')->exists()) {
-            return false;
-        }
-
+        /*
+         * Admin can resolve exceptional back-office cases.  Non-admin users
+         * must still verify pending electronic payments before confirmation.
+         */
         if ($user->isAdmin()) {
             return true;
+        }
+
+        if ($order->payments()->where('status', 'pending_verification')->exists()) {
+            return false;
         }
 
         if (! $this->belongsToUserLocation($user, $order)) {
@@ -85,11 +85,7 @@ class OrderPolicy
 
     public function cancel(User $user, Order $order): bool
     {
-        if (! in_array(
-            $this->statusValue($order),
-            ['draft', 'confirmed'],
-            true
-        )) {
+        if (! in_array($this->statusValue($order), ['draft', 'confirmed'], true)) {
             return false;
         }
 
@@ -127,10 +123,8 @@ class OrderPolicy
             : (string) $order->status;
     }
 
-    private function belongsToUserLocation(
-        User $user,
-        Order $order
-    ): bool {
+    private function belongsToUserLocation(User $user, Order $order): bool
+    {
         $locationId = $user->primaryLocation()?->id;
 
         return $locationId !== null
