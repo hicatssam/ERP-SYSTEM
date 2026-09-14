@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Restaurant;
 use App\Http\Controllers\Controller;
 use App\Models\Location;
 use App\Models\MenuBanner;
+use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -15,7 +16,7 @@ class MenuBannerController extends Controller
     public function index(): View
     {
         $banners = MenuBanner::query()
-            ->with('location:id,name')
+            ->with(['location:id,name', 'product:id,name,name_ar'])
             ->orderBy('sort_order')
             ->orderByDesc('id')
             ->get();
@@ -26,9 +27,19 @@ class MenuBannerController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $products = Product::query()
+            ->active()
+            ->orderByRaw("COALESCE(NULLIF(name_ar, ''), name)")
+            ->get(['id', 'name', 'name_ar'])
+            ->map(fn (Product $product): array => [
+                'id' => (int) $product->id,
+                'name' => (string) ($product->name_ar ?: $product->name),
+            ]);
+
         return view('restaurant.menu-banners.index', [
             'banners' => $banners,
             'locations' => $locations,
+            'products' => $products,
         ]);
     }
 
@@ -85,6 +96,7 @@ class MenuBannerController extends Controller
     {
         return $request->validate([
             'location_id' => ['nullable', 'integer', 'exists:locations,id'],
+            'product_id' => ['nullable', 'integer', 'exists:products,id'],
             'image' => [$imageRequired ? 'required' : 'nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:4096'],
             'title' => ['nullable', 'string', 'max:120'],
             'subtitle' => ['nullable', 'string', 'max:200'],
