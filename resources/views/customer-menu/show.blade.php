@@ -155,7 +155,7 @@
  .reference-logo,.reference-logo-fallback{width:52px;height:52px;border-radius:15px}
  .reference-actions .icon-btn{width:50px;height:50px;border-radius:15px}
  .reference-branch{font-size:.86rem}
- .banner-slide{aspect-ratio:1.9/1}
+ .banner-slide{aspect-ratio:2.55/1;min-height:170px}
  .banner-copy{max-width:88%;padding:20px}
  .banner-copy p{font-size:.78rem}
  .reference-home .grid{gap:12px}
