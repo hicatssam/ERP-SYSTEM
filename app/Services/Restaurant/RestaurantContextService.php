@@ -12,9 +12,9 @@ class RestaurantContextService
     /**
      * Resolve the branch that the restaurant operation should use.
      *
-     * - System admins / explicit global restaurant operators may select any active branch.
-     * - Regular users are restricted to their active primary branch.
-     * - If no location_id is supplied, the user's primary branch is preferred.
+     * System admins and users with the explicit global restaurant permission
+     * may select any active branch. Regular users remain restricted to their
+     * active primary branch.
      */
     public function resolveLocation(User $user, ?int $requestedLocationId = null): Location
     {
@@ -43,23 +43,17 @@ class RestaurantContextService
 
         if ($requestedLocationId !== null) {
             $selected = $locations->first(
-                fn (Location $location) =>
-                    (int) $location->id === (int) $requestedLocationId
+                fn (Location $location) => (int) $location->id === (int) $requestedLocationId
             );
 
-            abort_unless(
-                $selected,
-                404,
-                'الفرع المحدد غير موجود أو غير فعال.'
-            );
+            abort_unless($selected, 404, 'الفرع المحدد غير موجود أو غير فعال.');
 
             return $selected;
         }
 
         if ($primary) {
             $primaryBranch = $locations->first(
-                fn (Location $location) =>
-                    (int) $location->id === (int) $primary->id
+                fn (Location $location) => (int) $location->id === (int) $primary->id
             );
 
             if ($primaryBranch) {
@@ -106,9 +100,6 @@ class RestaurantContextService
             return true;
         }
 
-        // roles.manage is not a branch-access permission. A branch manager may
-        // legitimately manage roles without being allowed to operate another
-        // branch's POS/tables. Cross-branch restaurant access must be explicit.
         return $user->can('restaurant.view_all_locations');
     }
 }
