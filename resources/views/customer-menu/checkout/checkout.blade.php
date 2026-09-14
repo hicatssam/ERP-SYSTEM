@@ -257,6 +257,9 @@ document.getElementById('checkoutForm').addEventListener('submit', async e => {
             order_number: data.order_number,
             location: CM.LOCATION_CODE,
             url: data.track_url,
+            status_url: data.status_url || null,
+            state: data.state || 'received',
+            status_label: data.status_label || 'تم استلام الطلب',
             created_at: data.created_at || new Date().toLocaleString('ar'),
         });
 
