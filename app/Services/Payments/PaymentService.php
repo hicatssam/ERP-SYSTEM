@@ -112,6 +112,22 @@ class PaymentService
             ]);
 
             $this->syncSourcePaymentStatus($source, $locked->orderTypeValue());
+
+            // `pending_verification` is a transitional payment arrangement. Once
+            // an order payment is approved, keeping that value makes the admin
+            // order screen look as though the payment is still awaiting review.
+            // Move only the approved order back to the settled pay-now
+            // arrangement; payment_status remains the canonical live state.
+            if (
+                $approved
+                && $source instanceof Order
+                && ($source->payment_arrangement?->value ?? $source->payment_arrangement) === 'pending_verification'
+            ) {
+                $source->forceFill([
+                    'payment_arrangement' => 'pay_now',
+                ])->save();
+            }
+
             if ($approved) {
                 $this->posting->collection($locked, $user);
             }
