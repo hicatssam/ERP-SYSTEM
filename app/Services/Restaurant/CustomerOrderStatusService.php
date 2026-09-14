@@ -35,6 +35,8 @@ class CustomerOrderStatusService
         )) ?: $state['default_description'];
 
         $serviceType = $this->scalar($order->restaurant_service_type);
+        $paymentStatus = $this->scalar($order->payment_status);
+        $paymentArrangement = $this->scalar($order->payment_arrangement);
 
         $table = $order->restaurantTable()
             ->with('area:id,name')
@@ -53,6 +55,8 @@ class CustomerOrderStatusService
 
         $fingerprint = sha1(json_encode([
             'order_status' => $order->statusValue(),
+            'payment_status' => $paymentStatus,
+            'payment_arrangement' => $paymentArrangement,
             'state' => $statusKey,
             'event_at' => $state['event_at'],
             'updated_at' => $order->updated_at?->toIso8601String(),
@@ -65,12 +69,17 @@ class CustomerOrderStatusService
             'status' => $order->statusValue(),
             'state' => $statusKey,
             'kitchen_status' => $state['kitchen_status'],
+            'payment_status' => $paymentStatus,
+            'payment_arrangement' => $paymentArrangement,
             'label' => $label,
             'description' => $description,
             'step' => $state['step'],
             'total' => (float) $order->total_amount,
             'created_at' => $order->created_at?->toIso8601String(),
             'updated_at' => $order->updated_at?->toIso8601String(),
+            'confirmed_at' => $order->confirmed_at?->toIso8601String(),
+            'completed_at' => $order->completed_at?->toIso8601String(),
+            'cancelled_at' => $order->cancelled_at?->toIso8601String(),
             'event_at' => $state['event_at'],
             'fingerprint' => $fingerprint,
 
@@ -124,6 +133,9 @@ class CustomerOrderStatusService
 
             'track_url' => $order->public_token
                 ? route('customer-menu.track', ['token' => $order->public_token])
+                : null,
+            'status_url' => $order->public_token
+                ? route('customer-menu.status', ['token' => $order->public_token])
                 : null,
         ];
     }
