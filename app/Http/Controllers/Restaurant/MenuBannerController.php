@@ -22,6 +22,7 @@ class MenuBannerController extends Controller
 
         $locations = Location::query()
             ->where('is_active', true)
+            ->branches()
             ->orderBy('name')
             ->get(['id', 'name']);
 
@@ -34,6 +35,7 @@ class MenuBannerController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $data = $this->validated($request, imageRequired: true);
+        $data['location_id'] = $this->normalizedLocationId($request);
         $data['is_active'] = $request->boolean('is_active', true);
         $data['image'] = $request->file('image')->store('menu-banners', 'public');
 
@@ -45,6 +47,7 @@ class MenuBannerController extends Controller
     public function update(Request $request, MenuBanner $banner): RedirectResponse
     {
         $data = $this->validated($request, imageRequired: false);
+        $data['location_id'] = $this->normalizedLocationId($request);
         $data['is_active'] = $request->boolean('is_active', true);
 
         if ($request->hasFile('image')) {
@@ -92,5 +95,16 @@ class MenuBannerController extends Controller
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
         ]);
+    }
+
+    private function normalizedLocationId(Request $request): ?int
+    {
+        $value = $request->input('location_id');
+
+        if ($value === null || $value === '' || (int) $value <= 0) {
+            return null;
+        }
+
+        return (int) $value;
     }
 }
