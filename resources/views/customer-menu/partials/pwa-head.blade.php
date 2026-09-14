@@ -1,6 +1,6 @@
 {{-- Per-branch PWA manifest + mobile/iOS home-screen meta tags. --}}
 @php
-    $pwaLocation = $location ?? ($order->location ?? null);
+    $pwaLocation = $location ?? (isset($order) ? $order->location : null);
     $pwaLocationCode = $pwaLocation?->code;
 @endphp
 
@@ -14,7 +14,7 @@
 <meta name="apple-mobile-web-app-title" content="{{ $branding['name'] ?? 'المنيو' }}">
 <link rel="apple-touch-icon" href="{{ route('pwa.icon', ['size' => 180]) }}">
 
-{{-- Keep the customer app locked to a true mobile 1:1 viewport on iOS/Android. --}}
+{{-- Keep the public customer app at a true 1:1 mobile viewport. --}}
 <script>
 (function(){
     let viewport = document.querySelector('meta[name="viewport"]');
