@@ -90,15 +90,42 @@ class CustomerMenuController extends Controller
 
         abort_unless($item !== null, 404);
 
+        $relatedItems = $menuItems
+            ->where('category_id', $item['category_id'])
+            ->reject(fn (array $row) => $row['product_id'] === $item['product_id'])
+            ->take(6)
+            ->values();
+
+        // Cross-sell from complementary categories instead of only showing
+        // more versions of the same burger. This keeps the product screen
+        // focused while gently encouraging a complete meal.
+        $upsellKeywords = ['مقبلات', 'بطاطا', 'مشروبات', 'عصائر', 'ميلك شيك', 'صوص'];
+        $upsellItems = $menuItems
+            ->filter(function (array $row) use ($item, $upsellKeywords): bool {
+                if ($row['product_id'] === $item['product_id']) {
+                    return false;
+                }
+
+                $category = (string) ($row['category'] ?? '');
+
+                return collect($upsellKeywords)->contains(
+                    fn (string $keyword): bool => str_contains($category, $keyword)
+                );
+            })
+            ->unique('product_id')
+            ->take(8)
+            ->values();
+
+        if ($upsellItems->isEmpty()) {
+            $upsellItems = $relatedItems;
+        }
+
         return view('customer-menu.product', [
             'location' => $location,
             'product' => $item,
             'menuItems' => $menuItems,
-            'relatedItems' => $menuItems
-                ->where('category_id', $item['category_id'])
-                ->reject(fn (array $row) => $row['product_id'] === $item['product_id'])
-                ->take(6)
-                ->values(),
+            'relatedItems' => $relatedItems,
+            'upsellItems' => $upsellItems,
             'branding' => $this->branding($location),
             'theme' => $this->theme(),
         ]);
