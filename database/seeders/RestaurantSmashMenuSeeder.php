@@ -8,7 +8,6 @@ use App\Models\Product;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 class RestaurantSmashMenuSeeder extends Seeder
 {
@@ -154,6 +153,13 @@ class RestaurantSmashMenuSeeder extends Seeder
                 'base_selling_price' => $price,
                 'is_active' => true,
             ];
+
+            // Compatibility with older MySQL schemas where barcode is NOT NULL.
+            // The value is deterministic and unique, so rerunning this seeder
+            // remains safe and idempotent.
+            if (Schema::hasColumn('products', 'barcode')) {
+                $attributes['barcode'] = 'MENU-' . $sku;
+            }
 
             if (Schema::hasColumn('products', 'prep_time_minutes')) {
                 $attributes['prep_time_minutes'] = $prep;
