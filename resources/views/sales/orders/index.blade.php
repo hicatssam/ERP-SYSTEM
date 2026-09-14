@@ -13,7 +13,7 @@
         <div class="filter-group"><label class="filter-label">الحالة</label>
             <select name="status" class="form-select">
                 <option value="">الكل</option>
-                @foreach(['pending' => 'معلق', 'confirmed' => 'مؤكد', 'completed' => 'مكتمل', 'cancelled' => 'ملغى'] as $v => $l)
+                @foreach(['draft' => 'بانتظار التأكيد', 'confirmed' => 'مؤكد', 'completed' => 'مكتمل', 'cancelled' => 'ملغى'] as $v => $l)
                     <option value="{{ $v }}" {{ request('status') == $v ? 'selected' : '' }}>{{ $l }}</option>
                 @endforeach
             </select>
@@ -67,7 +67,7 @@
                 <td>₪{{ number_format($o->total_amount, 2) }}</td>
                 <td>
     <span class="badge {{ match($o->status->value) { 'confirmed' => 'badge-active', 'cancelled' => 'badge-inactive', default => 'badge-pending' } }}">
-        {{ ['pending' => 'معلق','confirmed' => 'مؤكد','completed' => 'مكتمل','cancelled' => 'ملغى'][$o->status->value] ?? \App\Support\ArabicDisplay::status($o->status) }}
+        {{ ['draft' => 'بانتظار التأكيد','confirmed' => 'مؤكد','completed' => 'مكتمل','cancelled' => 'ملغى'][$o->status->value] ?? \App\Support\ArabicDisplay::status($o->status) }}
     </span>
 </td>
                 <td>{{ $o->created_at->format('Y-m-d') }}</td>
