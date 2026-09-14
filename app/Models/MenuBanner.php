@@ -13,6 +13,7 @@ class MenuBanner extends Model
 
     protected $fillable = [
         'location_id',
+        'product_id',
         'image',
         'title',
         'subtitle',
@@ -28,6 +29,7 @@ class MenuBanner extends Model
     {
         return [
             'location_id' => 'integer',
+            'product_id' => 'integer',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
             'starts_at' => 'datetime',
@@ -40,13 +42,14 @@ class MenuBanner extends Model
         return $this->belongsTo(Location::class);
     }
 
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
     /**
      * Active, in-date-range banners visible at a given branch.
-     *
-     * New records use NULL for "all branches". Some older MySQL installs
-     * stored an empty branch select as 0, so we also treat location_id=0 as
-     * global during the compatibility period. That keeps existing banners
-     * visible without weakening real branch-specific scoping.
+     * NULL/0 are treated as global for compatibility with older data.
      */
     public function scopeVisibleFor(Builder $query, int $locationId): Builder
     {
