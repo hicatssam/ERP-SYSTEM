@@ -31,6 +31,8 @@
         ?: ($theme['cover'] ?? null);
     $overlay = max(0, min(90, (int) $cmSetting('customer_menu_cover_overlay', 48)));
     $cardRadius = max(0, min(40, (int) $cmSetting('customer_menu_product_card_radius', 18)));
+    $contentWidth = max(360, min(1700, (int) $cmSetting('customer_menu_content_width', 980)));
+    $sectionGap = max(20, min(100, (int) $cmSetting('customer_menu_section_gap', 34)));
     $imageFit = in_array($cmSetting('customer_menu_image_fit', 'cover'), ['cover', 'contain'], true)
         ? $cmSetting('customer_menu_image_fit', 'cover')
         : 'cover';
@@ -77,7 +79,7 @@
   radial-gradient(circle at 8% 8%,color-mix(in srgb,var(--primary) 4%,transparent),transparent 28rem),
   var(--bg);
 }
-.reference-home .shell{width:min(940px,calc(100% - 30px))}
+.reference-home .shell{width:min({{ $contentWidth }}px,calc(100% - 30px))}
 .reference-home .menu-area{padding-bottom:112px}
 .reference-header{padding:20px 0 8px}
 .reference-header-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
@@ -112,7 +114,7 @@
 .banner-dots button{width:10px;height:10px;padding:0;border:0;border-radius:50%;background:color-mix(in srgb,var(--muted) 24%,transparent);transition:.2s}
 .banner-dots button.active{width:24px;border-radius:999px;background:var(--primary)}
 .reference-hero-fallback{min-height:260px;background:linear-gradient(90deg,rgba(8,4,5,.12),rgba(8,4,5,.78)),var(--primary) center/cover no-repeat;display:flex;align-items:center;color:#fff;padding:32px}
-.reference-section{margin-top:34px}
+.reference-section{margin-top:{{ $sectionGap }}px}
 .reference-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:16px}
 .reference-section-copy{display:flex;align-items:flex-start;gap:9px}
 .reference-section-icon{color:var(--accent);font-size:1.4rem;margin-top:3px}
