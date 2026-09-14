@@ -91,10 +91,10 @@
 </div>
 
 <div class="mb-overlay" id="mbOverlay">
-    <div class="mb-modal">
+    <div class="mb-modal" role="dialog" aria-modal="true" aria-labelledby="mbModalTitle">
         <div class="mb-modal-head">
             <h2 id="mbModalTitle">إضافة بانر جديد</h2>
-            <button type="button" class="mb-icon-btn" onclick="mbCloseModal()">
+            <button type="button" class="mb-icon-btn" onclick="mbCloseModal()" aria-label="إغلاق">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
         </div>
@@ -104,11 +104,11 @@
             <input type="hidden" name="_method" id="mbMethod" value="POST">
 
             <label class="mb-field">
-                صورة البانر @if(true)<span id="mbImageRequiredStar" class="mb-required">*</span>@endif
+                صورة البانر <span id="mbImageRequiredStar" class="mb-required">*</span>
                 <input type="file" name="image" id="mbImage" accept=".jpg,.jpeg,.png,.webp">
                 <small>المقاس المفضل: عريض (مثال 1200×600). أقصى حجم 4MB.</small>
             </label>
-            <div id="mbImagePreview" class="mb-image-preview" hidden><img alt=""></div>
+            <div id="mbImagePreview" class="mb-image-preview" hidden><img alt="معاينة البانر"></div>
 
             <div class="mb-field-row">
                 <label class="mb-field">العنوان<input type="text" name="title" id="mbTitle" maxlength="120" placeholder="خصم 30%"></label>
@@ -142,8 +142,8 @@
 </div>
 
 <style>
-.mb-page, .mb-page * { box-sizing: border-box; }
-.mb-page {
+.mb-page, .mb-overlay, .mb-page *, .mb-overlay * { box-sizing: border-box; }
+.mb-page, .mb-overlay {
     --mb-accent: var(--theme-accent, #d7a514);
     --mb-primary: var(--theme-primary, #1f2937);
     --mb-surface: var(--theme-surface, #ffffff);
@@ -183,20 +183,22 @@
 .mb-icon-btn-danger{color:var(--mb-danger);border-color:#fdecea}
 .mb-empty{grid-column:1/-1;text-align:center;padding:50px 20px;color:var(--mb-muted);border:1px dashed var(--mb-border);border-radius:16px}
 
-.mb-overlay{position:fixed;inset:0;background:rgba(15,15,15,.5);display:none;align-items:center;justify-content:center;z-index:200;padding:16px}
+.mb-overlay{position:fixed;inset:0;background:rgba(15,15,15,.58);display:none;align-items:center;justify-content:center;z-index:9999;padding:16px}
 .mb-overlay.open{display:flex}
-.mb-modal{background:var(--mb-surface);border-radius:18px;width:min(520px,100%);max-height:88vh;overflow:auto;padding:20px}
-.mb-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.mb-modal{background:var(--mb-surface);color:var(--mb-text);border:1px solid var(--mb-border);box-shadow:0 24px 70px rgba(0,0,0,.28);border-radius:18px;width:min(560px,100%);max-height:88vh;overflow:auto;padding:20px;overscroll-behavior:contain}
+.mb-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px}
 .mb-modal-head h2{margin:0;font-size:1.05rem}
 .mb-field{display:block;font-size:.82rem;font-weight:700;color:var(--mb-muted);margin-bottom:12px}
-.mb-field input, .mb-field select{display:block;width:100%;margin-top:6px;border:1px solid var(--mb-border);border-radius:11px;padding:10px;font-size:.88rem;color:var(--mb-text)}
+.mb-field input, .mb-field select{display:block;width:100%;margin-top:6px;border:1px solid var(--mb-border);background:var(--mb-surface);border-radius:11px;padding:10px;font-size:.88rem;color:var(--mb-text);outline:none}
+.mb-field input:focus, .mb-field select:focus{border-color:var(--mb-primary);box-shadow:0 0 0 3px color-mix(in srgb, var(--mb-primary) 14%, transparent)}
 .mb-field small{display:block;color:var(--mb-muted);font-size:.72rem;margin-top:4px;font-weight:400}
 .mb-field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .mb-required{color:var(--mb-danger)}
-.mb-image-preview{margin:-4px 0 12px;border-radius:11px;overflow:hidden;height:120px;background:var(--mb-bg)}
+.mb-image-preview{margin:-4px 0 12px;border-radius:11px;overflow:hidden;height:160px;background:var(--mb-bg);border:1px solid var(--mb-border)}
 .mb-image-preview img{width:100%;height:100%;object-fit:cover}
-.mb-checkbox{display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:700;margin-bottom:14px}
-@media(max-width:520px){ .mb-field-row{grid-template-columns:1fr} }
+.mb-checkbox{display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:700;margin-bottom:14px;color:var(--mb-text)}
+body.mb-modal-open{overflow:hidden}
+@media(max-width:520px){ .mb-field-row{grid-template-columns:1fr}.mb-modal{padding:16px;border-radius:14px} }
 </style>
 
 <script>
@@ -205,13 +207,14 @@ function mbOpenModal(banner) {
     const isEdit = !!(banner && banner.id);
 
     document.getElementById('mbModalTitle').textContent = isEdit ? 'تعديل البانر' : 'إضافة بانر جديد';
-    document.getElementById('mbMethod').value = isEdit ? 'POST' : 'POST';
+    document.getElementById('mbMethod').value = isEdit ? 'PUT' : 'POST';
     form.action = isEdit
         ? {!! json_encode(route('restaurant.menu.banners.update', ['banner' => '__ID__'])) !!}.replace('__ID__', banner.id)
         : @json(route('restaurant.menu.banners.store'));
 
     document.getElementById('mbImageRequiredStar').hidden = isEdit;
     document.getElementById('mbImage').required = !isEdit;
+    document.getElementById('mbImage').value = '';
 
     document.getElementById('mbTitle').value = banner?.title || '';
     document.getElementById('mbBadgeText').value = banner?.badge_text || '';
@@ -228,26 +231,43 @@ function mbOpenModal(banner) {
         preview.querySelector('img').src = banner.image_url;
     } else {
         preview.hidden = true;
+        preview.querySelector('img').removeAttribute('src');
     }
 
     document.getElementById('mbOverlay').classList.add('open');
+    document.body.classList.add('mb-modal-open');
 }
 
 function mbCloseModal() {
     document.getElementById('mbOverlay').classList.remove('open');
+    document.body.classList.remove('mb-modal-open');
     document.getElementById('mbForm').reset();
+    document.getElementById('mbMethod').value = 'POST';
+    const preview = document.getElementById('mbImagePreview');
+    preview.hidden = true;
+    preview.querySelector('img').removeAttribute('src');
 }
 
 document.getElementById('mbImage').addEventListener('change', e => {
     const file = e.target.files[0];
     const preview = document.getElementById('mbImagePreview');
-    if (!file) return;
+    if (!file) {
+        preview.hidden = true;
+        preview.querySelector('img').removeAttribute('src');
+        return;
+    }
     preview.hidden = false;
     preview.querySelector('img').src = URL.createObjectURL(file);
 });
 
 document.getElementById('mbOverlay').addEventListener('click', e => {
     if (e.target.id === 'mbOverlay') mbCloseModal();
+});
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('mbOverlay').classList.contains('open')) {
+        mbCloseModal();
+    }
 });
 </script>
 @endsection
