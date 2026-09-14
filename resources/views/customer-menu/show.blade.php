@@ -338,6 +338,7 @@
     const productUrlBase = @json(route('customer-menu.product.show', [$location->code, '__ID__']));
     const productsUrl = @json(route('customer-menu.products', $location->code));
     const featuredLimit = @json($featuredLimit);
+    const popularProductIds = @json($popularProductIds ?? []);
     const showDescriptions = @json($showDescriptions);
     let activeCat = 'all';
 
@@ -378,7 +379,15 @@
 
     function render() {
         const rows = filteredProducts();
-        const featured = CM.PRODUCTS.filter(function (product) { return product.available; }).slice(0, featuredLimit);
+        const ranked = popularProductIds
+            .map(function (id) { return CM.product(id); })
+            .filter(function (product) { return product && product.available; });
+        const fallback = CM.PRODUCTS.filter(function (product) {
+            return product.available && !ranked.some(function (rankedProduct) {
+                return String(rankedProduct.id) === String(product.id);
+            });
+        });
+        const featured = ranked.concat(fallback).slice(0, featuredLimit);
         const featuredGrid = document.getElementById('featuredGrid');
         const featuredSection = document.getElementById('featuredSection');
         const hasFocus = activeCat !== 'all' || Boolean(document.getElementById('searchInput')?.value.trim());
