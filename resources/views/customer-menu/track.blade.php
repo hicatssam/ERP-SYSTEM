@@ -298,6 +298,10 @@
 
             <div class="notice" id="payment"></div>
 
+            <div class="notice show" id="statusDescription"></div>
+
+            <div class="notice" id="customerMessage"></div>
+
             <div class="sectionTitle">
                 <h2>ملخص الطلب</h2>
                 <span class="live">التحديث تلقائيًا</span>
@@ -327,9 +331,12 @@
 
     <script>
         const url = @json(route('customer-menu.status',$order->public_token));
+        const initialStatus = @json($statusPayload ?? null);
         const label = document.querySelector('#label span:last-child');
         const payment = document.querySelector('#payment');
         const eta = document.querySelector('#eta');
+        const statusDescription = document.querySelector('#statusDescription');
+        const customerMessage = document.querySelector('#customerMessage');
         const card = document.querySelector('#trackingCard');
         const stages = [...document.querySelectorAll('[data-stage]')];
 
@@ -387,6 +394,13 @@
 
             card.classList.toggle('cancelled', cancelled);
             label.textContent = data.label || statusText[state] || 'جاري تجهيز طلبك';
+            statusDescription.textContent = data.description || '';
+            statusDescription.classList.toggle('show', Boolean(data.description));
+
+            customerMessage.textContent = data.customer_message
+                ? `رسالة من الفرع: ${data.customer_message}`
+                : '';
+            customerMessage.classList.toggle('show', Boolean(data.customer_message));
 
             const paymentStatus = String(data.payment_status || '').toLowerCase();
             const needsReview = paymentStatus === 'pending_payment_verification';
@@ -410,6 +424,10 @@
             } catch (error) {
                 label.textContent = 'تعذر تحديث الحالة مؤقتًا';
             }
+        }
+
+        if (initialStatus) {
+            updateTracking(initialStatus);
         }
 
         poll();
