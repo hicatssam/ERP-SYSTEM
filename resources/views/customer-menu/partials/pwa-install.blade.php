@@ -31,13 +31,56 @@
  const isRealIos=appleVendor&&(isiPhoneUa||isIPadDesktop);
  const isSafari=isRealIos&&/^((?!CriOS|FxiOS|EdgiOS).)*Safari/i.test(ua);
  const isAndroid=/Android/i.test(ua);
+ const isAndroidChrome=isAndroid&&/Chrome|CriOS/i.test(ua)&&!/EdgA|OPR/i.test(ua);
  let deferredPrompt=null;
- if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
- function show(kind){const d=kind==='ios'?{title:'تثبيت التطبيق على iPhone / iPad',intro:isSafari?'ثبّت المنيو على الشاشة الرئيسية للوصول السريع والطلب مباشرة.':'افتح الصفحة في Safari أولًا ثم ثبّتها.',steps:isSafari?['اضغط زر المشاركة ⤴︎ في Safari.','اختر «إضافة إلى الشاشة الرئيسية».','اضغط «إضافة».']:['افتح الرابط في Safari.','اضغط المشاركة ⤴︎.','اختر «إضافة إلى الشاشة الرئيسية».']}:{title:'تثبيت التطبيق',intro:'ثبّت المنيو كتطبيق على جهازك للوصول السريع.',steps:['اضغط زر التثبيت في المتصفح.','وافق على تثبيت التطبيق.']};title.textContent=d.title;intro.textContent=d.intro;steps.innerHTML=d.steps.map(x=>`<li>${x}</li>`).join('');sheet.classList.add('open');sheet.setAttribute('aria-hidden','false')}
- window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;label.textContent=isAndroid?'ثبّت التطبيق':'تثبيت التطبيق';btn.hidden=false});
- if(isRealIos){label.textContent='تثبيت على iPhone';btn.hidden=false}
- window.addEventListener('appinstalled',()=>btn.hidden=true);
- btn.addEventListener('click',async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;btn.hidden=true;return}if(isRealIos)show('ios')});
- const close=()=>{sheet.classList.remove('open');sheet.setAttribute('aria-hidden','true')};document.getElementById('pwaInstallClose')?.addEventListener('click',close);sheet?.addEventListener('click',e=>{if(e.target===sheet)close()});document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+
+ if('serviceWorker'in navigator){navigator.serviceWorker.register('/sw.js').catch(()=>{});}
+
+ function show(kind){
+   let d;
+   if(kind==='ios'){
+     d={
+       title:'تثبيت التطبيق على iPhone / iPad',
+       intro:isSafari?'ثبّت المنيو على الشاشة الرئيسية للوصول السريع والطلب مباشرة.':'افتح الصفحة في Safari أولًا ثم ثبّتها.',
+       steps:isSafari?['اضغط زر المشاركة ⤴︎ في Safari.','اختر «إضافة إلى الشاشة الرئيسية».','اضغط «إضافة».']:['افتح الرابط في Safari.','اضغط المشاركة ⤴︎.','اختر «إضافة إلى الشاشة الرئيسية».']
+     };
+   }else{
+     d={
+       title:'تثبيت التطبيق على Android',
+       intro:'ثبّت المنيو كتطبيق على هاتفك لتفتح الطلبات بسرعة من الشاشة الرئيسية.',
+       steps:['افتح قائمة Chrome ⋮.','اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».','اضغط «تثبيت» للتأكيد.']
+     };
+   }
+   title.textContent=d.title;intro.textContent=d.intro;steps.innerHTML=d.steps.map(x=>`<li>${x}</li>`).join('');sheet.classList.add('open');sheet.setAttribute('aria-hidden','false');
+ }
+
+ window.addEventListener('beforeinstallprompt',e=>{
+   e.preventDefault();
+   deferredPrompt=e;
+   label.textContent=isAndroid?'ثبّت على Android':'تثبيت التطبيق';
+   btn.hidden=false;
+ });
+
+ if(isRealIos){label.textContent='تثبيت على iPhone';btn.hidden=false;}
+ else if(isAndroid){label.textContent='ثبّت على Android';btn.hidden=false;}
+
+ window.addEventListener('appinstalled',()=>{btn.hidden=true;deferredPrompt=null;});
+
+ btn.addEventListener('click',async()=>{
+   if(deferredPrompt){
+     deferredPrompt.prompt();
+     const choice=await deferredPrompt.userChoice;
+     if(choice?.outcome==='accepted')btn.hidden=true;
+     deferredPrompt=null;
+     return;
+   }
+   if(isRealIos){show('ios');return;}
+   if(isAndroid){show('android');return;}
+ });
+
+ const close=()=>{sheet.classList.remove('open');sheet.setAttribute('aria-hidden','true')};
+ document.getElementById('pwaInstallClose')?.addEventListener('click',close);
+ sheet?.addEventListener('click',e=>{if(e.target===sheet)close()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 })();
 </script>
