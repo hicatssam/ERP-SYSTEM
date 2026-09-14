@@ -67,13 +67,18 @@ class OrderPolicy
             return false;
         }
 
-        // Never consume stock / create the invoice while an electronic payment
-        // is still waiting for verification.
-        $paymentStatus = $order->payment_status instanceof \BackedEnum
-            ? $order->payment_status->value
-            : (string) $order->payment_status;
+        /*
+         * Block confirmation only when there is a REAL payment row still
+         * waiting for verification. Do not rely only on orders.payment_status:
+         * that field is a denormalized summary and can be stale after an older
+         * verification flow. A stale pending_payment_verification value used to
+         * hide the confirm button forever even though no pending payment existed.
+         */
+        $hasPendingVerification = $order->payments()
+            ->where('status', 'pending_verification')
+            ->exists();
 
-        if ($paymentStatus === 'pending_payment_verification') {
+        if ($hasPendingVerification) {
             return false;
         }
 
