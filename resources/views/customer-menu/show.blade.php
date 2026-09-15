@@ -230,7 +230,8 @@
     <div class="banner-track" id="bannerTrack">
      @foreach($banners as $banner)
       @if($banner['link_url'])
-       <a href="{{ $banner['link_url'] }}" class="banner-slide" target="_blank" rel="noopener">
+       <a href="{{ $banner['link_url'] }}" class="banner-slide"
+          @unless(str_starts_with($banner['link_url'], '#')) target="_blank" rel="noopener" @endunless>
       @else
        <article class="banner-slide">
       @endif
