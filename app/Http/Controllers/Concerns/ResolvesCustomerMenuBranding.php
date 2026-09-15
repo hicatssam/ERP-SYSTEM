@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Concerns;
 use App\Enums\RestaurantServiceType;
 use App\Models\Category;
 use App\Models\Location;
+use App\Models\LocationPaymentAccount;
+use App\Models\PaymentMethod;
 use App\Models\RestaurantMenuItem;
 use App\Models\RestaurantTable;
 use App\Models\SystemSetting;
@@ -338,6 +340,60 @@ trait ResolvesCustomerMenuBranding
                     'image' => $this->assetFromPath($category->image ?? null),
                     'icon_key' => $category->icon_key ?? $this->guessCategoryIcon($name),
                     'icon_color' => $category->icon_color ?? '#C98516',
+                ];
+            })
+            ->values();
+    }
+
+
+    /**
+     * Branch-enabled payment methods in the exact shape used by both the
+     * checkout page and its refresh endpoint. Rendering this server-side
+     * prevents a temporary API/cache problem from leaving checkout stuck.
+     */
+    protected function paymentOptionsFor(Location $location): Collection
+    {
+        return PaymentMethod::query()
+            ->where('is_active', true)
+            ->whereHas('locationPaymentMethods', function ($query) use ($location): void {
+                $query
+                    ->where('location_id', (int) $location->id)
+                    ->where('is_active', true);
+            })
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(function (PaymentMethod $method) use ($location): array {
+                $accounts = LocationPaymentAccount::query()
+                    ->where('location_id', (int) $location->id)
+                    ->where('payment_method_id', (int) $method->id)
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get()
+                    ->map(fn (LocationPaymentAccount $account): array => [
+                        'id' => (int) $account->id,
+                        'name' => (string) $account->name,
+                        'provider_name' => $account->provider_name,
+                        'account_holder_name' => $account->account_holder_name,
+                        'account_number' => $account->account_number,
+                        'iban' => $account->iban,
+                        'phone_number' => $account->phone_number,
+                        'instructions' => $account->instructions,
+                    ])
+                    ->values();
+
+                return [
+                    'id' => (int) $method->id,
+                    'name' => (string) ($method->name_ar ?: $method->name),
+                    'code' => (string) $method->code,
+                    'type' => (string) $method->type,
+                    'logo' => $this->assetFromPath(
+                        (string) ($method->logo ?: ($method->logo_path ?? ''))
+                    ),
+                    'requires_verification' => (bool) $method->requires_verification,
+                    'requires_reference' => (bool) $method->requires_reference,
+                    'accounts' => $accounts->all(),
                 ];
             })
             ->values();
