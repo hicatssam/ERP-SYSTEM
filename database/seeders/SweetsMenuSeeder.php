@@ -108,9 +108,9 @@ class SweetsMenuSeeder extends Seeder
     private function seedCheckoutInfrastructure(): void
     {
         $paymentMethods = [
-            ['SWT-CASH', 'Cash', 'نقداً عند الاستلام', 'cash', false, false, 10],
-            ['SWT-WALLET', 'Mobile Wallet', 'محفظة إلكترونية', 'electronic_wallet', true, true, 20],
-            ['SWT-BANK', 'Bank Transfer', 'تحويل بنكي', 'bank_transfer', true, true, 30],
+            ['CASH', 'Cash', 'نقداً عند الاستلام', 'cash', false, false, 10],
+            ['PAYBOX', 'PayBox', 'محفظة إلكترونية', 'electronic_wallet', true, true, 20],
+            ['BANK', 'Bank Transfer', 'تحويل بنكي', 'bank_transfer', true, true, 30],
         ];
 
         foreach ($paymentMethods as [$code, $name, $nameAr, $type, $verify, $reference, $sort]) {
@@ -138,34 +138,49 @@ class SweetsMenuSeeder extends Seeder
             ->get();
 
         foreach ($branches as $branch) {
-            $this->upsert('restaurant_areas', [
-                'location_id' => $branch->id,
-                'code' => 'SWEETS-HALL',
-            ], [
-                'name' => 'صالة الحلويات',
-                'sort_order' => 10,
-                'is_active' => true,
-                'notes' => 'صالة أنشأها Seeder الحلويات المستقل.',
-                'deleted_at' => null,
-            ]);
-            $areaId = (int) DB::table('restaurant_areas')
+            $hasTables = DB::table('restaurant_tables')
                 ->where('location_id', $branch->id)
-                ->where('code', 'SWEETS-HALL')
-                ->value('id');
+                ->where('is_active', true)
+                ->exists();
 
-            foreach (range(1, 8) as $number) {
-                $this->upsert('restaurant_tables', [
+            if (! $hasTables) {
+                $this->upsert('restaurant_areas', [
                     'location_id' => $branch->id,
-                    'code' => sprintf('SWT-T%02d', $number),
+                    'code' => 'SWEETS-HALL',
                 ], [
-                    'area_id' => $areaId,
-                    'name' => 'طاولة '.$number,
-                    'capacity' => $number % 3 === 0 ? 6 : 4,
-                    'sort_order' => $number * 10,
+                    'name' => 'صالة الحلويات',
+                    'sort_order' => 10,
                     'is_active' => true,
-                    'notes' => 'طاولة متاحة للطلب من المنيو.',
+                    'notes' => 'صالة أنشأها Seeder الحلويات المستقل.',
                     'deleted_at' => null,
                 ]);
+                $areaId = (int) DB::table('restaurant_areas')
+                    ->where('location_id', $branch->id)
+                    ->where('code', 'SWEETS-HALL')
+                    ->value('id');
+
+                foreach (range(1, 8) as $number) {
+                    $this->upsert('restaurant_tables', [
+                        'location_id' => $branch->id,
+                        'code' => sprintf('SWT-T%02d', $number),
+                    ], [
+                        'area_id' => $areaId,
+                        'name' => 'طاولة '.$number,
+                        'capacity' => $number % 3 === 0 ? 6 : 4,
+                        'sort_order' => $number * 10,
+                        'is_active' => true,
+                        'notes' => 'طاولة متاحة للطلب من المنيو.',
+                        'deleted_at' => null,
+                    ]);
+                }
+            }
+
+            $hasPaymentMethods = DB::table('location_payment_methods')
+                ->where('location_id', $branch->id)
+                ->where('is_active', true)
+                ->exists();
+            if ($hasPaymentMethods) {
+                continue;
             }
 
             foreach ($methodIds as $methodCode => $methodId) {
@@ -173,33 +188,33 @@ class SweetsMenuSeeder extends Seeder
                     'location_id' => $branch->id,
                     'payment_method_id' => $methodId,
                 ], [
-                    'mobile_number' => $methodCode === 'SWT-WALLET' ? '0599000000' : null,
+                    'mobile_number' => $methodCode === 'PAYBOX' ? '0599000000' : null,
                     'account_holder_name' => 'حلويات دهب',
-                    'bank_name' => $methodCode === 'SWT-BANK' ? 'بنك فلسطين' : null,
-                    'bank_account_number' => $methodCode === 'SWT-BANK' ? '000-123456-01' : null,
-                    'iban' => $methodCode === 'SWT-BANK' ? 'PS00PALS000000000123456789' : null,
-                    'wallet_number' => $methodCode === 'SWT-WALLET' ? '0599000000' : null,
-                    'payment_instructions' => $methodCode === 'SWT-CASH'
+                    'bank_name' => $methodCode === 'BANK' ? 'بنك فلسطين' : null,
+                    'bank_account_number' => $methodCode === 'BANK' ? '000-123456-01' : null,
+                    'iban' => $methodCode === 'BANK' ? 'PS00PALS000000000123456789' : null,
+                    'wallet_number' => $methodCode === 'PAYBOX' ? '0599000000' : null,
+                    'payment_instructions' => $methodCode === 'CASH'
                         ? 'الدفع عند استلام الطلب.'
                         : 'أرفق صورة أو PDF لإثبات عملية الدفع.',
                     'details' => json_encode(['seed' => 'sweets-menu'], JSON_UNESCAPED_UNICODE),
                     'is_active' => true,
                 ]);
 
-                if ($methodCode === 'SWT-CASH') {
+                if ($methodCode === 'CASH') {
                     continue;
                 }
 
                 $this->upsert('location_payment_accounts', [
                     'location_id' => $branch->id,
                     'payment_method_id' => $methodId,
-                    'name' => $methodCode === 'SWT-WALLET' ? 'محفظة الفرع' : 'حساب الفرع البنكي',
+                    'name' => $methodCode === 'PAYBOX' ? 'محفظة الفرع' : 'حساب الفرع البنكي',
                 ], [
-                    'provider_name' => $methodCode === 'SWT-WALLET' ? 'PalPay' : 'بنك فلسطين',
+                    'provider_name' => $methodCode === 'PAYBOX' ? 'PayBox' : 'بنك فلسطين',
                     'account_holder_name' => 'حلويات دهب',
-                    'account_number' => $methodCode === 'SWT-WALLET' ? '0599000000' : '000-123456-01',
-                    'iban' => $methodCode === 'SWT-BANK' ? 'PS00PALS000000000123456789' : null,
-                    'phone_number' => $methodCode === 'SWT-WALLET' ? '0599000000' : null,
+                    'account_number' => $methodCode === 'PAYBOX' ? '0599000000' : '000-123456-01',
+                    'iban' => $methodCode === 'BANK' ? 'PS00PALS000000000123456789' : null,
+                    'phone_number' => $methodCode === 'PAYBOX' ? '0599000000' : null,
                     'instructions' => 'حوّل المبلغ ثم أرفق إثبات الدفع مع الطلب.',
                     'is_active' => true,
                     'sort_order' => 10,
@@ -797,7 +812,7 @@ SVG;
             ['عناصر المنيو', DB::table('restaurant_menu_items')->whereIn('product_id', $productIds)->count()],
             ['أرصدة المخزون', DB::table('inventories')->whereIn('product_id', $productIds)->count()],
             ['طاولات الفروع', DB::table('restaurant_tables')->where('code', 'like', 'SWT-T%')->count()],
-            ['طرق الدفع', DB::table('payment_methods')->whereIn('code', ['SWT-CASH', 'SWT-WALLET', 'SWT-BANK'])->count()],
+            ['طرق الدفع', DB::table('payment_methods')->whereIn('code', ['CASH', 'PAYBOX', 'BANK'])->count()],
             ['الإعلانات', Schema::hasTable('menu_banners') ? DB::table('menu_banners')->where('image', 'like', 'images/sweets-menu/banners/%')->count() : 0],
             ['صور المنتجات', count(glob(public_path('images/sweets-menu/products/*.svg')) ?: [])],
         ];
