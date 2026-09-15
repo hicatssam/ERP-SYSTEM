@@ -43,12 +43,12 @@
 
     <div class="cmv4-preview"
          style="
-            --p:{{ $cmSetting('customer_menu_primary_color','#704C34') }};
-            --a:{{ $cmSetting('customer_menu_accent_color','#D79A55') }};
-            --bg:{{ $cmSetting('customer_menu_background_color','#F7F3EE') }};
+            --p:{{ $cmSetting('customer_menu_primary_color','#B0003A') }};
+            --a:{{ $cmSetting('customer_menu_accent_color','#D8124B') }};
+            --bg:{{ $cmSetting('customer_menu_background_color','#FBFAF8') }};
             --s:{{ $cmSetting('customer_menu_surface_color','#FFFFFF') }};
-            --t:{{ $cmSetting('customer_menu_text_color','#241D18') }};
-            --m:{{ $cmSetting('customer_menu_muted_color','#7D746C') }};
+            --t:{{ $cmSetting('customer_menu_text_color','#17151A') }};
+            --m:{{ $cmSetting('customer_menu_muted_color','#858087') }};
          ">
         <div class="cmv4-preview-intro" id="cmv4PreviewIntro" @if($introImage) style="background-image:linear-gradient(rgba(10,8,7,.46),rgba(10,8,7,.46)),url('{{ $introImage }}')" @endif>
             <div>
@@ -72,8 +72,8 @@
             <section class="hero" @if($cover) style="background-image:linear-gradient(90deg,rgba(20,14,10,.68),rgba(20,14,10,.16)),url('{{ $cover }}')" @endif>
                 <div>
                     <small>الفرع</small>
-                    <strong id="cmv4PreviewTitle">{{ $cmSetting('customer_menu_title','اطلب مباشرة') }}</strong>
-                    <span id="cmv4PreviewSubtitle">{{ $cmSetting('customer_menu_subtitle','اختر طلبك وسنجهزه لك') }}</span>
+                    <strong id="cmv4PreviewTitle">{{ $cmSetting('customer_menu_title','أهلاً بك') }}</strong>
+                    <span id="cmv4PreviewSubtitle">{{ $cmSetting('customer_menu_subtitle','شو بتحب تأكل اليوم؟') }}</span>
                 </div>
             </section>
 
@@ -118,12 +118,12 @@
 
             <div>
                 <label class="form-label">العنوان الرئيسي</label>
-                <input class="form-input" name="customer_menu_title" value="{{ $cmSetting('customer_menu_title','اطلب مباشرة') }}" maxlength="100" data-cmv4-text="cmv4PreviewTitle">
+                <input class="form-input" name="customer_menu_title" value="{{ $cmSetting('customer_menu_title','أهلاً بك') }}" maxlength="100" data-cmv4-text="cmv4PreviewTitle">
             </div>
 
             <div class="wide">
                 <label class="form-label">النص المساعد</label>
-                <input class="form-input" name="customer_menu_subtitle" value="{{ $cmSetting('customer_menu_subtitle','اختر طلبك وسنجهزه لك') }}" maxlength="180" data-cmv4-text="cmv4PreviewSubtitle">
+                <input class="form-input" name="customer_menu_subtitle" value="{{ $cmSetting('customer_menu_subtitle','شو بتحب تأكل اليوم؟') }}" maxlength="180" data-cmv4-text="cmv4PreviewSubtitle">
             </div>
         </div>
     </div>
@@ -187,12 +187,12 @@
 
     <div class="cmv4-pane" data-cmv4-pane="layout">
         <div class="cmv4-grid">
-            <div><label class="form-label">اللون الرئيسي</label><input class="form-input" type="color" name="customer_menu_primary_color" value="{{ $cmSetting('customer_menu_primary_color','#704C34') }}"></div>
-            <div><label class="form-label">Accent</label><input class="form-input" type="color" name="customer_menu_accent_color" value="{{ $cmSetting('customer_menu_accent_color','#D79A55') }}"></div>
-            <div><label class="form-label">الخلفية</label><input class="form-input" type="color" name="customer_menu_background_color" value="{{ $cmSetting('customer_menu_background_color','#F7F3EE') }}"></div>
+            <div><label class="form-label">اللون الرئيسي</label><input class="form-input" type="color" name="customer_menu_primary_color" value="{{ $cmSetting('customer_menu_primary_color','#B0003A') }}"></div>
+            <div><label class="form-label">Accent</label><input class="form-input" type="color" name="customer_menu_accent_color" value="{{ $cmSetting('customer_menu_accent_color','#D8124B') }}"></div>
+            <div><label class="form-label">الخلفية</label><input class="form-input" type="color" name="customer_menu_background_color" value="{{ $cmSetting('customer_menu_background_color','#FBFAF8') }}"></div>
             <div><label class="form-label">Surface</label><input class="form-input" type="color" name="customer_menu_surface_color" value="{{ $cmSetting('customer_menu_surface_color','#FFFFFF') }}"></div>
-            <div><label class="form-label">النص</label><input class="form-input" type="color" name="customer_menu_text_color" value="{{ $cmSetting('customer_menu_text_color','#241D18') }}"></div>
-            <div><label class="form-label">النص الثانوي</label><input class="form-input" type="color" name="customer_menu_muted_color" value="{{ $cmSetting('customer_menu_muted_color','#7D746C') }}"></div>
+            <div><label class="form-label">النص</label><input class="form-input" type="color" name="customer_menu_text_color" value="{{ $cmSetting('customer_menu_text_color','#17151A') }}"></div>
+            <div><label class="form-label">النص الثانوي</label><input class="form-input" type="color" name="customer_menu_muted_color" value="{{ $cmSetting('customer_menu_muted_color','#858087') }}"></div>
             <div><label class="form-label">الحدود</label><input class="form-input" type="color" name="customer_menu_border_color" value="{{ $cmSetting('customer_menu_border_color','#E9E1D8') }}"></div>
 
             <div>
@@ -230,8 +230,8 @@
             <div>
                 <label class="form-label">الخط</label>
                 <select class="form-input" name="customer_menu_font_family">
-                    <option value="Cairo" @selected((string)$cmSetting('customer_menu_font_family','Cairo')==='Cairo')>Cairo</option>
-                    <option value="Tajawal" @selected((string)$cmSetting('customer_menu_font_family','Cairo')==='Tajawal')>Tajawal</option>
+                    <option value="Cairo" @selected((string)$cmSetting('customer_menu_font_family','Tajawal')==='Cairo')>Cairo</option>
+                    <option value="Tajawal" @selected((string)$cmSetting('customer_menu_font_family','Tajawal')==='Tajawal')>Tajawal</option>
                 </select>
             </div>
 
@@ -262,7 +262,7 @@
 
             <div>
                 <label class="form-label">عنوان Featured</label>
-                <input class="form-input" name="customer_menu_featured_title" value="{{ $cmSetting('customer_menu_featured_title','اختياراتنا لك') }}" maxlength="100">
+                <input class="form-input" name="customer_menu_featured_title" value="{{ $cmSetting('customer_menu_featured_title','الأكثر طلباً') }}" maxlength="100">
             </div>
 
             <div>

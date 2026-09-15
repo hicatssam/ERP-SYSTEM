@@ -51,8 +51,100 @@ window.CustomerMenu = (function () {
         } catch (e) { return []; }
     }
 
-    let cart = safeObject(CART_KEY);
+    /**
+     * Older menu versions stored only product_id/qty (and sometimes used the
+     * product id itself as the row key). Rebuild every saved row from the live
+     * branch catalog so missing names/prices can never crash checkout or show
+     * a misleading 0.00 total. Unknown/deactivated products are discarded.
+     */
+    function normalizeCart(savedCart) {
+        const normalized = {};
+
+        Object.entries(savedCart || {}).forEach(([savedKey, rawValue]) => {
+            const raw = rawValue && typeof rawValue === 'object'
+                ? rawValue
+                : { quantity: rawValue };
+
+            const productId = raw.product_id ?? raw.id ?? String(savedKey).split(':')[0];
+            const p = PRODUCTS.find(item => String(item.id) === String(productId));
+            if (!p || !p.available) return;
+
+            const quantity = Math.max(1, Math.min(50, Number(raw.quantity ?? raw.qty ?? 1) || 1));
+            const variantId = raw.variant_id ?? raw.product_variant_id ?? null;
+            const variant = variantId
+                ? p.variants.find(item => String(item.id) === String(variantId))
+                : null;
+
+            // A removed variant makes the old line invalid; do not silently
+            // submit it as the base product.
+            if (p.isVariantProduct && !variant) return;
+
+            const availableModifiers = p.modifierGroups.flatMap(group =>
+                group.modifiers.map(modifier => ({
+                    ...modifier,
+                    group_id: group.id,
+                    group_name: group.name,
+                }))
+            );
+            const modifiers = (Array.isArray(raw.modifiers) ? raw.modifiers : [])
+                .map(saved => {
+                    const id = saved.modifier_id ?? saved.id;
+                    const current = availableModifiers.find(item => String(item.id) === String(id));
+                    if (!current) return null;
+
+                    return {
+                        modifier_id: current.id,
+                        name: current.name,
+                        price_delta: Number(current.price_delta || 0),
+                        quantity: Math.max(1, Math.min(20, Number(saved.quantity || 1) || 1)),
+                    };
+                })
+                .filter(Boolean);
+
+            let price = Number(variant?.price ?? p.price ?? 0);
+            price += modifiers.reduce(
+                (sum, modifier) => sum + modifier.price_delta * modifier.quantity,
+                0
+            );
+
+            const modifierSignature = modifiers
+                .slice()
+                .sort((a, b) => Number(a.modifier_id) - Number(b.modifier_id))
+                .map(modifier => `${modifier.modifier_id}:${modifier.quantity}`)
+                .join(',');
+            const key = `${p.id}:${variant?.id || 0}:${modifierSignature}`;
+
+            if (!normalized[key]) {
+                normalized[key] = {
+                    product_id: p.id,
+                    variant_id: variant?.id ?? null,
+                    variant_name: variant?.name ?? null,
+                    modifiers,
+                    name: [p.name, variant?.name].filter(Boolean).join(' - '),
+                    price,
+                    quantity: 0,
+                    image: p.image || '',
+                    prep_time_minutes: p.prepTimeMinutes ?? null,
+                };
+            }
+            normalized[key].quantity = Math.min(50, normalized[key].quantity + quantity);
+        });
+
+        return normalized;
+    }
+
+    const savedCart = safeObject(CART_KEY);
+    let cart = normalizeCart(savedCart);
     let favorites = safeArray(FAV_KEY);
+
+    // Persist the upgraded shape once, making all following pages consistent.
+    try {
+        if (JSON.stringify(savedCart) !== JSON.stringify(cart)) {
+            localStorage.setItem(CART_KEY, JSON.stringify(cart));
+        }
+    } catch (e) {
+        // Browsers can block storage in private mode; the in-memory cart still works.
+    }
 
     function esc(value) {
         return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

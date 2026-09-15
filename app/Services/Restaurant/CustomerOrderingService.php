@@ -49,9 +49,15 @@ class CustomerOrderingService
             ]);
         }
 
+        $requestToken = (string) $data['request_token'];
+
         $existing = Order::query()
             ->where('order_source', 'customer_menu')
-            ->where('public_request_id', (string) $data['request_token'])
+            ->where(function ($query) use ($requestToken): void {
+                $query
+                    ->where('public_request_id', $requestToken)
+                    ->orWhere('public_request_token', $requestToken);
+            })
             ->first();
 
         if ($existing) {
@@ -114,7 +120,11 @@ class CustomerOrderingService
                 $data['address'] ?? null
             );
 
-            $publicToken = Str::random(48);
+            // Both historical customer-menu migrations accept UUIDs. Keeping
+            // the tracking token at 36 characters also works on installations
+            // where public_token was originally created with $table->uuid().
+            $publicToken = (string) Str::uuid();
+            $requestToken = (string) $data['request_token'];
 
             $notes = collect([
                 filled($data['notes'] ?? null)
@@ -149,6 +159,11 @@ class CustomerOrderingService
             $payload = [
                 'location_id' => (int) $location->id,
                 'customer_id' => (int) $customer->id,
+                'guest_name' => (string) $data['name'],
+                'guest_phone' => (string) $data['phone'],
+                'delivery_address' => filled($data['address'] ?? null)
+                    ? trim((string) $data['address'])
+                    : null,
                 'payment_arrangement' => $paymentContext['arrangement']->value,
                 'sales_channel_id' => (int) $channel->id,
                 'discount_type' => 'none',
@@ -171,7 +186,11 @@ class CustomerOrderingService
                  */
                 'order_source' => 'customer_menu',
                 'public_token' => $publicToken,
-                'public_request_id' => (string) $data['request_token'],
+                // public_request_id is the original column; the later
+                // public_request_token column is kept in sync for backwards
+                // compatibility with older controller/database revisions.
+                'public_request_id' => $requestToken,
+                'public_request_token' => $requestToken,
                 'public_order_meta' => [
                     'customer_name' => (string) $data['name'],
                     'customer_phone' => (string) $data['phone'],
@@ -194,21 +213,6 @@ class CustomerOrderingService
                 $actor,
                 false
             );
-
-            $order->forceFill([
-                'order_source' => 'customer_menu',
-                'public_token' => $publicToken,
-                'public_request_id' => (string) $data['request_token'],
-                'public_order_meta' => [
-                    'customer_name' => (string) $data['name'],
-                    'customer_phone' => (string) $data['phone'],
-                    'delivery_address' => $data['address'] ?? null,
-                    'submitted_at' => now()->toIso8601String(),
-                    'source' => 'customer_menu',
-                    'restaurant_table_id' => $table?->id,
-                    'restaurant_table_session_id' => $openedSession?->id,
-                ],
-            ])->save();
 
             return $order->fresh([
                 'items',
@@ -253,7 +257,7 @@ class CustomerOrderingService
             permissions: [
                 'orders.view',
                 'orders.create',
-                'orders.edit',
+                'orders.update',
                 'orders.confirm',
                 'restaurant_pos.use',
             ],
@@ -356,7 +360,7 @@ class CustomerOrderingService
             $extension = strtolower($file->getClientOriginalExtension() ?: 'bin');
             $proofPath = $file->storeAs(
                 'payment-proofs/customer-menu/' . $order->id,
-                'proof-' . $order->public_request_id . '.' . $extension,
+                'proof-' . ($order->public_request_id ?: $order->public_request_token) . '.' . $extension,
                 'public'
             );
         }

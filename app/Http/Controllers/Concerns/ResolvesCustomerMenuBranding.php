@@ -65,20 +65,31 @@ trait ResolvesCustomerMenuBranding
      */
     protected function theme(): array
     {
-        $primary = (string) SystemSetting::get('customer_menu_primary', '#704C34');
-        $accent = (string) SystemSetting::get('customer_menu_accent', '#D79A55');
-        $background = (string) SystemSetting::get('customer_menu_background', '#F7F3EE');
-        $surface = (string) SystemSetting::get('customer_menu_surface', '#FFFFFF');
-        $text = (string) SystemSetting::get('customer_menu_text', '#241D18');
-        $muted = (string) SystemSetting::get('customer_menu_muted', '#7D746C');
+        // The current V4 settings screen uses the *_color keys. The legacy
+        // keys remain valid fallbacks for installations upgraded in place.
+        $setting = static fn (string $key, string $legacy, mixed $default): mixed =>
+            SystemSetting::get($key, SystemSetting::get($legacy, $default));
 
-        $radius = max(0, min(40, (int) SystemSetting::get('customer_menu_radius', 18)));
+        $primary = (string) $setting('customer_menu_primary_color', 'customer_menu_primary', '#B0003A');
+        $accent = (string) $setting('customer_menu_accent_color', 'customer_menu_accent', '#D8124B');
+        $background = (string) $setting('customer_menu_background_color', 'customer_menu_background', '#FBFAF8');
+        $surface = (string) $setting('customer_menu_surface_color', 'customer_menu_surface', '#FFFFFF');
+        $text = (string) $setting('customer_menu_text_color', 'customer_menu_text', '#17151A');
+        $muted = (string) $setting('customer_menu_muted_color', 'customer_menu_muted', '#858087');
+
+        $radius = max(0, min(40, (int) SystemSetting::get('customer_menu_radius', 22)));
         $columns = max(2, min(5, (int) SystemSetting::get('customer_menu_columns', 3)));
-
         $heroHeight = max(220, min(720, (int) SystemSetting::get('customer_menu_hero_height', 430)));
         $showHero = (bool) SystemSetting::get('customer_menu_show_hero', true);
 
-        $cover = SystemSetting::assetUrl('customer_menu_cover');
+        $cover = SystemSetting::assetUrl('customer_menu_cover_image')
+            ?: SystemSetting::assetUrl('customer_menu_cover');
+
+        $shadow = match ((string) SystemSetting::get('customer_menu_product_card_shadow', 'soft')) {
+            'none' => 'none',
+            'deep' => '0 18px 44px rgba(27, 19, 22, .16)',
+            default => '0 10px 28px rgba(27, 19, 22, .08)',
+        };
 
         return [
             'primary' => $primary,
@@ -87,11 +98,29 @@ trait ResolvesCustomerMenuBranding
             'surface' => $surface,
             'text' => $text,
             'muted' => $muted,
+            'border' => (string) SystemSetting::get('customer_menu_border_color', '#EDE8E6'),
             'radius' => $radius,
             'columns' => $columns,
             'hero_height' => $heroHeight,
             'show_hero' => $showHero,
             'cover' => $cover,
+            'cover_overlay' => max(0, min(90, (int) SystemSetting::get('customer_menu_cover_overlay', 48))),
+            'content_width' => max(360, min(1700, (int) SystemSetting::get('customer_menu_content_width', 980))),
+            'section_gap' => max(20, min(100, (int) SystemSetting::get('customer_menu_section_gap', 34))),
+            'card_radius' => max(0, min(40, (int) SystemSetting::get('customer_menu_product_card_radius', 18))),
+            'card_shadow' => $shadow,
+            'card_image_ratio' => (string) SystemSetting::get('customer_menu_card_image_ratio', '4-3'),
+            'image_fit' => (string) SystemSetting::get('customer_menu_image_fit', 'cover'),
+            'font_family' => (string) SystemSetting::get('customer_menu_font_family', 'Tajawal'),
+            'nav_style' => (string) SystemSetting::get('customer_menu_nav_style', 'solid'),
+            'title' => (string) SystemSetting::get('customer_menu_title', 'أهلاً بك'),
+            'subtitle' => (string) SystemSetting::get('customer_menu_subtitle', 'شو بتحب تأكل اليوم؟'),
+            'show_search' => (bool) SystemSetting::get('customer_menu_show_search', true),
+            'show_categories' => (bool) SystemSetting::get('customer_menu_show_categories', true),
+            'show_descriptions' => (bool) SystemSetting::get('customer_menu_show_descriptions', true),
+            'show_featured' => (bool) SystemSetting::get('customer_menu_show_featured', true),
+            'featured_title' => (string) SystemSetting::get('customer_menu_featured_title', 'الأكثر طلباً'),
+            'featured_limit' => max(2, min(8, (int) SystemSetting::get('customer_menu_featured_limit', 4))),
 
             // Compatibility aliases for older customer-menu views.
             'heroHeight' => $heroHeight,
@@ -264,7 +293,7 @@ trait ResolvesCustomerMenuBranding
      * Active catalog categories, following the Categories screen in the ERP
      * rather than being derived from whatever happens to be on the menu.
      */
-    protected function categoriesFor(): Collection
+    protected function categoriesFor(?Location $location = null): Collection
     {
         $categoryColumns = ['id', 'name', 'name_ar', 'sort_order'];
 
@@ -274,8 +303,26 @@ trait ResolvesCustomerMenuBranding
             }
         }
 
+        $showUnavailable = (bool) SystemSetting::get('customer_menu_show_unavailable', false);
+
         return Category::query()
             ->where('is_active', true)
+            ->when($location, function ($query) use ($location, $showUnavailable): void {
+                $query->whereHas('products', function ($productQuery) use ($location, $showUnavailable): void {
+                    $productQuery
+                        ->where('is_active', true)
+                        ->whereHas('restaurantMenuItems', fn ($menuQuery) => $menuQuery
+                            ->where('location_id', (int) $location->id)
+                            ->where('is_active', true)
+                            ->where('show_in_qr', true));
+
+                    if (! $showUnavailable) {
+                        $productQuery->whereHas('locationProducts', fn ($locationQuery) => $locationQuery
+                            ->where('location_id', (int) $location->id)
+                            ->where('is_available', true));
+                    }
+                });
+            })
             ->orderBy('sort_order')
             ->orderByRaw("COALESCE(NULLIF(name_ar, ''), name)")
             ->get($categoryColumns)
