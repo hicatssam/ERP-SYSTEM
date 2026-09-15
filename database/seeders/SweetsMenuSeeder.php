@@ -40,6 +40,7 @@ class SweetsMenuSeeder extends Seeder
             $this->seedRecipes($products, $ingredients, $actorId);
             $this->seedMenusAndKitchenRoutes($products, $actorId);
             $this->seedAdvertisements();
+            $this->isolatePublicSweetsMenu($products);
             $this->seedMenuSettings();
             $this->validateSeed($products);
         });
@@ -238,12 +239,17 @@ class SweetsMenuSeeder extends Seeder
 
         $ids = [];
         foreach ($definitions as $slug => [$name, $nameAr, $icon, $color, $sort]) {
+            $image = $slug === 'sweets-ingredients'
+                ? null
+                : $this->createCategoryImage($slug, $nameAr, $color);
+
             $this->upsert('categories', ['slug' => $slug], [
                 'name' => $name,
                 'name_ar' => $nameAr,
                 'description' => $slug === 'sweets-ingredients'
                     ? 'مواد خام داخلية غير معروضة في منيو الزبون.'
                     : 'تشكيلة حلويات ومشروبات طازجة.',
+                'image' => $image,
                 'icon_key' => $icon,
                 'icon_color' => $color,
                 'is_active' => true,
@@ -579,6 +585,53 @@ class SweetsMenuSeeder extends Seeder
         }
     }
 
+
+    /**
+     * Make this standalone seed produce a sweets-only public QR menu without
+     * deleting products or affecting their POS availability. Running another
+     * menu seeder later can re-enable those rows normally.
+     */
+    private function isolatePublicSweetsMenu(Collection $products): void
+    {
+        $branchIds = DB::table('locations')
+            ->where('type', 'branch')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
+
+        if ($branchIds !== []) {
+            $hiddenValues = ['show_in_qr' => false];
+
+            foreach (['show_in_delivery', 'is_featured'] as $column) {
+                if (Schema::hasColumn('restaurant_menu_items', $column)) {
+                    $hiddenValues[$column] = false;
+                }
+            }
+
+            if (Schema::hasColumn('restaurant_menu_items', 'updated_at')) {
+                $hiddenValues['updated_at'] = now();
+            }
+
+            DB::table('restaurant_menu_items')
+                ->whereIn('location_id', $branchIds)
+                ->whereNotIn('product_id', $products->pluck('id')->all())
+                ->update($hiddenValues);
+        }
+
+        $bannerValues = ['is_active' => false];
+        if (Schema::hasColumn('menu_banners', 'updated_at')) {
+            $bannerValues['updated_at'] = now();
+        }
+
+        DB::table('menu_banners')
+            ->where(function ($query): void {
+                $query
+                    ->whereNull('image')
+                    ->orWhere('image', 'not like', 'images/sweets-menu/banners/%');
+            })
+            ->update($bannerValues);
+    }
+
     private function resolveSweetsStation(int $locationId, ?int $actorId): ?int
     {
         if (! Schema::hasTable('kitchen_stations')) {
@@ -642,7 +695,7 @@ class SweetsMenuSeeder extends Seeder
                 'title' => $title,
                 'subtitle' => $subtitle,
                 'badge_text' => $badge,
-                'link_url' => '#menu-products',
+                'link_url' => '#menuCatalog',
                 'sort_order' => ($index + 1) * 10,
                 'is_active' => true,
                 'starts_at' => now()->subDay(),
@@ -690,6 +743,14 @@ class SweetsMenuSeeder extends Seeder
         $recipeCount = DB::table('recipes')->whereIn('product_id', $productIds)->where('status', 'approved')->count();
         $menuCount = DB::table('restaurant_menu_items')->whereIn('product_id', $productIds)->where('is_active', true)->count();
         $inventoryCount = DB::table('inventories')->whereIn('product_id', $productIds)->count();
+        $nonSweetsVisible = DB::table('restaurant_menu_items')
+            ->where('is_active', true)
+            ->where('show_in_qr', true)
+            ->whereNotIn('product_id', $productIds->all())
+            ->count();
+        $productImageCount = count(glob(public_path('images/sweets-menu/products/*.svg')) ?: []);
+        $categoryImageCount = count(glob(public_path('images/sweets-menu/categories/*.svg')) ?: []);
+        $bannerImageCount = count(glob(public_path('images/sweets-menu/banners/*.svg')) ?: []);
 
         if ($products->isEmpty()) {
             throw new RuntimeException('لم يتم إنشاء أي منتج حلويات.');
@@ -706,15 +767,57 @@ class SweetsMenuSeeder extends Seeder
         if ($products->contains(fn (object $product): bool => str_contains(strtolower($product->name), 'burger'))) {
             throw new RuntimeException('Seeder الحلويات يحتوي منتج برغر بالخطأ.');
         }
+        if ($nonSweetsVisible !== 0) {
+            throw new RuntimeException("يوجد {$nonSweetsVisible} صنف غير حلويات ظاهر في منيو QR.");
+        }
+        if ($productImageCount < $products->count()) {
+            throw new RuntimeException("صور منتجات الحلويات غير مكتملة: {$productImageCount}/{$products->count()}");
+        }
+        if ($categoryImageCount < 6) {
+            throw new RuntimeException("صور تصنيفات الحلويات غير مكتملة: {$categoryImageCount}/6");
+        }
+        if ($bannerImageCount < 3) {
+            throw new RuntimeException("صور إعلانات الحلويات غير مكتملة: {$bannerImageCount}/3");
+        }
     }
 
     private function ensureAssetDirectories(): void
     {
-        foreach ([public_path('images/sweets-menu/products'), public_path('images/sweets-menu/banners')] as $directory) {
+        foreach ([
+            public_path('images/sweets-menu/products'),
+            public_path('images/sweets-menu/categories'),
+            public_path('images/sweets-menu/banners'),
+        ] as $directory) {
             if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
                 throw new RuntimeException("تعذر إنشاء مجلد الصور: {$directory}");
             }
         }
+    }
+
+
+    private function createCategoryImage(string $slug, string $nameAr, string $accent): string
+    {
+        $safeName = htmlspecialchars($nameAr, ENT_QUOTES | ENT_XML1, 'UTF-8');
+        $safeSlug = preg_replace('/[^A-Za-z0-9_-]/', '-', $slug);
+        $relative = 'images/sweets-menu/categories/'.$safeSlug.'.svg';
+        $svg = <<<SVG
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 640 640">
+ <defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffaf4"/><stop offset="1" stop-color="{$accent}" stop-opacity=".2"/></linearGradient>
+  <radialGradient id="cream"><stop stop-color="#fff"/><stop offset="1" stop-color="#f2d5bc"/></radialGradient>
+ </defs>
+ <rect width="640" height="640" rx="96" fill="url(#bg)"/>
+ <ellipse cx="320" cy="475" rx="220" ry="48" fill="#3b1b16" opacity=".14"/>
+ <path d="M155 390 Q320 170 485 390 L450 475 Q320 545 190 475Z" fill="url(#cream)" stroke="{$accent}" stroke-width="14"/>
+ <path d="M190 385 Q320 255 450 385" fill="none" stroke="{$accent}" stroke-width="26" stroke-linecap="round"/>
+ <circle cx="320" cy="245" r="35" fill="{$accent}"/>
+ <path d="M320 210 C300 170 350 150 370 180 C350 185 335 195 320 210Z" fill="#5c8d42"/>
+ <text x="320" y="585" text-anchor="middle" fill="#2b1820" font-size="42" font-weight="800" direction="rtl">{$safeName}</text>
+</svg>
+SVG;
+        $this->writeAsset(public_path($relative), $svg);
+
+        return $relative;
     }
 
     private function createProductImage(string $sku, string $nameAr, string $category, int $index): string
@@ -814,7 +917,13 @@ SVG;
             ['طاولات الفروع', DB::table('restaurant_tables')->where('code', 'like', 'SWT-T%')->count()],
             ['طرق الدفع', DB::table('payment_methods')->whereIn('code', ['CASH', 'PAYBOX', 'BANK'])->count()],
             ['الإعلانات', Schema::hasTable('menu_banners') ? DB::table('menu_banners')->where('image', 'like', 'images/sweets-menu/banners/%')->count() : 0],
+            ['صور التصنيفات', count(glob(public_path('images/sweets-menu/categories/*.svg')) ?: [])],
             ['صور المنتجات', count(glob(public_path('images/sweets-menu/products/*.svg')) ?: [])],
+            ['أصناف غير حلويات ظاهرة في QR', DB::table('restaurant_menu_items')
+                ->where('is_active', true)
+                ->where('show_in_qr', true)
+                ->whereNotIn('product_id', $productIds->all())
+                ->count()],
         ];
 
         $this->command?->info('تم زرع منيو الحلويات فقط بنجاح، بدون أي بيانات برغر.');
