@@ -743,7 +743,13 @@ class SweetsMenuSeeder extends Seeder
         $recipeCount = DB::table('recipes')->whereIn('product_id', $productIds)->where('status', 'approved')->count();
         $menuCount = DB::table('restaurant_menu_items')->whereIn('product_id', $productIds)->where('is_active', true)->count();
         $inventoryCount = DB::table('inventories')->whereIn('product_id', $productIds)->count();
+        $activeBranchIds = DB::table('locations')
+            ->where('type', 'branch')
+            ->where('is_active', true)
+            ->pluck('id')
+            ->all();
         $nonSweetsVisible = DB::table('restaurant_menu_items')
+            ->whereIn('location_id', $activeBranchIds)
             ->where('is_active', true)
             ->where('show_in_qr', true)
             ->whereNotIn('product_id', $productIds->all())
@@ -920,6 +926,11 @@ SVG;
             ['صور التصنيفات', count(glob(public_path('images/sweets-menu/categories/*.svg')) ?: [])],
             ['صور المنتجات', count(glob(public_path('images/sweets-menu/products/*.svg')) ?: [])],
             ['أصناف غير حلويات ظاهرة في QR', DB::table('restaurant_menu_items')
+                ->whereIn('location_id', DB::table('locations')
+                    ->where('type', 'branch')
+                    ->where('is_active', true)
+                    ->pluck('id')
+                    ->all())
                 ->where('is_active', true)
                 ->where('show_in_qr', true)
                 ->whereNotIn('product_id', $productIds->all())
