@@ -66,7 +66,7 @@ class CustomerMenuController extends Controller
             'location' => $location,
             'menuItems' => $menuItems,
             'popularProductIds' => $popularProductIds,
-            'categories' => $this->categoriesFor(),
+            'categories' => $this->categoriesFor($location),
             'banners' => $this->bannersFor($location),
             'tables' => $tables,
             'selectedTable' => $this->resolveSelectedTable($tables, (string) $request->query('table', '')),
@@ -88,7 +88,7 @@ class CustomerMenuController extends Controller
         return view('customer-menu.products', [
             'location' => $location,
             'menuItems' => $this->menuItemsFor($location),
-            'categories' => $this->categoriesFor(),
+            'categories' => $this->categoriesFor($location),
             'branding' => $this->branding($location),
             'theme' => $this->theme(),
             'initialCategory' => (string) $request->query('category', 'all'),
