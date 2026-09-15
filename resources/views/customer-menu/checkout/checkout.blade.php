@@ -43,7 +43,7 @@
       <span><span class="dot" style="background:#d64545"></span> مشغولة</span>
      </div>
      <div class="table-grid" id="tableGrid">
-      @foreach(($tables ?? []) as $table)
+      @forelse(($tables ?? []) as $table)
        @php $isAvailable = (bool) ($table['available'] ?? true); @endphp
        <button type="button"
                class="table-card {{ $isAvailable ? 'available' : 'occupied' }}"
@@ -53,7 +53,9 @@
         {{ $table['name'] ?? ('طاولة '.$table['id']) }}
         <small>{{ $isAvailable ? 'متاحة' : 'مشغولة' }}</small>
        </button>
-      @endforeach
+      @empty
+       <div class="empty" style="padding:18px">لا توجد طاولات مفعّلة لهذا الفرع.</div>
+      @endforelse
      </div>
      <input type="hidden" name="restaurant_table_id" id="tableIdInput">
     </label>
@@ -83,7 +85,7 @@
    </div>
 
    <div class="error" id="checkoutError"></div>
-   <button class="submit-order" id="checkoutSubmit" type="submit">تأكيد وإرسال الطلب</button>
+   <button class="submit-order" id="checkoutSubmit" type="submit" disabled>تأكيد وإرسال الطلب</button>
   </form>
  </div>
 </main>
@@ -116,7 +118,7 @@ function renderSummary() {
       <div class="cart-row">
         <div class="cart-thumb">${x.image ? `<img src="${CM.esc(x.image)}" alt="">` : ''}</div>
         <div class="row-copy">
-          <strong>${CM.esc(x.name.split(' - ')[0])}</strong>
+          <strong>${CM.esc(String(x.name || 'صنف').split(' - ')[0])}</strong>
           ${subtitle ? `<span style="display:block;font-size:.74rem;color:var(--muted)">${CM.esc(subtitle)}</span>` : ''}
           <small>${x.quantity} × ${CM.money(x.price)}</small>
         </div>
@@ -143,12 +145,18 @@ document.getElementById('tableGrid').addEventListener('click', e => {
 async function loadPayments() {
     try {
         const response = await fetch(PAYMENT_URL, { headers: { Accept: 'application/json' } });
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.message || 'تعذر تحميل طرق الدفع');
-        methods = data.payment_methods || data.methods || [];
+        methods = Array.isArray(data.payment_methods || data.methods)
+            ? (data.payment_methods || data.methods)
+            : [];
         renderPayments();
+        document.getElementById('checkoutSubmit').disabled = methods.length === 0;
     } catch (e) {
-        document.getElementById('paymentMethods').innerHTML = '<div class="error">' + CM.esc(e.message) + '</div>';
+        methods = [];
+        document.getElementById('checkoutSubmit').disabled = true;
+        document.getElementById('paymentMethods').innerHTML =
+            '<div class="error">تعذر تحميل طرق الدفع. حدّث الصفحة أو راجع إعدادات الفرع.</div>';
     }
 }
 
@@ -224,7 +232,29 @@ document.getElementById('checkoutForm').addEventListener('submit', async e => {
     const rows = CM.cartRows();
     if (!rows.length) return;
 
-    document.getElementById('checkoutError').textContent = '';
+    const serviceType = document.getElementById('serviceType').value;
+    const paymentMethodId = document.getElementById('paymentMethodId').value;
+    const tableId = document.getElementById('tableIdInput').value;
+    const address = e.currentTarget.elements.address?.value?.trim() || '';
+    const error = document.getElementById('checkoutError');
+
+    if (serviceType === 'dine_in' && !tableId) {
+        error.textContent = 'اختر طاولة متاحة لطلب داخل المطعم.';
+        document.getElementById('tableField').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    if (serviceType === 'delivery' && !address) {
+        error.textContent = 'أدخل عنوان التوصيل.';
+        document.getElementById('addressField').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+    if (!paymentMethodId) {
+        error.textContent = 'اختر طريقة الدفع قبل تأكيد الطلب.';
+        document.getElementById('paymentMethods').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    error.textContent = '';
     const button = document.getElementById('checkoutSubmit');
     button.disabled = true;
     button.textContent = 'جاري إرسال الطلب...';
@@ -274,9 +304,11 @@ document.getElementById('checkoutForm').addEventListener('submit', async e => {
     }
 });
 
-renderSummary();
+// Start checkout infrastructure first. Even if a malformed legacy cart row
+// slips through, tables and payment methods must never remain stuck loading.
 serviceFields();
 loadPayments();
+renderSummary();
 
 (async function loadEta() {
     try {
