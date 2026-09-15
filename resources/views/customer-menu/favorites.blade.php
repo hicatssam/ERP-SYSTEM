@@ -8,55 +8,24 @@
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
+<style>
+.favorites-page{padding:10px 0 108px}.favorites-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:2px 0 14px}.favorites-head h2{margin:0;font-size:1.12rem;font-weight:900}.favorites-head p{margin:4px 0 0;color:var(--muted);font-size:.72rem}.favorite-count{white-space:nowrap;background:var(--surface);border:1px solid color-mix(in srgb,var(--text) 8%,transparent);border-radius:999px;padding:7px 10px;font-size:.68rem;color:var(--muted);font-weight:800}.favorites-list{display:grid;gap:11px}.favorite-card{display:grid;grid-template-columns:92px minmax(0,1fr);gap:12px;padding:10px;background:var(--surface);border:1px solid color-mix(in srgb,var(--text) 8%,transparent);border-radius:20px;box-shadow:0 7px 22px rgba(0,0,0,.045);position:relative}.favorite-media{width:92px;height:92px;border-radius:16px;overflow:hidden;background:color-mix(in srgb,var(--primary) 8%,var(--surface));position:relative}.favorite-media img,.favorite-media .product-image{width:100%;height:100%;object-fit:cover;display:block}.favorite-copy{min-width:0;padding:3px 0 0}.favorite-copy strong{display:block;font-size:.9rem;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:44px}.favorite-copy small{display:block;color:var(--muted);font-size:.67rem;margin-top:4px}.favorite-copy .fav-price{display:block;color:var(--primary);font-size:.86rem;font-weight:900;margin-top:9px}.favorite-copy .prep{display:inline-flex;align-items:center;gap:4px;color:var(--muted);font-size:.62rem;margin-top:5px}.favorite-actions{display:flex;align-items:center;gap:7px;margin-top:9px}.favorite-actions button,.favorite-actions a{height:34px;border:1px solid color-mix(in srgb,var(--text) 8%,transparent);border-radius:11px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;gap:5px;color:var(--text);font-size:.68rem;font-weight:900;padding:0 10px}.favorite-actions .add{background:var(--primary);color:#fff;border-color:var(--primary);flex:1}.favorite-actions .remove{position:absolute;top:10px;left:10px;width:34px;padding:0;border-radius:50%;color:var(--primary);background:#fffffff2}.favorite-actions button:disabled{opacity:.45}.favorites-empty{padding:58px 18px;text-align:center;background:var(--surface);border:1px dashed color-mix(in srgb,var(--text) 14%,transparent);border-radius:22px}.favorites-empty i{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;margin:0 auto 13px;background:color-mix(in srgb,var(--primary) 9%,var(--surface));color:var(--primary);font-size:1.3rem}.favorites-empty h3{margin:0 0 6px;font-size:1rem}.favorites-empty p{margin:0 0 17px;color:var(--muted);font-size:.76rem;line-height:1.7}.favorites-empty a{display:inline-flex;padding:11px 19px;border-radius:13px;background:var(--primary);color:#fff;font-size:.78rem;font-weight:900}@media(max-width:360px){.favorite-card{grid-template-columns:80px minmax(0,1fr);gap:9px}.favorite-media{width:80px;height:80px}.favorite-actions button,.favorite-actions a{padding:0 8px}}
+</style>
 </head>
 <body class="crisp-customer-menu">
 <div class="app crisp-menu-app">
 @include('customer-menu.partials.topbar', ['pageTitle' => 'المفضلة', 'pageSubtitle' => $location->name])
-
-<main class="menu-area">
- <div class="shell">
-  <div id="favoritesItems"></div>
- </div>
-</main>
+<main class="menu-area favorites-page"><div class="shell"><div class="favorites-head"><div><h2>المفضلة ❤️</h2><p>الأصناف التي حفظتها لطلب أسرع</p></div><span class="favorite-count" id="favoriteCount"></span></div><div class="favorites-list" id="favoritesItems"></div></div></main>
 </div>
-
 @include('customer-menu.partials.bottom-nav', ['activeNav' => 'favorites'])
 @include('customer-menu.partials.pwa-install')
 @include('customer-menu.partials.cart-engine')
-
 <script>
-const CM = window.CustomerMenu;
-const PRODUCT_URL_BASE = @json(route('customer-menu.product.show', [$location->code, '__ID__']));
-const PRODUCTS_URL = @json(route('customer-menu.products', $location->code));
-
-function renderFavorites() {
-    const rows = CM.favorites().map(id => CM.product(id)).filter(Boolean);
-    document.getElementById('favoritesItems').innerHTML = rows.length
-        ? rows.map(p => `
-          <div class="fav-row">
-            <div class="fav-thumb">${CM.image(p)}</div>
-            <div class="row-copy"><strong>${CM.esc(p.name)}</strong><small>${CM.money(p.price)}</small></div>
-            <div class="row-actions">
-              <a href="${PRODUCT_URL_BASE.replace('__ID__', p.id)}"><i class="fa-solid fa-eye"></i></a>
-              <button type="button" data-fav="${p.id}"><i class="fa-solid fa-heart"></i></button>
-              <button type="button" data-add="${p.id}"><i class="fa-solid fa-bag-shopping"></i></button>
-            </div>
-          </div>`).join('')
-        : `<div class="empty">لا توجد أصناف في المفضلة. <br><a href="${PRODUCTS_URL}">تصفّح المنيو</a></div>`;
-}
-
-document.addEventListener('click', e => {
-    const fav = e.target.closest('[data-fav]'); if (fav) { CM.toggleFavorite(fav.dataset.fav); renderFavorites(); return; }
-    const add = e.target.closest('[data-add]');
-    if (add) {
-        const p = CM.product(add.dataset.add);
-        if (p && p.requiresChoices) { window.location.href = PRODUCT_URL_BASE.replace('__ID__', p.id); return; }
-        CM.addToCart(add.dataset.add, 1);
-        return;
-    }
-});
-
-renderFavorites();
+const CM=window.CustomerMenu;
+const PRODUCT_URL_BASE=@json(route('customer-menu.product.show',[$location->code,'__ID__']));
+const PRODUCTS_URL=@json(route('customer-menu.products',$location->code));
+function productUrl(id){return PRODUCT_URL_BASE.replace('__ID__',id)}
+function renderFavorites(){const rows=CM.favorites().map(id=>CM.product(id)).filter(Boolean);document.getElementById('favoriteCount').textContent=rows.length?`${rows.length} صنف`:'0 صنف';document.getElementById('favoritesItems').innerHTML=rows.length?rows.map(p=>`<article class="favorite-card"><a class="favorite-media" href="${productUrl(p.id)}">${CM.image(p)}</a><div class="favorite-copy"><strong>${CM.esc(p.name)}</strong><small>${CM.esc(p.category_name||'من المنيو')}</small><span class="fav-price">${CM.money(p.price)}</span>${Number(p.prep_time_minutes||0)>0?`<span class="prep"><i class="fa-regular fa-clock"></i> حوالي ${Number(p.prep_time_minutes)} دقيقة</span>`:''}<div class="favorite-actions"><a href="${productUrl(p.id)}"><i class="fa-solid fa-eye"></i> عرض</a><button class="add" type="button" data-add="${CM.esc(p.id)}" ${!p.available?'disabled':''}>${p.requiresChoices?'<i class="fa-solid fa-sliders"></i> تخصيص':'<i class="fa-solid fa-bag-shopping"></i> أضف للسلة'}</button><button class="remove" type="button" data-fav="${CM.esc(p.id)}" aria-label="إزالة من المفضلة"><i class="fa-solid fa-heart"></i></button></div></div></article>`).join(''):`<div class="favorites-empty"><i class="fa-regular fa-heart"></i><h3>المفضلة فارغة</h3><p>احفظ البرجر والمقبلات والمشروبات التي تحبها، وستجدها هنا دائمًا.</p><a href="${PRODUCTS_URL}">تصفّح المنيو</a></div>`}
+document.addEventListener('click',e=>{const fav=e.target.closest('[data-fav]');if(fav){CM.toggleFavorite(fav.dataset.fav);renderFavorites();return}const add=e.target.closest('[data-add]');if(add){const p=CM.product(add.dataset.add);if(!p||!p.available)return;if(p.requiresChoices){location.href=productUrl(p.id);return}CM.addToCart(add.dataset.add,1)}});renderFavorites();
 </script>
-</body>
-</html>
+</body></html>

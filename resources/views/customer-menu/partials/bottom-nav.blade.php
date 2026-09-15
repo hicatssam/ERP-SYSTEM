@@ -8,3 +8,6 @@
  <a class="nav-btn {{ $activeNav === 'favorites' ? 'active' : '' }}" href="{{ route('customer-menu.favorites', $location->code) }}"><i class="fa-regular fa-heart"></i><span>المفضلة</span><b class="nav-badge" id="favBadgeNav">0</b></a>
  <a class="nav-btn {{ $activeNav === 'orders' ? 'active' : '' }}" href="{{ route('customer-menu.my-orders', $location->code) }}"><i class="fa-solid fa-receipt"></i><span>طلباتي</span></a>
 </nav>
+@if($activeNav === 'home')
+ @include('customer-menu.partials.home-enhancements')
+@endif

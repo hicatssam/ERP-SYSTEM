@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\Payments\OrderPaymentStatusSynchronizer;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class Refund extends Model
 {
@@ -15,22 +18,49 @@ class Refund extends Model
     protected function casts(): array
     {
         return [
-            'amount'       => 'decimal:2',
+            'amount' => 'decimal:2',
             'processed_at' => 'datetime',
         ];
     }
 
-    public function payment(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    protected static function booted(): void
+    {
+        static::saved(function (Refund $refund): void {
+            $paymentId = (int) $refund->payment_id;
+
+            DB::afterCommit(function () use ($paymentId): void {
+                $payment = Payment::query()->find($paymentId);
+
+                if ($payment) {
+                    app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
+                }
+            });
+        });
+
+        static::deleted(function (Refund $refund): void {
+            $paymentId = (int) $refund->payment_id;
+
+            DB::afterCommit(function () use ($paymentId): void {
+                $payment = Payment::query()->find($paymentId);
+
+                if ($payment) {
+                    app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
+                }
+            });
+        });
+    }
+
+    public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
     }
 
-    public function paymentMethod(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
     }
 
-    public function processedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function processedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'processed_by');
     }

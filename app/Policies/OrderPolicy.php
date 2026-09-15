@@ -31,11 +31,16 @@ class OrderPolicy
 
     public function update(User $user, Order $order): bool
     {
-        if (! in_array(
-            $this->statusValue($order),
-            ['draft', 'confirmed'],
-            true
-        )) {
+        if (
+            $this->statusValue($order) === 'confirmed'
+            && request()?->routeIs('orders.show', 'orders.complete')
+            && $user->hasPermissionTo('orders.complete')
+            && $this->belongsToUserLocation($user, $order)
+        ) {
+            return true;
+        }
+
+        if (! in_array($this->statusValue($order), ['draft', 'confirmed'], true)) {
             return false;
         }
 
@@ -53,21 +58,34 @@ class OrderPolicy
             return false;
         }
 
+        /*
+         * Admin can resolve exceptional back-office cases.  Non-admin users
+         * must still verify pending electronic payments before confirmation.
+         */
         if ($user->isAdmin()) {
             return true;
         }
 
-        return $user->hasPermissionTo('orders.confirm')
-            && $this->belongsToUserLocation($user, $order);
+        if ($order->payments()->where('status', 'pending_verification')->exists()) {
+            return false;
+        }
+
+        if (! $this->belongsToUserLocation($user, $order)) {
+            return false;
+        }
+
+        if ($user->hasAnyRole(['Cashier', 'Waiter'])) {
+            return $user->hasPermissionTo('orders.confirm')
+                && $user->hasPermissionTo('restaurant_pos.use')
+                && $order->isRestaurantOrder();
+        }
+
+        return $user->hasPermissionTo('orders.confirm');
     }
 
     public function cancel(User $user, Order $order): bool
     {
-        if (! in_array(
-            $this->statusValue($order),
-            ['draft', 'confirmed'],
-            true
-        )) {
+        if (! in_array($this->statusValue($order), ['draft', 'confirmed'], true)) {
             return false;
         }
 
@@ -76,6 +94,20 @@ class OrderPolicy
         }
 
         return $user->hasPermissionTo('orders.cancel')
+            && $this->belongsToUserLocation($user, $order);
+    }
+
+    public function complete(User $user, Order $order): bool
+    {
+        if ($this->statusValue($order) !== 'confirmed') {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->hasPermissionTo('orders.complete')
             && $this->belongsToUserLocation($user, $order);
     }
 
@@ -91,10 +123,8 @@ class OrderPolicy
             : (string) $order->status;
     }
 
-    private function belongsToUserLocation(
-        User $user,
-        Order $order
-    ): bool {
+    private function belongsToUserLocation(User $user, Order $order): bool
+    {
         $locationId = $user->primaryLocation()?->id;
 
         return $locationId !== null

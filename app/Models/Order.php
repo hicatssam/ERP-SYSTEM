@@ -7,9 +7,10 @@ use App\Enums\OrderPaymentStatus;
 use App\Enums\PaymentArrangement;
 use App\Enums\RestaurantServiceType;
 use App\Models\Concerns\HasSalesChannel;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Validation\ValidationException;
 
 class Order extends Model
 {
@@ -45,6 +46,33 @@ class Order extends Model
             'guest_count' => 'integer',
             'kitchen_dispatched_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::updating(function (Order $order): void {
+            if (! $order->isDirty('status')) {
+                return;
+            }
+
+            $nextStatus = $order->status instanceof \BackedEnum
+                ? (string) $order->status->value
+                : (string) $order->status;
+
+            if ($nextStatus !== OrderStatus::Confirmed->value) {
+                return;
+            }
+
+            $paymentStatus = $order->payment_status instanceof \BackedEnum
+                ? (string) $order->payment_status->value
+                : (string) $order->payment_status;
+
+            if ($paymentStatus === OrderPaymentStatus::PendingPaymentVerification->value) {
+                throw ValidationException::withMessages([
+                    'order' => 'لا يمكن تأكيد الطلب قبل اعتماد عملية الدفع المعلقة.',
+                ]);
+            }
+        });
     }
 
     public function location(): \Illuminate\Database\Eloquent\Relations\BelongsTo
@@ -106,15 +134,15 @@ class Order extends Model
         ]);
     }
 
-   public function isRestaurantOrder(): bool
-{
-    return $this->restaurant_service_type !== null;
-}
+    public function isRestaurantOrder(): bool
+    {
+        return $this->restaurant_service_type !== null;
+    }
 
-public function isCustomerMenuOrder(): bool
-{
-    return $this->order_source === 'customer_menu';
-}
+    public function isCustomerMenuOrder(): bool
+    {
+        return $this->order_source === 'customer_menu';
+    }
 
     public function confirmedPaidAmount(): string
     {

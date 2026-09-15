@@ -3,9 +3,11 @@
 namespace App\Services\Restaurant;
 
 use App\Enums\RestaurantServiceType;
+use App\Models\CashSession;
 use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Models\RestaurantTable;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\Orders\OrderService;
@@ -40,7 +42,17 @@ class RestaurantOrderService
 
             $payload['location_id'] = $locationId;
             $payload['restaurant_service_type'] = $serviceType->value;
-            $payload['waiter_id'] = $user->id;
+            $payload['order_source'] = $data['order_source'] ?? 'restaurant_pos';
+
+            // created_by always identifies the actual POS operator. Do not label
+            // a cashier as the waiter merely because the order is dine-in. Until
+            // the POS exposes an explicit waiter selector, auto-assign only users
+            // who actually carry the Waiter role.
+            $payload['waiter_id'] =
+                $serviceType === RestaurantServiceType::DineIn
+                && $user->hasRole('Waiter')
+                    ? $user->id
+                    : null;
 
             $payload['guest_count'] =
                 $serviceType === RestaurantServiceType::DineIn
@@ -76,7 +88,27 @@ class RestaurantOrderService
                 $payload['restaurant_table_session_id'] = null;
             }
 
-            $requiresVerification = $this->requiresPaymentVerification($payload);
+            $paymentMethod = $this->resolvePaymentMethodForOperation(
+                $payload,
+                $locationId
+            );
+
+            if ($paymentMethod && ! $user->can('payments.record')) {
+                throw ValidationException::withMessages([
+                    'payment_method_id' => 'ليس لديك صلاحية تحصيل دفعة من نقطة البيع. اختر الدفع عند الاستلام أو سلّم التحصيل للكاشير.',
+                ]);
+            }
+
+            $this->assertOpenCashSessionIfRequired(
+                $payload,
+                $paymentMethod,
+                $user,
+                $locationId
+            );
+
+            $requiresVerification =
+                ($payload['payment_arrangement'] ?? null) === 'pending_verification'
+                || (bool) $paymentMethod?->requires_verification;
 
             $order = $this->orders->createOrder(
                 $payload,
@@ -102,6 +134,7 @@ class RestaurantOrderService
                 metadata: [
                     'location_id' => $locationId,
                     'source' => 'restaurant_pos',
+                    'operator_id' => $user->id,
                 ],
             );
 
@@ -127,20 +160,77 @@ class RestaurantOrderService
         ]);
     }
 
-    private function requiresPaymentVerification(array $data): bool
-    {
-        if (($data['payment_arrangement'] ?? null) === 'pending_verification') {
-            return true;
+    private function resolvePaymentMethodForOperation(
+        array $data,
+        int $locationId
+    ): ?PaymentMethod {
+        $arrangement = (string) ($data['payment_arrangement'] ?? '');
+
+        if (in_array($arrangement, ['pay_on_pickup', 'on_account'], true)) {
+            return null;
         }
 
         if (empty($data['payment_method_id'])) {
-            return false;
+            return null;
         }
 
         $method = PaymentMethod::query()
             ->active()
             ->find($data['payment_method_id']);
 
-        return (bool) $method?->requires_verification;
+        if (! $method) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'طريقة الدفع المحددة غير مفعلة.',
+            ]);
+        }
+
+        if (! $method->isAvailableAt($locationId)) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'طريقة الدفع المحددة غير متاحة في هذا الفرع.',
+            ]);
+        }
+
+        return $method;
+    }
+
+    private function assertOpenCashSessionIfRequired(
+        array $data,
+        ?PaymentMethod $method,
+        User $user,
+        int $locationId
+    ): void {
+        if (
+            ! $method
+            || (string) $method->type !== 'cash'
+            || ! (bool) SystemSetting::get('pos_require_open_cash_session', true)
+        ) {
+            return;
+        }
+
+        $arrangement = (string) ($data['payment_arrangement'] ?? '');
+
+        if (in_array($arrangement, ['pay_on_pickup', 'on_account'], true)) {
+            return;
+        }
+
+        $employeeId = (int) ($user->employee?->id ?? 0);
+
+        if ($employeeId <= 0) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'لا يمكن تحصيل دفعة نقدية لأن الحساب غير مرتبط بموظف.',
+            ]);
+        }
+
+        $hasOpenSession = CashSession::query()
+            ->where('employee_id', $employeeId)
+            ->where('location_id', $locationId)
+            ->where('status', 'open')
+            ->exists();
+
+        if (! $hasOpenSession) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'يجب فتح جلسة كاشير لهذا الفرع قبل تحصيل دفعة نقدية من نقطة البيع.',
+            ]);
+        }
     }
 }

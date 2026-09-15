@@ -1,69 +1,42 @@
-{{--
-    One button, two paths:
-    - Chrome/Edge (Android + desktop): real native install prompt via
-      `beforeinstallprompt`.
-    - iOS Safari: that event doesn't exist at all, so we show a small sheet
-      with the manual "Share → Add to Home Screen" steps instead.
---}}
+{{-- Customer PWA install CTA + checkout feedback helpers. --}}
 <button type="button" class="pwa-install-btn" id="pwaInstallBtn" hidden>
-    <i class="fa-solid fa-arrow-down-to-bracket"></i>
-    <span>ثبّت التطبيق</span>
+    <i class="fa-solid fa-download"></i><span id="pwaInstallLabel">ثبّت التطبيق</span>
 </button>
-
-<div class="pwa-ios-sheet" id="pwaIosSheet">
-    <div class="pwa-ios-card">
-        <button type="button" class="pwa-ios-close" id="pwaIosClose" aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
-        <h3>ثبّت التطبيق على آيفون</h3>
-        <ol>
-            <li>اضغط زر المشاركة <i class="fa-solid fa-arrow-up-from-bracket"></i> بأسفل المتصفح</li>
-            <li>اختر "إضافة إلى الشاشة الرئيسية"</li>
-        </ol>
+<div class="pwa-install-sheet" id="pwaInstallSheet" aria-hidden="true">
+    <div class="pwa-install-card" role="dialog" aria-modal="true" aria-labelledby="pwaInstallTitle">
+        <button type="button" class="pwa-install-close" id="pwaInstallClose" aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
+        <div class="pwa-install-mark"><i class="fa-solid fa-mobile-screen-button"></i></div>
+        <h3 id="pwaInstallTitle">ثبّت التطبيق</h3><p id="pwaInstallIntro"></p><ol id="pwaInstallSteps"></ol>
     </div>
 </div>
-
+<div class="customer-error-toast" id="customerErrorToast" role="alert" aria-live="assertive" hidden>
+    <i class="fa-solid fa-circle-exclamation"></i><div><b>راجع البيانات</b><span id="customerErrorToastText"></span></div>
+    <button type="button" id="customerErrorToastClose" aria-label="إغلاق"><i class="fa-solid fa-xmark"></i></button>
+</div>
+<style>
+.pwa-install-btn{position:fixed;z-index:145;left:14px;bottom:calc(82px + env(safe-area-inset-bottom,0px));border:0;border-radius:999px;background:var(--primary);color:#fff;padding:10px 14px;display:inline-flex;align-items:center;gap:8px;font-weight:900;font-size:.76rem;box-shadow:0 12px 28px color-mix(in srgb,var(--primary) 34%,transparent);animation:pwaPulse 2.8s ease-in-out infinite}.pwa-install-btn[hidden]{display:none!important}@keyframes pwaPulse{50%{transform:translateY(-2px)}}
+.pwa-install-sheet{position:fixed;inset:0;z-index:280;background:rgba(12,10,9,.52);display:none;align-items:flex-end;justify-content:center;padding:12px}.pwa-install-sheet.open{display:flex}.pwa-install-card{position:relative;width:min(440px,100%);background:var(--surface,#fff);color:var(--text,#17130f);border:1px solid var(--line,#eee);border-radius:24px;padding:22px 19px calc(20px + env(safe-area-inset-bottom,0px));box-shadow:0 25px 70px rgba(0,0,0,.22);direction:rtl}.pwa-install-close{position:absolute;top:11px;left:11px;width:34px;height:34px;border:0;border-radius:50%;background:var(--bg,#f5f5f5)}.pwa-install-mark{width:52px;height:52px;border-radius:16px;background:color-mix(in srgb,var(--primary) 10%,#fff);color:var(--primary);display:grid;place-items:center;font-size:1.3rem;margin-bottom:11px}.pwa-install-card h3{margin:0 0 6px;font-size:1.08rem}.pwa-install-card p{margin:0 0 13px;color:var(--muted);font-size:.84rem;line-height:1.6}.pwa-install-card li{margin:8px 0;font-size:.84rem;line-height:1.6;font-weight:700}
+.customer-error-toast{position:fixed;z-index:360;top:14px;right:50%;transform:translateX(50%);width:min(520px,calc(100% - 24px));background:#fff4f2;color:#8f1d14;border:1px solid #f2b8b2;border-radius:17px;padding:13px 14px;box-shadow:0 18px 50px rgba(80,15,10,.18);display:grid;grid-template-columns:24px minmax(0,1fr) 30px;gap:9px;align-items:start;direction:rtl}.customer-error-toast[hidden]{display:none!important}.customer-error-toast>i{margin-top:3px}.customer-error-toast b,.customer-error-toast span{display:block}.customer-error-toast b{font-size:.82rem}.customer-error-toast span{font-size:.76rem;line-height:1.55;margin-top:2px}.customer-error-toast button{border:0;background:transparent;color:inherit;width:30px;height:30px}.error:not(:empty){display:block!important;background:#fff4f2!important;color:#a1261d!important;border:1px solid #f1c0bb!important;border-radius:13px!important;padding:11px 12px!important;margin:10px 0!important;font-size:.78rem!important;font-weight:800!important;line-height:1.6!important}
+#checkoutForm :invalid:not(:placeholder-shown){border-color:#d64545!important}.proof-ai-note{display:flex;gap:10px;align-items:flex-start;margin-top:10px;padding:11px 12px;border-radius:13px;background:color-mix(in srgb,var(--primary) 6%,var(--surface));border:1px solid color-mix(in srgb,var(--primary) 13%,var(--line));font-size:.74rem;line-height:1.65;color:var(--muted)}.proof-ai-note i{color:var(--primary);margin-top:3px}.proof-ai-note b{display:block;color:var(--text)}.proof-ai-state{display:none;margin-top:7px;color:var(--primary);font-weight:900}.proof-ai-state.show{display:block}@media(max-width:560px){.pwa-install-btn{left:10px;bottom:calc(74px + env(safe-area-inset-bottom,0px));padding:9px 12px}.customer-error-toast{top:8px}}
+</style>
 <script>
-(function () {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    const btn = document.getElementById('pwaInstallBtn');
-
-    if (isStandalone || !btn) return;
-
-    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
-    let deferredPrompt = null;
-
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
-
-    window.addEventListener('beforeinstallprompt', e => {
-        e.preventDefault();
-        deferredPrompt = e;
-        btn.hidden = false;
-    });
-
-    window.addEventListener('appinstalled', () => { btn.hidden = true; });
-
-    // iOS never fires beforeinstallprompt, so offer the manual-steps
-    // sheet unconditionally there instead of waiting for an event that
-    // will never come.
-    if (isIos) btn.hidden = false;
-
-    btn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
-            deferredPrompt = null;
-            btn.hidden = true;
-            return;
-        }
-
-        if (isIos) {
-            document.getElementById('pwaIosSheet').classList.add('open');
-        }
-    });
-
-    document.getElementById('pwaIosClose')?.addEventListener('click', () => {
-        document.getElementById('pwaIosSheet').classList.remove('open');
-    });
+(function(){
+ const standalone=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true,btn=document.getElementById('pwaInstallBtn');if(!btn||standalone)return;
+ const label=document.getElementById('pwaInstallLabel'),sheet=document.getElementById('pwaInstallSheet'),title=document.getElementById('pwaInstallTitle'),intro=document.getElementById('pwaInstallIntro'),steps=document.getElementById('pwaInstallSteps'),ua=navigator.userAgent||'',vendor=navigator.vendor||'',platform=navigator.platform||'';
+ const apple=/Apple/i.test(vendor),ios=apple&&(/iPhone|iPad|iPod/i.test(ua)||(platform==='MacIntel'&&navigator.maxTouchPoints>1)),safari=ios&&/^((?!CriOS|FxiOS|EdgiOS).)*Safari/i.test(ua),android=/Android/i.test(ua);let prompt=null;
+ if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js').catch(()=>{});
+ function sheetFor(kind){const d=kind==='ios'?{t:'تثبيت التطبيق على iPhone / iPad',p:safari?'أضف المنيو إلى الشاشة الرئيسية.':'افتح الصفحة في Safari أولًا.',s:safari?['اضغط زر المشاركة ⤴︎.','اختر «إضافة إلى الشاشة الرئيسية».','اضغط «إضافة».']:['افتح الرابط في Safari.','اضغط المشاركة ⤴︎.','اختر «إضافة إلى الشاشة الرئيسية».']}:{t:'تثبيت التطبيق على Android',p:'ثبّت المنيو للوصول السريع وتتبع طلباتك.',s:['إذا ظهرت نافذة Chrome اضغط «تثبيت».','أو افتح قائمة Chrome ⋮.','اختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».']};title.textContent=d.t;intro.textContent=d.p;steps.innerHTML=d.s.map(x=>'<li>'+x+'</li>').join('');sheet.classList.add('open');sheet.setAttribute('aria-hidden','false')}
+ addEventListener('beforeinstallprompt',e=>{e.preventDefault();prompt=e;label.textContent=android?'تثبيت على Android':'تثبيت التطبيق';btn.hidden=false});if(ios){label.textContent='تثبيت على iPhone';btn.hidden=false}else if(android){label.textContent='تثبيت على Android';btn.hidden=false}
+ btn.addEventListener('click',async()=>{if(prompt){prompt.prompt();const r=await prompt.userChoice;if(r?.outcome==='accepted')btn.hidden=true;prompt=null;return}if(ios)sheetFor('ios');else if(android)sheetFor('android')});addEventListener('appinstalled',()=>btn.hidden=true);
+ const close=()=>{sheet.classList.remove('open');sheet.setAttribute('aria-hidden','true')};document.getElementById('pwaInstallClose')?.addEventListener('click',close);sheet?.addEventListener('click',e=>{if(e.target===sheet)close()});
+})();
+(function(){
+ const toast=document.getElementById('customerErrorToast'),text=document.getElementById('customerErrorToastText'),err=document.getElementById('checkoutError');if(!toast||!text)return;let timer;
+ function show(message){message=String(message||'').trim();if(!message)return;text.textContent=message;toast.hidden=false;clearTimeout(timer);timer=setTimeout(()=>toast.hidden=true,8000)}
+ document.getElementById('customerErrorToastClose')?.addEventListener('click',()=>toast.hidden=true);
+ if(err){new MutationObserver(()=>show(err.textContent)).observe(err,{childList:true,subtree:true,characterData:true});if(err.textContent.trim())show(err.textContent)}
+ const form=document.getElementById('checkoutForm');form?.addEventListener('invalid',e=>{e.preventDefault();const field=e.target;field.scrollIntoView({behavior:'smooth',block:'center'});field.focus({preventScroll:true});show(field.validationMessage||'أكمل الحقل المطلوب قبل إرسال الطلب.')},true);
+ addEventListener('unhandledrejection',e=>{if(form&&e.reason?.message)show(e.reason.message)});
+ const input=document.getElementById('paymentProofInput'),field=document.getElementById('paymentProofField');if(input&&field&&!field.querySelector('.proof-ai-note')){const note=document.createElement('div');note.className='proof-ai-note';note.innerHTML='<i class="fa-solid fa-wand-magic-sparkles"></i><span><b>قراءة ذكية لإثبات الدفع</b>بعد إرسال الطلب يمكن للنظام استخراج اسم المرسل والحساب والمرجع والمبلغ من صورة الإيصال لمساعدة الموظف. AI مساعد فقط ولا يعتمد أو يرفض الدفع تلقائيًا.<span class="proof-ai-state">الصورة جاهزة للتحليل بعد الإرسال ✓</span></span>';field.appendChild(note);input.addEventListener('change',()=>note.querySelector('.proof-ai-state')?.classList.toggle('show',!!input.files?.length))}
 })();
 </script>
