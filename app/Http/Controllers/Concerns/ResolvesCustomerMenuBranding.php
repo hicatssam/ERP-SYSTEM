@@ -293,7 +293,7 @@ trait ResolvesCustomerMenuBranding
      * Active catalog categories, following the Categories screen in the ERP
      * rather than being derived from whatever happens to be on the menu.
      */
-    protected function categoriesFor(): Collection
+    protected function categoriesFor(?Location $location = null): Collection
     {
         $categoryColumns = ['id', 'name', 'name_ar', 'sort_order'];
 
@@ -303,8 +303,26 @@ trait ResolvesCustomerMenuBranding
             }
         }
 
+        $showUnavailable = (bool) SystemSetting::get('customer_menu_show_unavailable', false);
+
         return Category::query()
             ->where('is_active', true)
+            ->when($location, function ($query) use ($location, $showUnavailable): void {
+                $query->whereHas('products', function ($productQuery) use ($location, $showUnavailable): void {
+                    $productQuery
+                        ->where('is_active', true)
+                        ->whereHas('restaurantMenuItems', fn ($menuQuery) => $menuQuery
+                            ->where('location_id', (int) $location->id)
+                            ->where('is_active', true)
+                            ->where('show_in_qr', true));
+
+                    if (! $showUnavailable) {
+                        $productQuery->whereHas('locationProducts', fn ($locationQuery) => $locationQuery
+                            ->where('location_id', (int) $location->id)
+                            ->where('is_available', true));
+                    }
+                });
+            })
             ->orderBy('sort_order')
             ->orderByRaw("COALESCE(NULLIF(name_ar, ''), name)")
             ->get($categoryColumns)
