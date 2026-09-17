@@ -13,14 +13,17 @@ class CustomerMenuRoutesRegistrationTest extends TestCase
         $this->assertTrue(Route::has('customer-menu.orders.store'));
         $this->assertTrue(Route::has('customer-menu.track'));
         $this->assertTrue(Route::has('customer-menu.status'));
+        $this->assertTrue(Route::has('customer-menu.invoice'));
     }
 
     public function test_customer_menu_show_route_is_public(): void
     {
-        $route = Route::getRoutes()->getByName('customer-menu.show');
+        foreach (['customer-menu.show', 'customer-menu.track', 'customer-menu.invoice'] as $routeName) {
+            $route = Route::getRoutes()->getByName($routeName);
 
-        $this->assertNotNull($route);
-        $this->assertNotContains('auth', $route->gatherMiddleware());
-        $this->assertNotContains('location.scope', $route->gatherMiddleware());
+            $this->assertNotNull($route);
+            $this->assertNotContains('auth', $route->gatherMiddleware());
+            $this->assertNotContains('location.scope', $route->gatherMiddleware());
+        }
     }
 }

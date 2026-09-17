@@ -8,6 +8,7 @@ use App\Http\Requests\CustomerOrdering\StoreCustomerMenuOrderRequest;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\PaymentMethod;
 use App\Models\LocationPaymentAccount;
 use App\Models\SystemSetting;
@@ -42,16 +43,35 @@ class CustomerMenuController extends Controller
         $this->assertMenuAvailable($location);
 
         $tables = $this->tableOptions($location);
+        $menuItems = $this->menuItemsFor($location);
+        $theme = $this->theme();
+
+        // Rank the reference design's "most ordered" cards from real sales
+        // at this branch. New catalogs gracefully fall back to menu sort order.
+        $popularProductIds = OrderItem::query()
+            ->whereNotNull('product_id')
+            ->whereHas('order', fn ($query) => $query
+                ->where('location_id', (int) $location->id)
+                ->whereNotIn('status', ['draft', 'cancelled']))
+            ->select('product_id')
+            ->selectRaw('SUM(quantity) as units_sold')
+            ->groupBy('product_id')
+            ->orderByDesc('units_sold')
+            ->limit((int) ($theme['featured_limit'] ?? 4))
+            ->pluck('product_id')
+            ->map(fn ($id): int => (int) $id)
+            ->values();
 
         return view('customer-menu.show', [
             'location' => $location,
-            'menuItems' => $this->menuItemsFor($location),
-            'categories' => $this->categoriesFor(),
+            'menuItems' => $menuItems,
+            'popularProductIds' => $popularProductIds,
+            'categories' => $this->categoriesFor($location),
             'banners' => $this->bannersFor($location),
             'tables' => $tables,
             'selectedTable' => $this->resolveSelectedTable($tables, (string) $request->query('table', '')),
             'branding' => $this->branding($location),
-            'theme' => $this->theme(),
+            'theme' => $theme,
             'requestToken' => (string) Str::uuid(),
             'serviceOptions' => $this->serviceOptions(),
             'team' => $this->teamMembers($location),
@@ -68,7 +88,7 @@ class CustomerMenuController extends Controller
         return view('customer-menu.products', [
             'location' => $location,
             'menuItems' => $this->menuItemsFor($location),
-            'categories' => $this->categoriesFor(),
+            'categories' => $this->categoriesFor($location),
             'branding' => $this->branding($location),
             'theme' => $this->theme(),
             'initialCategory' => (string) $request->query('category', 'all'),
@@ -223,6 +243,8 @@ class CustomerMenuController extends Controller
             $request->validated()
         );
 
+        $status = $this->orderStatus->payload($order);
+
         return response()->json([
             'ok' => true,
             'message' => 'تم استلام طلبك بنجاح.',
@@ -230,6 +252,9 @@ class CustomerMenuController extends Controller
             'order_id' => (int) $order->id,
             'public_token' => (string) $order->public_token,
             'created_at' => $order->created_at?->toIso8601String(),
+            'status' => $status['status'],
+            'state' => $status['state'],
+            'status_label' => $status['label'],
             'location' => [
                 'id' => (int) $location->id,
                 'name' => (string) $location->name,
@@ -239,18 +264,54 @@ class CustomerMenuController extends Controller
                 'customer-menu.track',
                 ['token' => $order->public_token]
             ),
+            'status_url' => route(
+                'customer-menu.status',
+                ['token' => $order->public_token]
+            ),
         ], 201);
     }
 
     public function track(string $token): View
     {
         $order = $this->publicOrder($token);
+        $order->loadMissing('invoice');
 
         return view('customer-menu.track', [
             'order' => $order,
-            'branding' => $this->branding(),
+            'branding' => $this->branding($order->location),
             'theme' => $this->theme(),
             'statusPayload' => $this->orderStatus->payload($order),
+        ]);
+    }
+
+    public function invoice(string $token): View
+    {
+        $order = $this->publicOrder($token);
+
+        $invoice = $order->invoice()
+            ->with([
+                'location',
+                'customer',
+                'items.product',
+            ])
+            ->firstOrFail();
+
+        /*
+         * The public token must never be usable to cross from its order into
+         * an invoice belonging to another branch or source record.
+         */
+        abort_unless(
+            (int) $invoice->order_id === (int) $order->id
+            && (int) $invoice->location_id === (int) $order->location_id
+            && $invoice->orderTypeValue() === 'order',
+            404
+        );
+
+        return view('customer-menu.invoice', [
+            'order' => $order,
+            'invoice' => $invoice,
+            'branding' => $this->branding($order->location),
+            'theme' => $this->theme(),
         ]);
     }
 

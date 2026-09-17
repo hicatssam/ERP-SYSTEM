@@ -517,7 +517,7 @@ class OrderController extends Controller
         Request $request,
         Order $order
     ) {
-        $this->authorize('update', $order);
+        $this->authorize('complete', $order);
 
         $this->ensureOrderAccess(
             $order,
