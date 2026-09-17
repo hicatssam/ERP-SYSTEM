@@ -29,6 +29,25 @@
         $__env->yieldContent('pdf_mode', '0')
     ) === '1';
 
+    /*
+     * Signatures and the official stamp are document-level concerns.
+     * Reports/statements keep the Branding defaults, while invoices and
+     * receipts can explicitly disable them without changing global settings.
+     */
+    $showSignatures = trim(
+        $__env->yieldContent(
+            'show_signatures',
+            ! empty($printTheme['show_signatures']) ? '1' : '0'
+        )
+    ) === '1';
+
+    $showStamp = trim(
+        $__env->yieldContent(
+            'show_stamp',
+            ! empty($printTheme['show_stamp']) ? '1' : '0'
+        )
+    ) === '1';
+
     $paperOrientation = trim(
         $__env->yieldContent('paper_orientation', 'portrait')
     );
@@ -626,7 +645,7 @@
         </div>
 
         <div class="print-after-content">
-            @if($printTheme['show_signatures'])
+            @if($showSignatures)
                 @include(
                     'layouts.print.signatures',
                     ['printTheme' => $printTheme]
@@ -634,7 +653,7 @@
             @endif
 
            @if(
-    $printTheme['show_stamp']
+    $showStamp
     && !empty($printTheme['stamp_src'])
     && $printTheme['stamp_src'] !== ($printTheme['signature_src'] ?? null)
 )
