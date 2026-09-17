@@ -3,6 +3,7 @@
 namespace Tests\Feature\CustomerOrdering;
 
 use App\Models\Employee;
+use App\Models\Invoice;
 use App\Models\Location;
 use App\Models\Order;
 use App\Models\User;
@@ -67,6 +68,52 @@ class CustomerMenuOrderLifecycleTest extends TestCase
             ->assertJsonPath('status', 'confirmed')
             ->assertJsonPath('state', 'accepted')
             ->assertJsonPath('step', 2);
+    }
+
+    #[Test]
+    public function customer_can_open_only_the_invoice_linked_to_the_public_order_token(): void
+    {
+        $location = $this->makeLocation();
+        $actor = User::factory()->create();
+        $publicToken = (string) Str::uuid();
+
+        $order = Order::query()->create([
+            'order_number' => 'WEB-' . Str::upper(Str::random(8)),
+            'location_id' => $location->id,
+            'created_by' => $actor->id,
+            'status' => 'confirmed',
+            'payment_status' => 'payment_pending',
+            'payment_arrangement' => 'pay_on_pickup',
+            'subtotal' => 42,
+            'total_amount' => 42,
+            'order_source' => 'customer_menu',
+            'public_token' => $publicToken,
+        ]);
+
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'INV-' . Str::upper(Str::random(8)),
+            'invoice_type' => 'regular_order',
+            'order_type' => 'order',
+            'order_id' => $order->id,
+            'location_id' => $location->id,
+            'status' => 'active',
+            'subtotal' => 42,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'total_amount' => 42,
+            'paid_amount' => 0,
+            'remaining_amount' => 42,
+            'issued_by' => $actor->id,
+            'issued_at' => now(),
+        ]);
+
+        $this->get(route('customer-menu.invoice', ['token' => $publicToken]))
+            ->assertOk()
+            ->assertSee($invoice->invoice_number)
+            ->assertSee($order->order_number);
+
+        $this->get(route('customer-menu.invoice', ['token' => (string) Str::uuid()]))
+            ->assertNotFound();
     }
 
     #[Test]
