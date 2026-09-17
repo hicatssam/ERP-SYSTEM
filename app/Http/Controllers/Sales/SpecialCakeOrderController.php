@@ -22,64 +22,93 @@ class SpecialCakeOrderController extends Controller
         private SpecialCakeStatusTransitionService $transitionService
     ) {}
 
-  public function index(Request $request)
-{
-    $user = Auth::user();
+    public function index(Request $request)
+    {
+        $user = Auth::user();
 
-    $query = SpecialCakeOrder::query()
-        ->with([
-            'customer',
-            'originBranch',
-            'creator',
+        $query = SpecialCakeOrder::query()
+            ->with([
+                'customer',
+                'originBranch',
+                'factory',
+                'creator',
+                'attachments' => fn ($query) => $query->latest('id'),
+            ]);
 
-            // مهم جداً حتى تجلب الصور مع الطلبات
-            'attachments' => function ($query) {
-                $query->latest('id');
-            },
-        ]);
+        if (! $user->isAdmin() && ! $user->can('cake_orders.view_all')) {
+            $locationIds = $user->employee?->locations()
+                ->pluck('locations.id')
+                ->map(fn ($id) => (int) $id)
+                ->all() ?? [];
 
-    if (! $user->isAdmin() && ! $user->can('cake_orders.view_all')) {
-        $locationIds = $user->employee?->locations()
-            ->pluck('locations.id')
-            ->map(fn ($id) => (int) $id)
-            ->all() ?? [];
+            $query->where(function ($query) use ($locationIds): void {
+                $query->whereIn('origin_branch_id', $locationIds)
+                    ->orWhereIn('factory_location_id', $locationIds);
+            });
+        }
 
-        $query->where(function ($q) use ($locationIds) {
-            $q->whereIn('origin_branch_id', $locationIds)
-                ->orWhereIn('factory_location_id', $locationIds);
-        });
+        $activeStatuses = collect(CakeOrderStatus::cases())
+            ->reject(fn (CakeOrderStatus $status) => $status->isTerminal())
+            ->map(fn (CakeOrderStatus $status) => $status->value)
+            ->values()
+            ->all();
+
+        $summaryQuery = clone $query;
+        $summary = [
+            'total' => (clone $summaryQuery)->count(),
+            'overdue' => (clone $summaryQuery)
+                ->whereIn('status', $activeStatuses)
+                ->whereDate('required_date', '<', today())
+                ->count(),
+            'due_today' => (clone $summaryQuery)
+                ->whereIn('status', $activeStatuses)
+                ->whereDate('required_date', today())
+                ->count(),
+            'due_soon' => (clone $summaryQuery)
+                ->whereIn('status', $activeStatuses)
+                ->whereBetween('required_date', [
+                    today()->addDay()->startOfDay(),
+                    today()->addDays(3)->endOfDay(),
+                ])
+                ->count(),
+        ];
+
+        if ($request->filled('q')) {
+            $search = trim($request->string('q')->toString());
+
+            $query->where(function ($query) use ($search): void {
+                $query->where('order_number', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($customerQuery) use ($search): void {
+                        $customerQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('required_date', '>=', $request->date('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('required_date', '<=', $request->date('date_to'));
+        }
+
+        $orders = $query
+            ->orderByRaw('required_date IS NULL')
+            ->orderBy('required_date')
+            ->orderBy('required_time')
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('sales.cake-orders.index', compact('orders', 'summary'));
     }
 
-    if ($request->filled('status')) {
-        $query->where(
-            'status',
-            $request->input('status')
-        );
-    }
-
-    if ($request->filled('date_from')) {
-        $query->whereDate(
-            'required_date',
-            '>=',
-            $request->input('date_from')
-        );
-    }
-
-    $orders = $query
-        ->latest()
-        ->paginate(20)
-        ->withQueryString();
-
-    return view(
-        'sales.cake-orders.index',
-        compact('orders')
-    );
-}
-
-
-
-
-public function create()
+    public function create()
 {
     $user = Auth::user();
     $branch = $user->primaryLocation();
