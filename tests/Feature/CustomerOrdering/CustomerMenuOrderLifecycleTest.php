@@ -49,14 +49,27 @@ class CustomerMenuOrderLifecycleTest extends TestCase
         $this->assertSame($requestToken, $order->fresh()->public_request_id);
         $this->assertSame(['source' => 'customer_menu'], $order->fresh()->public_order_meta);
 
-        $this->getJson(route('customer-menu.status', ['token' => $publicToken]))
+        $response = $this->getJson(
+            route('customer-menu.status', ['token' => $publicToken])
+        );
+
+        $response
             ->assertOk()
-            ->assertHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
             ->assertJsonPath('status', 'draft')
             ->assertJsonPath('state', 'received')
             ->assertJsonPath('payment_status', 'pending_payment_verification')
             ->assertJsonPath('payment_arrangement', 'pending_verification')
             ->assertJsonPath('customer_message', 'سيتم قبول الطلب بعد مراجعة الدفع.');
+
+        /*
+         * Symfony may normalize directive order and append "private".
+         * Assert the security semantics instead of a fragile exact string.
+         */
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+
+        foreach (['no-store', 'no-cache', 'must-revalidate', 'max-age=0'] as $directive) {
+            $this->assertStringContainsString($directive, $cacheControl);
+        }
 
         $order->update([
             'status' => 'confirmed',
@@ -129,6 +142,11 @@ class CustomerMenuOrderLifecycleTest extends TestCase
 
         $user = User::factory()->create(['employee_id' => $employee->id]);
         $permission = Permission::findOrCreate('orders.complete', 'web');
+
+        // The policy asks the gate about this permission. It must exist in
+        // Spatie's registry while intentionally remaining unassigned.
+        Permission::findOrCreate('orders.update', 'web');
+
         $role = Role::create([
             'name' => 'OrderFinisher-' . Str::random(8),
             'guard_name' => 'web',
