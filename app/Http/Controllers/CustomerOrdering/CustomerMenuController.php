@@ -274,12 +274,44 @@ class CustomerMenuController extends Controller
     public function track(string $token): View
     {
         $order = $this->publicOrder($token);
+        $order->loadMissing('invoice');
 
         return view('customer-menu.track', [
             'order' => $order,
-            'branding' => $this->branding(),
+            'branding' => $this->branding($order->location),
             'theme' => $this->theme(),
             'statusPayload' => $this->orderStatus->payload($order),
+        ]);
+    }
+
+    public function invoice(string $token): View
+    {
+        $order = $this->publicOrder($token);
+
+        $invoice = $order->invoice()
+            ->with([
+                'location',
+                'customer',
+                'items.product',
+            ])
+            ->firstOrFail();
+
+        /*
+         * The public token must never be usable to cross from its order into
+         * an invoice belonging to another branch or source record.
+         */
+        abort_unless(
+            (int) $invoice->order_id === (int) $order->id
+            && (int) $invoice->location_id === (int) $order->location_id
+            && $invoice->orderTypeValue() === 'order',
+            404
+        );
+
+        return view('customer-menu.invoice', [
+            'order' => $order,
+            'invoice' => $invoice,
+            'branding' => $this->branding($order->location),
+            'theme' => $this->theme(),
         ]);
     }
 
