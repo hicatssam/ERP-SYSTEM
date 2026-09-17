@@ -50,8 +50,9 @@
     'الفرع: ' . ($invoice->location?->name ?? '—')
 )
 
-@section('signature_right', 'توقيع المستلم')
-@section('signature_left', 'اعتماد الإدارة')
+{{-- فواتير البيع لا تحتاج اعتمادًا إداريًا أو ختمًا رسميًا. --}}
+@section('show_signatures', '0')
+@section('show_stamp', '0')
 
 @push('print_styles')
 <style>
