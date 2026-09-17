@@ -66,10 +66,8 @@ class SpecialCakeOrderController extends Controller
                 ->count(),
             'due_soon' => (clone $summaryQuery)
                 ->whereIn('status', $activeStatuses)
-                ->whereBetween('required_date', [
-                    today()->addDay()->startOfDay(),
-                    today()->addDays(3)->endOfDay(),
-                ])
+                ->whereDate('required_date', '>=', today()->addDay())
+                ->whereDate('required_date', '<=', today()->addDays(3))
                 ->count(),
         ];
 
