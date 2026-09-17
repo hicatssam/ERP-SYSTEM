@@ -652,17 +652,17 @@
                 )
             @endif
 
-           @if(
-    $showStamp
-    && !empty($printTheme['stamp_src'])
-    && $printTheme['stamp_src'] !== ($printTheme['signature_src'] ?? null)
-)
-    <img
-        src="{{ $printTheme['stamp_src'] }}"
-        class="print-stamp"
-        alt="الختم الرسمي"
-    >
-@endif
+            @if(
+                $showStamp
+                && ! empty($printTheme['stamp_src'])
+                && $printTheme['stamp_src'] !== ($printTheme['signature_src'] ?? null)
+            )
+                <img
+                    src="{{ $printTheme['stamp_src'] }}"
+                    class="print-stamp"
+                    alt="الختم الرسمي"
+                >
+            @endif
 
             @if($printTheme['show_footer'])
                 @include(
