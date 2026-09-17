@@ -8,8 +8,9 @@
     $documentSubtitle = trim($__env->yieldContent('document_subtitle', ''));
     $documentMeta = trim($__env->yieldContent('document_meta', ''));
     $pdfMode = trim($__env->yieldContent('pdf_mode', '0')) === '1';
-    $hideSignatures = trim($__env->yieldContent('hide_signatures', '0')) === '1';
-    $hideStamp = trim($__env->yieldContent('hide_stamp', '0')) === '1';
+    $isSalesInvoice = $documentTitle === 'فاتورة بيع';
+    $hideSignatures = $isSalesInvoice || trim($__env->yieldContent('hide_signatures', '0')) === '1';
+    $hideStamp = $isSalesInvoice || trim($__env->yieldContent('hide_stamp', '0')) === '1';
     $paperOrientation = trim($__env->yieldContent('paper_orientation', 'portrait'));
     if (! in_array($paperOrientation, ['portrait', 'landscape'], true)) $paperOrientation = 'portrait';
     $paperSize = $printTheme['paper_size'] ?? 'A4';
