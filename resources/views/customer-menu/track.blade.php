@@ -325,6 +325,11 @@
             <div class="footerActions">
                 <a class="action primary" href="{{ route('customer-menu.show',$order->location->code) }}">طلب جديد</a>
                 <a class="action secondary" href="{{ route('customer-menu.my-orders',$order->location->code) }}">كل طلباتي</a>
+                @if($order->invoice)
+                    <a class="action secondary" href="{{ route('customer-menu.invoice', ['token' => $order->public_token]) }}">
+                        عرض الفاتورة
+                    </a>
+                @endif
             </div>
         </section>
     </main>
