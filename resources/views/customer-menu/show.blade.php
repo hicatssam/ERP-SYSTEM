@@ -128,18 +128,16 @@
 .cat-visual{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:color-mix(in srgb,var(--category-color,var(--primary)) 11%,var(--surface));color:var(--category-color,var(--primary));overflow:hidden;font-size:1.7rem}
 .reference-home .cat img{width:100%;height:100%;border-radius:0;object-fit:cover}
 .reference-home .cat b{font-size:.86rem}
-.reference-home .grid{gap:18px}
+.reference-home .grid{gap:16px}
 .reference-home .product{border-radius:var(--home-radius);box-shadow:var(--home-shadow);border-color:color-mix(in srgb,var(--text) 7%,transparent);overflow:hidden}
 .reference-home .product-media{height:auto;aspect-ratio:var(--home-image-ratio);background:#f2eeeb}
 .reference-home .product-media img{padding:0;object-fit:var(--home-image-fit);background:#f2eeeb}
 .reference-home .fav{top:12px;left:12px;width:39px;height:39px;border-radius:12px;color:var(--text)}
 .reference-home .product-body{padding:13px 14px 15px}
-.reference-home .product h3{font-size:1rem;min-height:auto;margin:0}
-.reference-home .product-desc{display:block;min-height:2.8em;margin:6px 0 12px;color:var(--muted);font-size:.78rem;line-height:1.4}
-.reference-home .product-foot{align-items:center}
+.reference-home .product h3{font-size:1rem;margin:0}
+.reference-home .product-desc{min-height:2.8em;margin:6px 0 12px;font-size:.78rem;line-height:1.4}
 .reference-home .price{color:var(--primary);font-size:1.02rem}
-.reference-home .details{min-width:105px;border-radius:12px;padding:10px 15px;font-size:.82rem}
-.reference-home .details i{margin-inline-start:5px}
+.reference-home .details{border-radius:12px;padding:10px 15px;font-size:.82rem}
 .product-ribbon{position:absolute;z-index:3;top:12px;right:12px;padding:7px 11px;border-radius:999px;background:var(--primary);color:#fff;font-size:.7rem;font-weight:900;box-shadow:0 5px 16px rgba(0,0,0,.14)}
 .catalog-section.is-focused{scroll-margin-top:18px}
 .intro{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;background:var(--primary) center/cover no-repeat;transition:opacity .45s ease,visibility .45s ease}
@@ -164,7 +162,7 @@
  .reference-home .product-body{padding:10px 10px 12px}
  .reference-home .product h3{font-size:.88rem}
  .reference-home .product-desc{font-size:.7rem}
- .reference-home .details{min-width:auto;padding:9px 12px}
+ .reference-home .details{padding:9px 12px}
  .reference-home .price{font-size:.87rem}
 }
 @media(max-width:380px){
@@ -351,18 +349,24 @@
         const description = showDescriptions && product.description
             ? '<p class="product-desc">' + CM.esc(product.description) + '</p>'
             : '<p class="product-desc">' + CM.esc(product.category_name || 'محضّر بعناية إلك') + '</p>';
-        const ribbon = featured ? '<span class="product-ribbon">الأكثر طلباً 🔥</span>' : '';
-        const unavailable = product.available ? '' : '<span class="sold-out">غير متوفر حالياً</span>';
-        const addLabel = product.available ? (product.requiresChoices ? 'اختر' : 'إضافة') : 'غير متوفر';
+        const status = featured
+            ? '<span class="product-ribbon">الأكثر طلباً 🔥</span>'
+            : '<span class="product-status' + (product.available ? '' : ' is-unavailable') + '">' +
+                (product.available ? 'متوفر' : 'غير متوفر') +
+              '</span>';
+        const addLabel = product.available
+            ? (product.requiresChoices ? 'اختر الخيارات' : 'إضافة')
+            : 'غير متوفر';
+        const favoriteLabel = CM.isFavorite(product.id) ? 'إزالة من المفضلة' : 'إضافة للمفضلة';
 
         return '<article class="product" data-id="' + CM.esc(product.id) + '">' +
-            ribbon +
-            '<button class="fav ' + (CM.isFavorite(product.id) ? 'active' : '') + '" type="button" data-fav="' + CM.esc(product.id) + '" aria-label="إضافة للمفضلة"><i class="' + (CM.isFavorite(product.id) ? 'fa-solid' : 'fa-regular') + ' fa-heart"></i></button>' +
-            '<a class="product-media" href="' + productUrl(product.id) + '">' + CM.image(product) + '</a>' +
-            '<div class="product-body">' + unavailable +
-                '<a href="' + productUrl(product.id) + '"><h3>' + CM.esc(product.name) + '</h3>' + description + '</a>' +
-                '<div class="product-foot"><span class="price">' + CM.money(product.price) + '</span>' +
-                '<button class="details" type="button" data-add="' + CM.esc(product.id) + '"' + (product.available ? '' : ' disabled') + '><i class="fa-solid fa-plus"></i>' + addLabel + '</button></div>' +
+            '<a class="product-media" href="' + productUrl(product.id) + '" aria-label="عرض ' + CM.esc(product.name) + '">' + CM.image(product) + '</a>' +
+            status +
+            '<button class="fav ' + (CM.isFavorite(product.id) ? 'active' : '') + '" type="button" data-fav="' + CM.esc(product.id) + '" aria-label="' + favoriteLabel + '"><i class="' + (CM.isFavorite(product.id) ? 'fa-solid' : 'fa-regular') + ' fa-heart"></i></button>' +
+            '<div class="product-body">' +
+                '<a class="product-copy" href="' + productUrl(product.id) + '"><h3>' + CM.esc(product.name) + '</h3>' + description + '</a>' +
+                '<div class="product-foot"><div class="product-price-row"><span class="price">' + CM.money(product.price) + '</span></div>' +
+                '<button class="details" type="button" data-add="' + CM.esc(product.id) + '"' + (product.available ? '' : ' disabled') + '><i class="fa-solid fa-plus"></i><span>' + addLabel + '</span></button></div>' +
             '</div>' +
         '</article>';
     }
