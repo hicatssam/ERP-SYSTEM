@@ -124,6 +124,7 @@ class OrderController extends Controller
             return redirect()
                 ->route('orders.show', $order)
                 ->withErrors(['stock' => $messages])
+                ->with('order_confirm_errors', $messages)
                 ->with('order_confirm_failed', true)
                 ->with('order_confirm_error_title', 'تعذر تأكيد الطلب — راجع المخزون');
         } catch (\Throwable $e) {
@@ -137,6 +138,7 @@ class OrderController extends Controller
             return redirect()
                 ->route('orders.show', $order)
                 ->withErrors(['stock' => [$message]])
+                ->with('order_confirm_errors', [$message])
                 ->with('order_confirm_failed', true)
                 ->with('order_confirm_error_title', 'تعذر تأكيد الطلب');
         }
