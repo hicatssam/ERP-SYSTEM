@@ -2,7 +2,10 @@
 
 namespace App\Services\Restaurant;
 
+use App\Enums\OrderPaymentStatus;
+use App\Enums\PaymentArrangement;
 use App\Models\Order;
+use App\Models\Payment;
 use App\Models\SystemSetting;
 use Illuminate\Support\Collection;
 
@@ -11,13 +14,13 @@ class CustomerOrderStatusService
     public function payload(Order $order): array
     {
         /*
-         * Always read kitchen tickets from the database on every poll.
-         * Do not rely on an already-loaded relation so the public customer page
-         * reflects KDS changes immediately.
+         * Always read fresh order/payment/kitchen state on every poll so the
+         * public tracking page immediately reflects cashier and KDS changes.
          */
         $order->refresh();
 
         $state = $this->resolveState($order);
+        $payment = $this->paymentPayload($order);
 
         $message = trim((string) ($order->customer_status_message ?? ''));
         $messageUpdatedAt = $order->customer_status_message_updated_at?->toIso8601String();
@@ -51,11 +54,18 @@ class CustomerOrderStatusService
             ->values()
             ->all();
 
+        $invoice = $order->invoice()->first();
+
         $fingerprint = sha1(json_encode([
             'order_status' => $order->statusValue(),
             'state' => $statusKey,
             'event_at' => $state['event_at'],
             'updated_at' => $order->updated_at?->toIso8601String(),
+            'payment_status' => $payment['status'],
+            'paid_amount' => $payment['paid_amount'],
+            'remaining_amount' => $payment['remaining_amount'],
+            'pending_amount' => $payment['pending_amount'],
+            'invoice_id' => $invoice?->id,
             'message' => $message,
             'message_updated_at' => $messageUpdatedAt,
         ], JSON_UNESCAPED_UNICODE));
@@ -84,6 +94,23 @@ class CustomerOrderStatusService
             },
 
             'estimated_ready_minutes' => $this->estimatedReadyMinutes($order, $statusKey),
+
+            'payment_status' => $payment['status'],
+            'payment_arrangement' => $payment['arrangement'],
+            'payment' => $payment,
+
+            'invoice' => $invoice ? [
+                'id' => (int) $invoice->id,
+                'number' => (string) $invoice->invoice_number,
+                'status' => $this->scalar($invoice->status),
+                'total' => (float) $invoice->total_amount,
+                'paid' => (float) $invoice->paid_amount,
+                'remaining' => (float) $invoice->remaining_amount,
+                'issued_at' => $invoice->issued_at?->toIso8601String(),
+                'url' => $order->public_token
+                    ? route('customer-menu.invoice', ['token' => $order->public_token])
+                    : null,
+            ] : null,
 
             'table' => $table
                 ? [
@@ -143,15 +170,6 @@ class CustomerOrderStatusService
             ];
         }
 
-        /*
-         * Read fresh tickets every time. This is intentionally the same status
-         * logic used by the customer-facing kitchen display:
-         *
-         * queued -> accepted
-         * preparing / mixed ready -> preparing
-         * all non-served tickets ready -> ready
-         * all tickets served -> completed
-         */
         $tickets = $order->kitchenTickets()
             ->orderBy('id')
             ->get();
@@ -257,12 +275,91 @@ class CustomerOrderStatusService
         ];
     }
 
-    /**
-     * A rough "ready in ~N minutes" estimate for the customer while the
-     * order hasn't started cooking yet. Once the kitchen actually marks
-     * it ready/completed (or it's cancelled), a queue-based guess is no
-     * longer useful, so this returns null and the page can hide it.
-     */
+    private function paymentPayload(Order $order): array
+    {
+        $payments = $order->payments()
+            ->with(['paymentMethod', 'refunds'])
+            ->orderByDesc('id')
+            ->get();
+
+        $paid = round($payments
+            ->filter(fn (Payment $payment): bool => in_array(
+                $payment->statusValue(),
+                ['confirmed', 'corrected', 'refunded'],
+                true
+            ))
+            ->sum(function (Payment $payment): float {
+                $refunded = (float) $payment->refunds->sum('amount');
+                return max(0, (float) $payment->amount - $refunded);
+            }), 2);
+
+        $pending = round($payments
+            ->filter(fn (Payment $payment): bool => $payment->statusValue() === 'pending_verification')
+            ->sum(fn (Payment $payment): float => (float) $payment->amount), 2);
+
+        $total = round((float) $order->total_amount, 2);
+        $remaining = round(max(0, $total - $paid), 2);
+
+        $status = $this->scalar($order->payment_status) ?: OrderPaymentStatus::PaymentPending->value;
+        $arrangement = $this->scalar($order->payment_arrangement);
+        $latest = $payments->first();
+
+        [$label, $message] = match ($status) {
+            OrderPaymentStatus::Paid->value => [
+                'تم الدفع بالكامل',
+                'تم اعتماد دفعتك بالكامل.',
+            ],
+            OrderPaymentStatus::PartiallyPaid->value => [
+                'مدفوع جزئياً',
+                'تم اعتماد جزء من المبلغ، والمتبقي ' . number_format($remaining, 2) . ' ₪.',
+            ],
+            OrderPaymentStatus::PendingPaymentVerification->value => [
+                'بانتظار التحقق من الدفع',
+                'تم استلام إثبات الدفع وهو قيد المراجعة.',
+            ],
+            OrderPaymentStatus::PartiallyRefunded->value => [
+                'تم استرجاع جزء من المبلغ',
+                'تم تنفيذ استرداد جزئي على هذا الطلب.',
+            ],
+            OrderPaymentStatus::Refunded->value => [
+                'تم استرجاع المبلغ',
+                'تم استرجاع المبلغ المدفوع لهذا الطلب.',
+            ],
+            default => $arrangement === PaymentArrangement::PayOnPickup->value
+                ? ['الدفع عند الاستلام', 'لم يتم تحصيل المبلغ بعد. سيتم الدفع عند الاستلام.']
+                : ['في انتظار الدفع', 'لم يتم اعتماد أي دفعة على هذا الطلب بعد.'],
+        };
+
+        if ($latest?->statusValue() === 'rejected') {
+            $label = 'تم رفض عملية الدفع';
+            $message = filled($latest->rejection_reason)
+                ? 'سبب الرفض: ' . trim((string) $latest->rejection_reason)
+                : 'تعذر اعتماد عملية الدفع. راجع بيانات التحويل أو تواصل مع الفرع.';
+        }
+
+        return [
+            'status' => $status,
+            'arrangement' => $arrangement,
+            'label' => $label,
+            'message' => $message,
+            'total_amount' => $total,
+            'paid_amount' => $paid,
+            'pending_amount' => $pending,
+            'remaining_amount' => $remaining,
+            'latest_payment' => $latest ? [
+                'id' => (int) $latest->id,
+                'status' => $latest->statusValue(),
+                'amount' => (float) $latest->amount,
+                'method' => $latest->paymentMethod
+                    ? (string) ($latest->paymentMethod->name_ar ?: $latest->paymentMethod->name)
+                    : null,
+                'reference' => $latest->reference_number,
+                'rejection_reason' => $latest->rejection_reason,
+                'paid_at' => $latest->paid_at?->toIso8601String(),
+            ] : null,
+        ];
+    }
+
     private function estimatedReadyMinutes(Order $order, string $statusKey): ?int
     {
         if (in_array($statusKey, ['ready', 'completed', 'cancelled'], true)) {

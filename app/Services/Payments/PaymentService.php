@@ -112,6 +112,22 @@ class PaymentService
             ]);
 
             $this->syncSourcePaymentStatus($source, $locked->orderTypeValue());
+
+            // `pending_verification` is a transitional payment arrangement. Once
+            // an order payment is approved, keeping that value makes the admin
+            // order screen look as though the payment is still awaiting review.
+            // Move only the approved order back to the settled pay-now
+            // arrangement; payment_status remains the canonical live state.
+            if (
+                $approved
+                && $source instanceof Order
+                && ($source->payment_arrangement?->value ?? $source->payment_arrangement) === 'pending_verification'
+            ) {
+                $source->forceFill([
+                    'payment_arrangement' => 'pay_now',
+                ])->save();
+            }
+
             if ($approved) {
                 $this->posting->collection($locked, $user);
             }
@@ -247,9 +263,18 @@ class PaymentService
 
     private function syncSourcePaymentStatus(Order|SpecialCakeOrder $source, string $type): void
     {
-        $total = $type === 'order' ? (float) $source->total_amount : (float) ($source->net_price ?? $source->total_price);
+        if ($type === 'order' && $source instanceof Order) {
+            app(OrderPaymentStatusSynchronizer::class)->sync($source);
+            return;
+        }
+
+        // Special-cake orders keep their existing simpler financial state model.
+        $total = (float) ($source->net_price ?? $source->total_price);
         $paid = $this->effectivePaid($type, (int) $source->id);
-        $status = $paid <= 0 ? 'payment_pending' : ($paid + 0.004 >= $total ? 'paid' : 'partially_paid');
+        $status = $paid <= 0
+            ? 'payment_pending'
+            : ($paid + 0.004 >= $total ? 'paid' : 'partially_paid');
+
         $source->update(['payment_status' => $status]);
     }
 }

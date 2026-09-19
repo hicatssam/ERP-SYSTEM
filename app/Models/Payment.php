@@ -4,10 +4,15 @@ namespace App\Models;
 
 use App\Enums\OrderType;
 use App\Enums\PaymentStatus;
+use App\Jobs\AnalyzePaymentProof;
+use App\Services\Finance\FinancialPostingService;
 use App\Services\Invoices\InvoiceService;
+use App\Services\Payments\OrderPaymentStatusSynchronizer;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Validation\ValidationException;
 
 class Payment extends Model
 {
@@ -41,12 +46,101 @@ class Payment extends Model
 
     protected static function booted(): void
     {
+        static::creating(function (Payment $payment): void {
+            $locationId = (int) ($payment->location_id ?? 0);
+            $methodId = (int) ($payment->payment_method_id ?? 0);
+
+            if ($locationId <= 0 || $methodId <= 0) {
+                throw ValidationException::withMessages([
+                    'payment_method_id' => 'بيانات الفرع وطريقة الدفع مطلوبة للحركة المالية.',
+                ]);
+            }
+
+            $method = PaymentMethod::query()
+                ->active()
+                ->find($methodId);
+
+            if (! $method || ! $method->isAvailableAt($locationId)) {
+                throw ValidationException::withMessages([
+                    'payment_method_id' => 'طريقة الدفع المحددة غير متاحة في هذا الفرع.',
+                ]);
+            }
+
+            $activeAccounts = LocationPaymentAccount::query()
+                ->where('is_active', true)
+                ->where(function ($query) use ($locationId, $methodId): void {
+                    $query->whereHas('locationPaymentMethod', function ($parent) use ($locationId, $methodId): void {
+                        $parent
+                            ->where('location_id', $locationId)
+                            ->where('payment_method_id', $methodId)
+                            ->where('is_active', true);
+                    })->orWhere(function ($legacy) use ($locationId, $methodId): void {
+                        $legacy
+                            ->whereNull('location_payment_method_id')
+                            ->where('location_id', $locationId)
+                            ->where('payment_method_id', $methodId);
+                    });
+                })
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get();
+
+            // POS/admin legacy screens do not yet expose an account selector.
+            // When there is exactly one valid account, bind it automatically so
+            // AI verification and payment reporting still know the destination.
+            if (
+                ! $payment->location_payment_account_id
+                && (string) $method->type !== 'cash'
+                && $activeAccounts->count() === 1
+            ) {
+                $payment->location_payment_account_id = $activeAccounts->first()->id;
+            }
+
+            if ($payment->location_payment_account_id) {
+                $account = $activeAccounts->firstWhere(
+                    'id',
+                    (int) $payment->location_payment_account_id
+                );
+
+                if (! $account) {
+                    throw ValidationException::withMessages([
+                        'location_payment_account_id' => 'حساب الدفع المحدد لا يتبع طريقة الدفع والفرع المختارين.',
+                    ]);
+                }
+            }
+        });
+
         static::saved(function (Payment $payment): void {
             app(InvoiceService::class)->syncFromPayment($payment);
+            app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
+
+            if (
+                in_array($payment->statusValue(), ['confirmed', 'corrected'], true)
+                && ($payment->verified_by || $payment->received_by)
+                && ($payment->wasRecentlyCreated || $payment->wasChanged(['status', 'amount']))
+            ) {
+                $actorId = (int) ($payment->verified_by ?: $payment->received_by);
+                $actor = User::query()->find($actorId);
+
+                if ($actor) {
+                    app(FinancialPostingService::class)->collection($payment, $actor);
+                }
+            }
+
+            if (
+                config('services.payment_proof_ai.enabled')
+                && config('services.payment_proof_ai.auto_analyze')
+                && filled($payment->payment_proof)
+                && $payment->isPendingVerification()
+                && ($payment->wasRecentlyCreated || $payment->wasChanged('payment_proof'))
+            ) {
+                AnalyzePaymentProof::dispatchAfterResponse((int) $payment->id);
+            }
         });
 
         static::deleted(function (Payment $payment): void {
             app(InvoiceService::class)->syncFromPayment($payment);
+            app(OrderPaymentStatusSynchronizer::class)->syncFromPayment($payment);
         });
     }
 
@@ -83,6 +177,16 @@ class Payment extends Model
     public function refunds(): HasMany
     {
         return $this->hasMany(Refund::class);
+    }
+
+    public function proofAnalyses(): HasMany
+    {
+        return $this->hasMany(PaymentProofAnalysis::class);
+    }
+
+    public function latestProofAnalysis(): HasOne
+    {
+        return $this->hasOne(PaymentProofAnalysis::class)->latestOfMany();
     }
 
     public function isConfirmed(): bool

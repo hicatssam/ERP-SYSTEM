@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PaymentMethod extends Model
 {
@@ -38,13 +39,34 @@ class PaymentMethod extends Model
 
     public function locationPaymentMethods(): HasMany
     {
-        return $this->hasMany(
-            LocationPaymentMethod::class
-        );
+        return $this->hasMany(LocationPaymentMethod::class);
     }
 
-    public function scopeActive($query)
-{
-    return $query->where('is_active', true);
-}
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Transitional branch-availability rule.
+     *
+     * Methods that do not have any branch mappings yet remain globally available
+     * for legacy installations. Once a method has at least one mapping, it is
+     * available only where an active mapping exists.
+     */
+    public function isAvailableAt(int $locationId): bool
+    {
+        if (! $this->is_active || $locationId <= 0) {
+            return false;
+        }
+
+        if (! $this->locationPaymentMethods()->exists()) {
+            return true;
+        }
+
+        return $this->locationPaymentMethods()
+            ->where('location_id', $locationId)
+            ->where('is_active', true)
+            ->exists();
+    }
 }

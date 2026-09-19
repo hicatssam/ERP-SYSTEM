@@ -4,12 +4,21 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function (): void {
+            Route::middleware([
+                'web',
+                'auth',
+                'location.scope',
+                'password.changed',
+            ])->group(base_path('routes/payment-proof-ai.php'));
+        },
     )
     ->withSchedule(function (Schedule $schedule) {
         // Check every hour for scheduled reports that are due.
@@ -30,6 +39,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'password.changed' => \App\Http\Middleware\EnsurePasswordChanged::class,
             'location.scope'   => \App\Http\Middleware\CheckLocationScope::class,
+        ]);
+
+        // Order confirmation may raise inventory/recipe ValidationException
+        // messages under either `items` or `stock`. Normalize those messages
+        // before Laravel redirects back so the order Show page can always open
+        // its branded stock popup instead of silently returning with no modal.
+        $middleware->appendToGroup('web', [
+            \App\Http\Middleware\NormalizeOrderStockErrors::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

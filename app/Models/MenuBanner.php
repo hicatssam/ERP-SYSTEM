@@ -13,6 +13,7 @@ class MenuBanner extends Model
 
     protected $fillable = [
         'location_id',
+        'product_id',
         'image',
         'title',
         'subtitle',
@@ -27,6 +28,8 @@ class MenuBanner extends Model
     protected function casts(): array
     {
         return [
+            'location_id' => 'integer',
+            'product_id' => 'integer',
             'is_active' => 'boolean',
             'sort_order' => 'integer',
             'starts_at' => 'datetime',
@@ -39,9 +42,14 @@ class MenuBanner extends Model
         return $this->belongsTo(Location::class);
     }
 
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
     /**
-     * Active, in-date-range banners visible at a given branch: global
-     * banners (location_id null) plus ones scoped to this branch.
+     * Active, in-date-range banners visible at a given branch.
+     * NULL/0 are treated as global for compatibility with older data.
      */
     public function scopeVisibleFor(Builder $query, int $locationId): Builder
     {
@@ -49,9 +57,19 @@ class MenuBanner extends Model
 
         return $query
             ->where('is_active', true)
-            ->where(fn (Builder $q) => $q->whereNull('location_id')->orWhere('location_id', $locationId))
-            ->where(fn (Builder $q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $now))
-            ->where(fn (Builder $q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $now))
+            ->where(function (Builder $q) use ($locationId): void {
+                $q->whereNull('location_id')
+                    ->orWhere('location_id', 0)
+                    ->orWhere('location_id', $locationId);
+            })
+            ->where(function (Builder $q) use ($now): void {
+                $q->whereNull('starts_at')
+                    ->orWhere('starts_at', '<=', $now);
+            })
+            ->where(function (Builder $q) use ($now): void {
+                $q->whereNull('ends_at')
+                    ->orWhere('ends_at', '>=', $now);
+            })
             ->orderBy('sort_order')
             ->orderBy('id');
     }

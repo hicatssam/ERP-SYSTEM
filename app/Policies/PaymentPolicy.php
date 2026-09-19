@@ -14,9 +14,23 @@ class PaymentPolicy
 
     public function verify(User $user, Payment $payment): bool
     {
-        return ($user->hasPermissionTo('payments.verify') || $user->isAdmin())
-            && $this->belongsToUserLocation($user, $payment)
-            && ($payment->status?->value ?? $payment->status) === 'pending_verification';
+        if (($payment->status?->value ?? $payment->status) !== 'pending_verification') {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        // Separation of duties: the employee who recorded/received a pending
+        // transfer may not approve their own proof. A manager/accountant/other
+        // authorized verifier in the same branch must perform the review.
+        if ((int) ($payment->received_by ?? 0) === (int) $user->id) {
+            return false;
+        }
+
+        return $user->hasPermissionTo('payments.verify')
+            && $this->belongsToUserLocation($user, $payment);
     }
 
     public function correct(User $user, Payment $payment): bool

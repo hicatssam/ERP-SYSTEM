@@ -1,297 +1,62 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="csrf-token" content="{{ csrf_token() }}">
-<title>إتمام الطلب - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="csrf-token" content="{{ csrf_token() }}">
+<title>إتمام الطلب - {{ $branding['name'] ?? 'Tish' }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
+<style>
+.checkout-page{padding-bottom:125px}.checkout-shell{display:grid;gap:13px}.ck-card{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:15px;box-shadow:0 8px 28px #0000000a}.ck-title{margin:0 0 12px}.ck-title h3{margin:0;font-size:1rem}.ck-title small{display:block;color:var(--muted);font-size:.7rem;margin-top:3px}.eta-banner{display:flex;gap:9px;align-items:center;padding:11px 13px;border-radius:15px;background:color-mix(in srgb,var(--primary) 8%,var(--surface));color:var(--primary);font-size:.78rem;font-weight:900}.cart-row{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:9px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}.cart-thumb{width:52px;height:52px;border-radius:13px;overflow:hidden;background:var(--bg)}.cart-thumb img{width:100%;height:100%;object-fit:cover}.row-copy strong{display:block;font-size:.8rem}.row-copy small{display:block;color:var(--muted);font-size:.68rem;margin-top:3px}.cart-total{display:flex;justify-content:space-between;padding-top:12px;margin-top:4px;font-weight:900}.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.fields label,.field-label{font-size:.74rem;font-weight:800}.fields input,.fields select,.fields textarea,#paymentAccountSelect,#paymentReferenceInput{width:100%;margin-top:5px;min-height:47px;border:1px solid var(--line);border-radius:13px;background:var(--surface);padding:10px;color:var(--text);outline:none}.fields textarea{min-height:80px;resize:vertical}.fields .full{grid-column:1/-1}.table-legend{display:flex;gap:12px;margin:8px 0;font-size:.68rem;color:var(--muted)}.table-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.table-card{border:1px solid var(--line);border-radius:13px;background:var(--surface);padding:9px 4px;font-size:.7rem;font-weight:900;color:var(--text)}.table-card small{display:block;font-size:.58rem;margin-top:3px;color:#159455}.table-card.occupied{opacity:.48}.table-card.occupied small{color:#c33}.table-card.selected{border-color:var(--primary);box-shadow:0 0 0 2px color-mix(in srgb,var(--primary) 12%,transparent);background:color-mix(in srgb,var(--primary) 5%,var(--surface))}.pay-list{display:grid;gap:8px}.pay-card{display:grid;grid-template-columns:22px 42px minmax(0,1fr);gap:10px;align-items:center;width:100%;padding:10px;border:1.5px solid var(--line);border-radius:16px;background:var(--surface);text-align:right;color:var(--text)}.pay-card.active{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 5%,var(--surface))}.radio{width:19px;height:19px;border:2px solid var(--line);border-radius:50%;position:relative}.pay-card.active .radio{border-color:var(--primary)}.pay-card.active .radio:after{content:"";position:absolute;inset:4px;border-radius:50%;background:var(--primary)}.pay-icon{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:color-mix(in srgb,var(--primary) 7%,var(--surface));color:var(--primary)}.pay-icon img{width:100%;height:100%;object-fit:contain;border-radius:10px}.pay-copy strong{display:block;font-size:.8rem}.pay-copy small{display:block;font-size:.64rem;color:var(--muted);margin-top:2px}.account-box{margin-top:10px;padding:12px;border-radius:14px;background:var(--bg);border:1px solid var(--line)}.account-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px}.account-item{background:var(--surface);border-radius:10px;padding:8px}.account-item small{display:block;color:var(--muted);font-size:.62rem}.account-item b{font-size:.72rem;overflow-wrap:anywhere}.upload-preview{display:flex;align-items:center;gap:9px;margin-top:8px;padding:9px;border:1px solid var(--line);border-radius:12px}.upload-preview img{width:58px;height:58px;object-fit:cover;border-radius:9px}.ai-note{display:flex;gap:8px;margin-top:9px;padding:10px;border-radius:12px;background:color-mix(in srgb,var(--primary) 6%,var(--surface));font-size:.68rem;color:var(--muted);line-height:1.55}.ai-note i{color:var(--primary)}.checkout-error{display:none;position:sticky;bottom:132px;z-index:30;padding:12px 13px;border-radius:14px;background:#fff0f0;border:1px solid #efb6b6;color:#a31212;font-size:.78rem;font-weight:900;box-shadow:0 10px 30px #0002}.checkout-error.show{display:block}.submit-wrap{position:sticky;bottom:calc(68px + env(safe-area-inset-bottom));z-index:20;padding-top:11px;background:linear-gradient(transparent,var(--bg) 35%)}.submit-order{width:100%;border:0;border-radius:15px;background:var(--primary);color:#fff;padding:14px;font-weight:900;box-shadow:0 10px 25px color-mix(in srgb,var(--primary) 25%,transparent)}.empty-note{padding:12px;border-radius:12px;background:var(--bg);color:var(--muted);font-size:.72rem;text-align:center}.required{color:#c33}@media(max-width:560px){.fields{grid-template-columns:1fr}.account-grid{grid-template-columns:1fr}.table-grid{grid-template-columns:repeat(4,1fr)}.ck-card{padding:13px}}
+</style>
 </head>
-<body class="crisp-customer-menu">
-<div class="app crisp-menu-app">
-@include('customer-menu.partials.topbar', ['pageTitle' => 'إتمام الطلب', 'pageSubtitle' => $location->name, 'backUrl' => route('customer-menu.cart', $location->code)])
-
-<main class="menu-area">
- <div class="shell">
-  <div class="eta-banner" id="etaBanner" hidden>
-   <i class="fa-solid fa-clock"></i>
-   <span id="etaText"></span>
-  </div>
-
-  <div class="order-summary">
-   <div id="summaryItems"></div>
-   <div class="cart-total"><span>الإجمالي</span><span id="summaryTotal">0.00 ₪</span></div>
-  </div>
-
-  <form id="checkoutForm" enctype="multipart/form-data">
-   <div class="checkout-grid">
-    <label>الاسم<input name="name" required maxlength="120"></label>
-    <label>رقم الجوال<input name="phone" required maxlength="20" inputmode="tel"></label>
-    <label>نوع الطلب
-     <select name="service_type" id="serviceType" required>
-      @foreach(($serviceOptions ?? []) as $option)
-       <option value="{{ $option['value'] ?? $option }}">{{ $option['label'] ?? $option }}</option>
-      @endforeach
-     </select>
-    </label>
-    <label id="tableField" class="full" hidden>
-     <span>الطاولة</span>
-     <div class="table-legend">
-      <span><span class="dot" style="background:#22a35c"></span> متاحة</span>
-      <span><span class="dot" style="background:#d64545"></span> مشغولة</span>
-     </div>
-     <div class="table-grid" id="tableGrid">
-      @foreach(($tables ?? []) as $table)
-       @php $isAvailable = (bool) ($table['available'] ?? true); @endphp
-       <button type="button"
-               class="table-card {{ $isAvailable ? 'available' : 'occupied' }}"
-               data-table-id="{{ $table['id'] }}"
-               {{ $isAvailable ? '' : 'disabled' }}>
-        <span class="dot {{ $isAvailable ? 'available' : 'occupied' }}"></span>
-        {{ $table['name'] ?? ('طاولة '.$table['id']) }}
-        <small>{{ $isAvailable ? 'متاحة' : 'مشغولة' }}</small>
-       </button>
-      @endforeach
-     </div>
-     <input type="hidden" name="restaurant_table_id" id="tableIdInput">
-    </label>
-    <label class="full" id="addressField" hidden>عنوان التوصيل<textarea name="address" maxlength="500"></textarea></label>
-    <label class="full">ملاحظات الطلب<textarea name="notes" maxlength="700"></textarea></label>
-   </div>
-
-   <h3>طريقة الدفع</h3>
-   <div class="payment-methods" id="paymentMethods">جاري تحميل طرق الدفع...</div>
-   <div id="paymentAccountDetails"></div>
-   <input type="hidden" name="payment_method_id" id="paymentMethodId">
-   <input type="hidden" name="payment_account_id" id="paymentAccountId">
-
-   <div id="paymentReferenceField" hidden style="margin-top:12px">
-    <label>رقم مرجع العملية (اختياري)
-     <input type="text" name="payment_reference" id="paymentReferenceInput" maxlength="150" placeholder="مثال: TX123456">
-    </label>
-   </div>
-
-   <div id="paymentProofField" hidden style="margin-top:12px">
-    <label class="upload-field" for="paymentProofInput">
-     <i class="fa-solid fa-cloud-arrow-up"></i>
-     <span>إرفاق إشعار إثبات الدفع (صورة أو PDF) <span class="required-star" id="proofRequiredStar" hidden>*</span></span>
-     <input type="file" id="paymentProofInput" name="payment_proof" accept=".jpg,.jpeg,.png,.webp,.pdf">
-    </label>
-    <div class="upload-preview" id="uploadPreview" hidden></div>
-   </div>
-
-   <div class="error" id="checkoutError"></div>
-   <button class="submit-order" id="checkoutSubmit" type="submit">تأكيد وإرسال الطلب</button>
-  </form>
- </div>
-</main>
-</div>
-
-@include('customer-menu.partials.bottom-nav', ['activeNav' => 'cart'])
+<body class="crisp-customer-menu"><div class="app crisp-menu-app">
+@include('customer-menu.partials.topbar',['pageTitle'=>'إتمام الطلب','pageSubtitle'=>$location->name,'backUrl'=>route('customer-menu.cart',$location->code)])
+<main class="menu-area checkout-page"><div class="shell checkout-shell">
+<div class="eta-banner" id="etaBanner" hidden><i class="fa-solid fa-clock"></i><span id="etaText"></span></div>
+<section class="ck-card"><div class="ck-title"><h3>ملخص طلبك</h3><small>راجع الأصناف قبل الإرسال</small></div><div id="summaryItems"></div><div class="cart-total"><span>الإجمالي</span><span id="summaryTotal">0.00 ₪</span></div></section>
+<form id="checkoutForm" enctype="multipart/form-data">
+<section class="ck-card"><div class="ck-title"><h3>بيانات الطلب</h3><small>بيانات بسيطة لتأكيد الطلب والتواصل معك</small></div><div class="fields">
+<label>الاسم<input name="name" required maxlength="120" autocomplete="name" placeholder="اسمك"></label>
+<label>رقم الجوال<input name="phone" required maxlength="20" inputmode="tel" autocomplete="tel" placeholder="05xxxxxxxx"></label>
+<label class="full">نوع الطلب<select name="service_type" id="serviceType" required>@foreach(($serviceOptions??[]) as $option)<option value="{{ $option['value']??$option }}">{{ $option['label']??$option }}</option>@endforeach</select></label>
+<div id="tableField" class="full" hidden><label>اختر الطاولة</label><div class="table-legend"><span>🟢 متاحة</span><span>🔴 مشغولة</span></div><div class="table-grid" id="tableGrid">@forelse(($tables??[]) as $table)@php($available=(bool)($table['available']??true))<button type="button" class="table-card {{ $available?'available':'occupied' }}" data-table-id="{{ $table['id'] }}" {{ $available?'':'disabled' }}>{{ $table['name']??('طاولة '.$table['id']) }}<small>{{ $available?'متاحة':'مشغولة' }}</small></button>@empty<div class="empty-note" style="grid-column:1/-1">لا توجد طاولات مفعلة لهذا الفرع.</div>@endforelse</div><input type="hidden" name="restaurant_table_id" id="tableIdInput"></div>
+<label class="full" id="addressField" hidden>عنوان التوصيل<textarea name="address" maxlength="500" placeholder="العنوان بالتفصيل"></textarea></label>
+<label class="full">ملاحظات الطلب<textarea name="notes" maxlength="700" placeholder="بدون بصل، صوص إضافي... (اختياري)"></textarea></label>
+</div></section>
+<section class="ck-card" style="margin-top:13px"><div class="ck-title"><h3>طريقة الدفع</h3><small>طرق الدفع المفعلة لفرع {{ $location->name }}</small></div><div class="pay-list" id="paymentMethods"></div><div id="paymentAccountDetails"></div><input type="hidden" name="payment_method_id" id="paymentMethodId"><input type="hidden" name="payment_account_id" id="paymentAccountId">
+<div id="paymentReferenceField" hidden style="margin-top:10px"><label class="field-label">رقم مرجع العملية <span class="required" id="referenceRequiredStar" hidden>*</span><input id="paymentReferenceInput" name="payment_reference" maxlength="150" placeholder="مثال: TX123456"></label></div>
+<div id="paymentProofField" hidden style="margin-top:10px"><label class="upload-field" for="paymentProofInput"><i class="fa-solid fa-cloud-arrow-up"></i><span>إرفاق إثبات الدفع <span class="required" id="proofRequiredStar" hidden>*</span></span><input type="file" id="paymentProofInput" name="payment_proof" accept=".jpg,.jpeg,.png,.webp,.pdf"></label><div class="upload-preview" id="uploadPreview" hidden></div><div class="ai-note"><i class="fa-solid fa-wand-magic-sparkles"></i><span><b style="display:block;color:var(--text)">مراجعة ذكية للإيصال</b>بعد إرسال الصورة يمكن للنظام استخراج بيانات المرسل والمرجع والمبلغ لمساعدة الموظف. التحليل لا يعتمد أو يرفض الدفع تلقائيًا.</span></div></div>
+</section>
+<div class="checkout-error" id="checkoutError" role="alert"></div><div class="submit-wrap"><button class="submit-order" id="checkoutSubmit" type="submit">تأكيد وإرسال الطلب</button></div>
+</form></div></main></div>
+@include('customer-menu.partials.bottom-nav',['activeNav'=>'cart'])
 @include('customer-menu.partials.pwa-install')
 @include('customer-menu.partials.cart-engine')
-
 <script>
-const CM = window.CustomerMenu;
-const ORDER_URL = @json(route('customer-menu.orders.store', $location->code));
-const PAYMENT_URL = @json(route('customer-menu.payment-options', $location->code));
-const QUEUE_URL = @json(route('customer-menu.queue-status', $location->code));
-const CART_URL = @json(route('customer-menu.cart', $location->code));
-const TRACK_BASE = @json(route('customer-menu.show', $location->code));
-const REQUEST_TOKEN = @json($requestToken ?? '');
-const CSRF = document.querySelector('meta[name="csrf-token"]').content;
-let methods = [];
-
-function renderSummary() {
-    const rows = CM.cartRows();
-    if (!rows.length) { window.location.href = CART_URL; return; }
-    document.getElementById('summaryItems').innerHTML = rows.map(x => {
-        const modifierLine = (x.modifiers || []).length
-            ? x.modifiers.map(m => `${m.name}${m.quantity > 1 ? ' ×' + m.quantity : ''}`).join('، ')
-            : '';
-        const subtitle = [x.variant_name, modifierLine].filter(Boolean).join(' — ');
-        return `
-      <div class="cart-row">
-        <div class="cart-thumb">${x.image ? `<img src="${CM.esc(x.image)}" alt="">` : ''}</div>
-        <div class="row-copy">
-          <strong>${CM.esc(x.name.split(' - ')[0])}</strong>
-          ${subtitle ? `<span style="display:block;font-size:.74rem;color:var(--muted)">${CM.esc(subtitle)}</span>` : ''}
-          <small>${x.quantity} × ${CM.money(x.price)}</small>
-        </div>
-        <div class="row-copy"><strong>${CM.money(x.price * x.quantity)}</strong></div>
-      </div>`;
-    }).join('');
-    document.getElementById('summaryTotal').textContent = CM.money(CM.cartTotal());
-}
-
-function serviceFields() {
-    const value = document.getElementById('serviceType').value;
-    document.getElementById('tableField').hidden = value !== 'dine_in';
-    document.getElementById('addressField').hidden = value !== 'delivery';
-}
-
-document.getElementById('tableGrid').addEventListener('click', e => {
-    const card = e.target.closest('.table-card');
-    if (!card || card.disabled) return;
-    document.querySelectorAll('.table-card').forEach(c => c.classList.remove('selected'));
-    card.classList.add('selected');
-    document.getElementById('tableIdInput').value = card.dataset.tableId;
-});
-
-async function loadPayments() {
-    try {
-        const response = await fetch(PAYMENT_URL, { headers: { Accept: 'application/json' } });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'تعذر تحميل طرق الدفع');
-        methods = data.payment_methods || data.methods || [];
-        renderPayments();
-    } catch (e) {
-        document.getElementById('paymentMethods').innerHTML = '<div class="error">' + CM.esc(e.message) + '</div>';
-    }
-}
-
-function paymentIcon(type) {
-    switch (String(type || '').toLowerCase()) {
-        case 'cash': return 'fa-solid fa-money-bill-wave';
-        case 'card_pos': return 'fa-solid fa-credit-card';
-        case 'bank_transfer': return 'fa-solid fa-building-columns';
-        case 'electronic_wallet': return 'fa-solid fa-wallet';
-        default: return 'fa-solid fa-circle-dollar-to-slot';
-    }
-}
-
-function renderPayments() {
-    document.getElementById('paymentMethods').innerHTML = methods.length
-        ? methods.map(m => `
-          <button class="payment-card" type="button" data-pay="${m.id}">
-            <span class="radio"></span>
-            <span class="p-icon">${m.logo ? `<img src="${CM.esc(m.logo)}" alt="${CM.esc(m.name)}">` : `<i class="${paymentIcon(m.type)}"></i>`}</span>
-            <span class="p-copy"><strong>${CM.esc(m.name)}</strong><small>${CM.esc(m.type || '')}</small></span>
-          </button>`).join('')
-        : 'لا توجد طرق دفع مفعلة.';
-}
-
-function choosePayment(id) {
-    const method = methods.find(x => String(x.id) === String(id));
-    if (!method) return;
-    document.getElementById('paymentMethodId').value = method.id;
-    document.querySelectorAll('[data-pay]').forEach(b => b.classList.toggle('active', String(b.dataset.pay) === String(id)));
-    const accounts = method.accounts || [];
-    document.getElementById('paymentAccountDetails').innerHTML = accounts.length
-        ? `<label>الحساب<select id="paymentAccountSelect"><option value="">اختر الحساب</option>${accounts.map(a => `<option value="${a.id}">${CM.esc(a.name || a.provider_name || a.account_number || 'حساب')}</option>`).join('')}</select></label>`
-        : '';
-
-    const isPureCash = String(method.type || '').toLowerCase().includes('cash') && !method.requires_reference && !method.requires_verification;
-
-    const refField = document.getElementById('paymentReferenceField');
-    const refInput = document.getElementById('paymentReferenceInput');
-    refField.hidden = isPureCash;
-    if (isPureCash) refInput.value = '';
-
-    const proofField = document.getElementById('paymentProofField');
-    const proofInput = document.getElementById('paymentProofInput');
-    const proofStar = document.getElementById('proofRequiredStar');
-    proofField.hidden = isPureCash;
-    proofInput.required = !!method.requires_verification;
-    proofStar.hidden = !method.requires_verification;
-    if (isPureCash) { proofInput.value = ''; document.getElementById('uploadPreview').hidden = true; }
-}
-
-document.getElementById('paymentProofInput').addEventListener('change', e => {
-    const file = e.target.files[0];
-    const preview = document.getElementById('uploadPreview');
-    if (!file) { preview.hidden = true; return; }
-    const isImage = file.type.startsWith('image/');
-    preview.hidden = false;
-    preview.innerHTML = `${isImage ? `<img src="${URL.createObjectURL(file)}" alt="">` : `<i class="fa-solid fa-file-pdf" style="font-size:1.6rem;color:var(--primary)"></i>`}<span>${CM.esc(file.name)}</span>`;
-});
-
-document.addEventListener('click', e => {
-    const pay = e.target.closest('[data-pay]');
-    if (pay) choosePayment(pay.dataset.pay);
-});
-
-document.addEventListener('change', e => {
-    if (e.target.id === 'paymentAccountSelect') document.getElementById('paymentAccountId').value = e.target.value;
-});
-
-document.getElementById('serviceType').addEventListener('change', serviceFields);
-
-document.getElementById('checkoutForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const rows = CM.cartRows();
-    if (!rows.length) return;
-
-    document.getElementById('checkoutError').textContent = '';
-    const button = document.getElementById('checkoutSubmit');
-    button.disabled = true;
-    button.textContent = 'جاري إرسال الطلب...';
-
-    try {
-        const formData = new FormData(e.currentTarget);
-        formData.append('request_token', REQUEST_TOKEN);
-        rows.forEach((row, i) => {
-            formData.append(`items[${i}][product_id]`, row.product_id);
-            formData.append(`items[${i}][quantity]`, row.quantity);
-            if (row.variant_id) {
-                formData.append(`items[${i}][product_variant_id]`, row.variant_id);
-            }
-            (row.modifiers || []).forEach((m, j) => {
-                formData.append(`items[${i}][modifiers][${j}][modifier_id]`, m.modifier_id);
-                formData.append(`items[${i}][modifiers][${j}][quantity]`, m.quantity);
-            });
-        });
-
-        const response = await fetch(ORDER_URL, {
-            method: 'POST',
-            headers: { Accept: 'application/json', 'X-CSRF-TOKEN': CSRF },
-            body: formData,
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || Object.values(data.errors || {}).flat()[0] || 'تعذر إرسال الطلب');
-
-        CM.pushOrder({
-            order_id: data.order_id || null,
-            order_number: data.order_number,
-            location: CM.LOCATION_CODE,
-            url: data.track_url,
-            created_at: data.created_at || new Date().toLocaleString('ar'),
-        });
-
-        CM.clearCart();
-        CM.toast('تم استلام طلبك بنجاح');
-        setTimeout(() => { window.location.href = data.track_url || TRACK_BASE; }, 700);
-    } catch (err) {
-        document.getElementById('checkoutError').textContent = err.message;
-    } finally {
-        button.disabled = false;
-        button.textContent = 'تأكيد وإرسال الطلب';
-    }
-});
-
-renderSummary();
-serviceFields();
-loadPayments();
-
-(async function loadEta() {
-    try {
-        const response = await fetch(QUEUE_URL, { headers: { Accept: 'application/json' } });
-        const data = await response.json();
-        if (!response.ok) return;
-
-        const cartMax = Math.max(0, ...CM.cartRows().map(r => Number(r.prep_time_minutes) || 0));
-        const basePrep = cartMax || Number(data.default_prep_minutes) || 12;
-        const totalMinutes = basePrep + (Number(data.queue_count) || 0) * (Number(data.queue_minutes_per_order) || 0);
-
-        document.getElementById('etaText').textContent = `الوقت المتوقع لتجهيز طلبك: حوالي ${totalMinutes} دقيقة`;
-        document.getElementById('etaBanner').hidden = false;
-    } catch (e) {
-        // Silently skip the ETA banner if the queue endpoint is unreachable —
-        // it's a nice-to-have, not something that should block checkout.
-    }
-})();
-</script>
-</body>
-</html>
+const CM=window.CustomerMenu;
+const ORDER_URL=@json(route('customer-menu.orders.store',$location->code));
+const QUEUE_URL=@json(route('customer-menu.queue-status',$location->code));
+const CART_URL=@json(route('customer-menu.cart',$location->code));
+const TRACK_BASE=@json(route('customer-menu.show',$location->code));
+const REQUEST_TOKEN=@json($requestToken??'');
+const CSRF=document.querySelector('meta[name="csrf-token"]').content;
+const methods=@json(($paymentMethods??collect())->values()->all());
+const errorBox=document.getElementById('checkoutError');
+function showError(message){errorBox.textContent=message||'حدث خطأ غير متوقع.';errorBox.classList.add('show');errorBox.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>errorBox.classList.remove('show'),9000)}
+function clearError(){errorBox.textContent='';errorBox.classList.remove('show')}
+function renderSummary(){const rows=CM.cartRows();if(!rows.length){location.href=CART_URL;return}summaryItems.innerHTML=rows.map(x=>`<div class="cart-row"><div class="cart-thumb">${x.image?`<img src="${CM.esc(x.image)}" alt="">`:''}</div><div class="row-copy"><strong>${CM.esc(x.name.split(' - ')[0])}</strong><small>${x.quantity} × ${CM.money(x.price)}</small></div><div class="row-copy"><strong>${CM.money(x.price*x.quantity)}</strong></div></div>`).join('');summaryTotal.textContent=CM.money(CM.cartTotal())}
+function serviceFields(){const v=serviceType.value;tableField.hidden=v!=='dine_in';addressField.hidden=v!=='delivery';if(v!=='dine_in')tableIdInput.value=''}
+function payIcon(t){return({cash:'fa-money-bill-wave',card_pos:'fa-credit-card',bank_transfer:'fa-building-columns',electronic_wallet:'fa-wallet'})[String(t||'').toLowerCase()]||'fa-circle-dollar-to-slot'}
+function payLabel(m){if(m.requires_verification)return'يحتاج مراجعة إثبات الدفع';return String(m.type)==='cash'?'الدفع نقدًا':'دفع إلكتروني'}
+function renderPayments(){paymentMethods.innerHTML=methods.length?methods.map(m=>`<button class="pay-card" type="button" data-pay="${m.id}"><span class="radio"></span><span class="pay-icon">${m.logo?`<img src="${CM.esc(m.logo)}" alt="">`:`<i class="fa-solid ${payIcon(m.type)}"></i>`}</span><span class="pay-copy"><strong>${CM.esc(m.name)}</strong><small>${CM.esc(payLabel(m))}</small></span></button>`).join(''):'<div class="empty-note">لا توجد طرق دفع مفعلة لهذا الفرع. فعّل طريقة دفع من إعدادات الفرع.</div>'}
+function accountDetails(a){const rows=[['مزود الخدمة',a.provider_name],['صاحب الحساب',a.account_holder_name],['رقم الحساب',a.account_number],['IBAN',a.iban],['رقم المحفظة/الجوال',a.wallet_number||a.phone_number]].filter(x=>x[1]);return `<div class="account-box"><b>${CM.esc(a.name||a.provider_name||'بيانات التحويل')}</b><div class="account-grid">${rows.map(x=>`<div class="account-item"><small>${CM.esc(x[0])}</small><b>${CM.esc(x[1])}</b></div>`).join('')}</div>${a.instructions?`<small style="display:block;margin-top:8px;color:var(--muted)">${CM.esc(a.instructions)}</small>`:''}</div>`}
+function choosePayment(id){clearError();const m=methods.find(x=>String(x.id)===String(id));if(!m)return;paymentMethodId.value=m.id;document.querySelectorAll('[data-pay]').forEach(x=>x.classList.toggle('active',String(x.dataset.pay)===String(id)));paymentAccountId.value='';const accounts=m.accounts||[];paymentAccountDetails.innerHTML=accounts.length?`<label class="field-label" style="display:block;margin-top:10px">اختر حساب التحويل<select id="paymentAccountSelect"><option value="">اختر الحساب</option>${accounts.map(a=>`<option value="${a.id}">${CM.esc(a.name||a.provider_name||a.account_number||'حساب')}</option>`).join('')}</select></label><div id="selectedAccount"></div>`:'';const cash=String(m.type)==='cash'&&!m.requires_reference&&!m.requires_verification;paymentReferenceField.hidden=cash;paymentReferenceInput.required=!cash&&!!m.requires_reference;referenceRequiredStar.hidden=!paymentReferenceInput.required;paymentProofField.hidden=cash;paymentProofInput.required=!cash&&!!m.requires_verification;proofRequiredStar.hidden=!paymentProofInput.required}
+document.addEventListener('click',e=>{const p=e.target.closest('[data-pay]');if(p)choosePayment(p.dataset.pay);const t=e.target.closest('.table-card');if(t&&!t.disabled){document.querySelectorAll('.table-card').forEach(x=>x.classList.remove('selected'));t.classList.add('selected');tableIdInput.value=t.dataset.tableId;clearError()}});
+document.addEventListener('change',e=>{if(e.target.id==='paymentAccountSelect'){const m=methods.find(x=>String(x.id)===String(paymentMethodId.value)),a=(m?.accounts||[]).find(x=>String(x.id)===String(e.target.value));paymentAccountId.value=e.target.value;selectedAccount.innerHTML=a?accountDetails(a):''}});
+paymentProofInput.addEventListener('change',e=>{const f=e.target.files[0];if(!f){uploadPreview.hidden=true;return}uploadPreview.hidden=false;uploadPreview.innerHTML=`${f.type.startsWith('image/')?`<img src="${URL.createObjectURL(f)}" alt="إثبات الدفع">`:'<i class="fa-solid fa-file-pdf"></i>'}<span>${CM.esc(f.name)}</span>`});
+serviceType.addEventListener('change',serviceFields);
+checkoutForm.addEventListener('submit',async e=>{e.preventDefault();clearError();const rows=CM.cartRows();if(!rows.length)return showError('السلة فارغة.');if(serviceType.value==='dine_in'&&!tableIdInput.value)return showError('اختر طاولة متاحة قبل إرسال الطلب.');if(!paymentMethodId.value)return showError('اختر طريقة الدفع قبل إرسال الطلب.');const method=methods.find(x=>String(x.id)===String(paymentMethodId.value));if((method?.accounts||[]).length&&!paymentAccountId.value)return showError('اختر حساب التحويل.');const btn=checkoutSubmit;btn.disabled=true;btn.textContent='جاري إرسال الطلب...';try{const fd=new FormData(e.currentTarget);fd.append('request_token',REQUEST_TOKEN);rows.forEach((row,i)=>{fd.append(`items[${i}][product_id]`,row.product_id);fd.append(`items[${i}][quantity]`,row.quantity);if(row.variant_id)fd.append(`items[${i}][product_variant_id]`,row.variant_id);(row.modifiers||[]).forEach((m,j)=>{fd.append(`items[${i}][modifiers][${j}][modifier_id]`,m.modifier_id);fd.append(`items[${i}][modifiers][${j}][quantity]`,m.quantity)})});const r=await fetch(ORDER_URL,{method:'POST',headers:{Accept:'application/json','X-CSRF-TOKEN':CSRF},body:fd});let d={};try{d=await r.json()}catch(_){throw new Error(`تعذر إرسال الطلب (HTTP ${r.status}).`)}if(!r.ok){const validation=Object.values(d.errors||{}).flat().filter(Boolean).join(' — ');throw new Error(validation||d.message||'تعذر إرسال الطلب.')}CM.pushOrder({order_id:d.order_id||null,order_number:d.order_number,location:CM.LOCATION_CODE,url:d.track_url,created_at:d.created_at||new Date().toLocaleString('ar')});CM.clearCart();CM.toast('تم استلام طلبك بنجاح');setTimeout(()=>location.href=d.track_url||TRACK_BASE,500)}catch(ex){showError(ex.message)}finally{btn.disabled=false;btn.textContent='تأكيد وإرسال الطلب'}});
+renderSummary();renderPayments();serviceFields();
+(async()=>{try{const r=await fetch(QUEUE_URL,{headers:{Accept:'application/json'},cache:'no-store'}),d=await r.json();if(!r.ok)return;const def=Number(d.default_prep_minutes)||12;const loads=CM.cartRows().map(x=>{const base=Number(x.prep_time_minutes)||def,qty=Math.max(1,Number(x.quantity)||1);return Math.ceil(base+(qty-1)*base*.35)});const mins=Math.ceil(Math.max(def,...loads)+(Number(d.queue_count)||0)*(Number(d.queue_minutes_per_order)||0));etaText.textContent=`الوقت المتوقع لتجهيز طلبك: حوالي ${mins} دقيقة`;etaBanner.hidden=false}catch(_){}})();
+</script></body></html>

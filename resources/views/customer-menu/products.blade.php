@@ -1,174 +1,29 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="csrf-token" content="{{ csrf_token() }}">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="csrf-token" content="{{ csrf_token() }}">
 <title>المنيو - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
+<style>
+.products-page{padding:8px 0 108px}.products-toolbar{position:sticky;top:0;z-index:18;background:color-mix(in srgb,var(--background,#fff) 95%,transparent);backdrop-filter:blur(14px);padding:8px 0 10px}.products-toolbar .tools{margin:0}.products-cats{margin:8px -2px 18px;padding:2px 2px 4px;display:flex;gap:9px;overflow:auto;scrollbar-width:none}.products-cats::-webkit-scrollbar{display:none}.products-cats .cat{flex:0 0 78px;min-height:78px;border-radius:18px;padding:7px 6px;background:var(--surface);border:1px solid color-mix(in srgb,var(--text) 8%,transparent);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;box-shadow:0 5px 18px rgba(0,0,0,.035)}.products-cats .cat img{width:44px;height:44px;border-radius:13px;object-fit:cover}.products-cats .cat b{font-size:.68rem;line-height:1.25}.products-cats .cat.active{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 6%,var(--surface));color:var(--primary)}.products-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:3px 0 12px}.products-head h2{margin:0;font-size:1.12rem;font-weight:900}.products-head p{margin:4px 0 0;color:var(--muted);font-size:.72rem}.result-pill{white-space:nowrap;background:var(--surface);border:1px solid color-mix(in srgb,var(--text) 8%,transparent);border-radius:999px;padding:7px 10px;color:var(--muted);font-size:.68rem;font-weight:800}.menu-products-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.menu-product{position:relative;display:block;overflow:hidden;border-radius:20px;background:var(--surface);border:1px solid color-mix(in srgb,var(--text) 8%,transparent);box-shadow:0 7px 22px rgba(0,0,0,.045)}.menu-product-media{height:150px;position:relative;overflow:hidden;background:color-mix(in srgb,var(--primary) 8%,var(--surface))}.menu-product-media>img,.menu-product-media .product-image{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s ease}.menu-product:hover .menu-product-media>img{transform:scale(1.025)}.menu-product-media .fav{position:absolute;top:9px;right:9px;width:34px;height:34px;border-radius:50%;border:1px solid #00000010;background:#fffffff2;display:grid;place-items:center;color:var(--muted);z-index:2}.menu-product-media .fav.active{color:var(--primary)}.menu-product-body{padding:11px}.menu-product-body h3{margin:0;font-size:.86rem;line-height:1.45;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.menu-product-desc{height:31px;overflow:hidden;margin-top:4px;color:var(--muted);font-size:.64rem;line-height:1.55}.menu-product-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px;color:var(--muted);font-size:.63rem}.menu-product-rating{display:flex;align-items:center;gap:3px}.menu-product-rating i{color:#e5a50a}.menu-product-foot{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-top:10px}.menu-product-foot .price{font-size:.82rem;font-weight:900;color:var(--text)}.menu-product-foot .details{border:0;border-radius:11px;background:var(--primary);color:#fff;min-height:32px;padding:0 11px;font-size:.69rem;font-weight:900}.menu-product-foot .details:disabled{opacity:.45}.sold-out{position:absolute;inset:0;background:#ffffffba;display:grid;place-items:center;font-size:.72rem;font-weight:900;color:var(--muted);z-index:1}.products-empty{grid-column:1/-1;padding:50px 15px;text-align:center;background:var(--surface);border:1px dashed color-mix(in srgb,var(--text) 14%,transparent);border-radius:18px;color:var(--muted);font-size:.8rem}.product-chip{position:absolute;left:8px;top:9px;z-index:2;background:var(--primary);color:#fff;border-radius:999px;padding:5px 8px;font-size:.58rem;font-weight:900}.search input{font-size:.78rem!important}@media(min-width:600px){.menu-products-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.menu-product-media{height:175px}}@media(max-width:350px){.menu-products-grid{gap:8px}.menu-product-media{height:128px}.menu-product-body{padding:9px}.products-cats .cat{flex-basis:72px}}
+</style>
 </head>
-<body class="crisp-customer-menu">
-<div class="app crisp-menu-app">
-@include('customer-menu.partials.topbar', ['pageTitle' => 'المنيو الكامل', 'pageSubtitle' => $location->name])
-
-<main class="menu-area" id="menu">
- <div class="shell">
-  <div class="tools">
-   <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="searchInput" type="search" placeholder="ابحث عن صنفك المفضل..." autocomplete="off" value="{{ $initialSearch }}"></div>
-   <button class="filter-square" type="button" id="openFilters" aria-label="تصفية الأصناف"><i class="fa-solid fa-sliders"></i></button>
-  </div>
-
-  <div class="categories" id="categories">
-   <button class="cat {{ $initialCategory === 'all' || $initialCategory === '' ? 'active' : '' }}" type="button" data-cat="all"><b>الكل</b></button>
-   @foreach(($categories ?? []) as $category)
-    <button class="cat {{ (string) $initialCategory === (string) $category['id'] ? 'active' : '' }}" type="button" data-cat="{{ $category['id'] }}">
-     @if(!empty($category['image']))<img src="{{ $category['image'] }}" alt="" onerror="this.remove()">@endif
-     <b>{{ $category['name'] }}</b>
-    </button>
-   @endforeach
-  </div>
-
-  <div class="section-title"><div><h2>كل الأصناف</h2></div><small id="resultCount" style="color:var(--muted);font-size:.8rem"></small></div>
-  <div class="grid" id="productGrid"></div>
- </div>
-</main>
-</div>
-
-<div class="filter-sheet-overlay" id="filterOverlay">
- <div class="filter-sheet">
-  <div class="filter-sheet-head">
-   <button class="close-btn" type="button" id="closeFilters"><i class="fa-solid fa-xmark"></i></button>
-   <h2>تصفية الأصناف</h2>
-   <button type="button" id="resetFilters">إعادة ضبط</button>
-  </div>
-
-  <div class="filter-group">
-   <h4>نطاق السعر</h4>
-   <div class="chip-row" id="priceChips">
-    <button class="chip active" type="button" data-price="all">الكل</button>
-    <button class="chip" type="button" data-price="0-20">أقل من 20 ₪</button>
-    <button class="chip" type="button" data-price="20-50">20 - 50 ₪</button>
-    <button class="chip" type="button" data-price="50-999999">أكثر من 50 ₪</button>
-   </div>
-  </div>
-
-  <div class="filter-group">
-   <h4>الترتيب</h4>
-   <div class="chip-row" id="sortChips">
-    <button class="chip active" type="button" data-sort="default">الافتراضي</button>
-    <button class="chip" type="button" data-sort="price_asc">السعر: من الأقل</button>
-    <button class="chip" type="button" data-sort="price_desc">السعر: من الأعلى</button>
-   </div>
-  </div>
-
-  <button class="filter-apply" type="button" id="applyFilters">عرض النتائج</button>
- </div>
-</div>
-
-@include('customer-menu.partials.bottom-nav', ['activeNav' => 'menu'])
+<body class="crisp-customer-menu"><div class="app crisp-menu-app">
+@include('customer-menu.partials.topbar',['pageTitle'=>'المنيو الكامل','pageSubtitle'=>$location->name])
+<main class="menu-area products-page" id="menu"><div class="shell">
+<div class="products-toolbar"><div class="tools"><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input id="searchInput" type="search" placeholder="ابحث عن برجر، مقبلات، مشروب..." autocomplete="off" value="{{ $initialSearch }}"></div><button class="filter-square" type="button" id="openFilters" aria-label="تصفية الأصناف"><i class="fa-solid fa-sliders"></i></button></div></div>
+<div class="categories products-cats" id="categories"><button class="cat {{ $initialCategory==='all'||$initialCategory===''?'active':'' }}" type="button" data-cat="all"><i class="fa-solid fa-utensils" style="font-size:1.35rem"></i><b>الكل</b></button>@foreach(($categories??[]) as $category)<button class="cat {{ (string)$initialCategory===(string)$category['id']?'active':'' }}" type="button" data-cat="{{ $category['id'] }}">@if(!empty($category['image']))<img src="{{ $category['image'] }}" alt="" onerror="this.remove()">@else<i class="fa-solid fa-burger" style="font-size:1.35rem"></i>@endif<b>{{ $category['name'] }}</b></button>@endforeach</div>
+<div class="products-head"><div><h2 id="sectionTitle">كل الأصناف</h2><p>اختر الصنف، خصّصه، ثم اطلبه بسهولة</p></div><span class="result-pill" id="resultCount"></span></div><div class="menu-products-grid" id="productGrid"></div>
+</div></main></div>
+<div class="filter-sheet-overlay" id="filterOverlay"><div class="filter-sheet"><div class="filter-sheet-head"><button class="close-btn" type="button" id="closeFilters"><i class="fa-solid fa-xmark"></i></button><h2>تصفية الأصناف</h2><button type="button" id="resetFilters">إعادة ضبط</button></div><div class="filter-group"><h4>نطاق السعر</h4><div class="chip-row" id="priceChips"><button class="chip active" type="button" data-price="all">الكل</button><button class="chip" type="button" data-price="0-20">أقل من 20 ₪</button><button class="chip" type="button" data-price="20-50">20 - 50 ₪</button><button class="chip" type="button" data-price="50-999999">أكثر من 50 ₪</button></div></div><div class="filter-group"><h4>الترتيب</h4><div class="chip-row" id="sortChips"><button class="chip active" type="button" data-sort="default">الافتراضي</button><button class="chip" type="button" data-sort="price_asc">السعر: من الأقل</button><button class="chip" type="button" data-sort="price_desc">السعر: من الأعلى</button></div></div><button class="filter-apply" type="button" id="applyFilters">عرض النتائج</button></div></div>
+@include('customer-menu.partials.bottom-nav',['activeNav'=>'menu'])
 @include('customer-menu.partials.pwa-install')
 @include('customer-menu.partials.cart-engine')
-
 <script>
-const CM = window.CustomerMenu;
-const PRODUCT_URL_BASE = @json(route('customer-menu.product.show', [$location->code, '__ID__']));
-function productUrl(id) { return PRODUCT_URL_BASE.replace('__ID__', id); }
-
-let activeCat = @json($initialCategory ?: 'all');
-let priceRange = 'all';
-let sortMode = 'default';
-
-function renderCard(p) {
-    return `<a class="product" href="${productUrl(p.id)}" data-id="${CM.esc(p.id)}">
-      <div class="product-media">${CM.image(p)}<button class="fav ${CM.isFavorite(p.id) ? 'active' : ''}" type="button" data-fav="${CM.esc(p.id)}"><i class="${CM.isFavorite(p.id) ? 'fa-solid' : 'fa-regular'} fa-heart"></i></button></div>
-      <div class="product-body">
-        ${!p.available ? `<div class="sold-out">غير متوفر حالياً</div>` : ``}
-        <h3>${CM.esc(p.name)}</h3>
-        <div class="product-rating"><i class="fa-solid fa-star"></i> 4.8 <small>(+100)</small></div>
-        <div class="product-foot">
-          <span class="price">${CM.money(p.price)}</span>
-          <button class="details" type="button" data-add="${CM.esc(p.id)}">${!p.available ? 'غير متوفر' : (p.requiresChoices ? 'اختر' : 'أضف')}</button>
-        </div>
-      </div>
-    </a>`;
-}
-
-function priceMatches(price) {
-    if (priceRange === 'all') return true;
-    const [min, max] = priceRange.split('-').map(Number);
-    return price >= min && price <= max;
-}
-
-function renderProducts() {
-    const q = document.getElementById('searchInput').value.trim().toLowerCase();
-    let rows = CM.PRODUCTS.filter(p =>
-        (activeCat === 'all' || p.category === String(activeCat)) &&
-        priceMatches(Number(p.price)) &&
-        (!q || (p.name + ' ' + p.description + ' ' + p.category_name).toLowerCase().includes(q))
-    );
-
-    if (sortMode === 'price_asc') rows = rows.slice().sort((a, b) => a.price - b.price);
-    if (sortMode === 'price_desc') rows = rows.slice().sort((a, b) => b.price - a.price);
-
-    document.getElementById('resultCount').textContent = rows.length + ' صنف';
-    document.getElementById('productGrid').innerHTML = rows.length
-        ? rows.map(renderCard).join('')
-        : `<div class="empty">لا توجد أصناف مطابقة.</div>`;
-
-    document.getElementById('openFilters').classList.toggle('has-filters', priceRange !== 'all' || sortMode !== 'default');
-}
-
-document.addEventListener('click', e => {
-    const fav = e.target.closest('[data-fav]');
-    if (fav) { e.preventDefault(); e.stopPropagation(); CM.toggleFavorite(fav.dataset.fav); renderProducts(); return; }
-
-    const add = e.target.closest('[data-add]');
-    if (add) {
-        e.preventDefault(); e.stopPropagation();
-        const p = CM.product(add.dataset.add);
-        if (p && p.requiresChoices) { window.location.href = productUrl(p.id); return; }
-        CM.addToCart(add.dataset.add, 1);
-        return;
-    }
-});
-
-document.getElementById('categories').addEventListener('click', e => {
-    const btn = e.target.closest('[data-cat]');
-    if (!btn) return;
-    activeCat = btn.dataset.cat;
-    document.querySelectorAll('.cat').forEach(x => x.classList.toggle('active', x === btn));
-    renderProducts();
-});
-
-document.getElementById('searchInput').addEventListener('input', renderProducts);
-
-// filter sheet
-const filterOverlay = document.getElementById('filterOverlay');
-document.getElementById('openFilters').addEventListener('click', () => filterOverlay.classList.add('open'));
-document.getElementById('closeFilters').addEventListener('click', () => filterOverlay.classList.remove('open'));
-document.getElementById('applyFilters').addEventListener('click', () => { filterOverlay.classList.remove('open'); renderProducts(); });
-filterOverlay.addEventListener('click', e => { if (e.target === filterOverlay) filterOverlay.classList.remove('open'); });
-
-document.getElementById('priceChips').addEventListener('click', e => {
-    const chip = e.target.closest('[data-price]'); if (!chip) return;
-    priceRange = chip.dataset.price;
-    document.querySelectorAll('#priceChips .chip').forEach(c => c.classList.toggle('active', c === chip));
-});
-document.getElementById('sortChips').addEventListener('click', e => {
-    const chip = e.target.closest('[data-sort]'); if (!chip) return;
-    sortMode = chip.dataset.sort;
-    document.querySelectorAll('#sortChips .chip').forEach(c => c.classList.toggle('active', c === chip));
-});
-document.getElementById('resetFilters').addEventListener('click', () => {
-    priceRange = 'all'; sortMode = 'default';
-    document.querySelectorAll('#priceChips .chip').forEach(c => c.classList.toggle('active', c.dataset.price === 'all'));
-    document.querySelectorAll('#sortChips .chip').forEach(c => c.classList.toggle('active', c.dataset.sort === 'default'));
-    renderProducts();
-});
-
-renderProducts();
-</script>
-</body>
-</html>
+const CM=window.CustomerMenu,PRODUCT_URL_BASE=@json(route('customer-menu.product.show',[$location->code,'__ID__']));const productUrl=id=>PRODUCT_URL_BASE.replace('__ID__',id);let activeCat=@json($initialCategory?:'all'),priceRange='all',sortMode='default';
+function renderCard(p){const popular=p.popular||p.is_popular||p.best_seller;return `<article class="menu-product"><a href="${productUrl(p.id)}"><div class="menu-product-media">${CM.image(p)}${popular?'<span class="product-chip">🔥 الأكثر طلبًا</span>':''}${!p.available?'<div class="sold-out">غير متوفر حالياً</div>':''}</div></a><button class="fav ${CM.isFavorite(p.id)?'active':''}" style="position:absolute;top:9px;right:9px;z-index:3" type="button" data-fav="${CM.esc(p.id)}"><i class="${CM.isFavorite(p.id)?'fa-solid':'fa-regular'} fa-heart"></i></button><div class="menu-product-body"><a href="${productUrl(p.id)}"><h3>${CM.esc(p.name)}</h3><div class="menu-product-desc">${CM.esc(p.description||'حضّرناه لك بطعم مميز')}</div><div class="menu-product-meta"><span>${CM.esc(p.category_name||'')}</span><span class="menu-product-rating"><i class="fa-solid fa-clock"></i> ${Number(p.prep_time_minutes||0)>0?Number(p.prep_time_minutes)+' د':'سريع'}</span></div></a><div class="menu-product-foot"><span class="price">${CM.money(p.price)}</span><button class="details" type="button" data-add="${CM.esc(p.id)}" ${!p.available?'disabled':''}>${!p.available?'غير متوفر':(p.requiresChoices?'اختيار':'أضف +')}</button></div></div></article>`}
+function priceMatches(v){if(priceRange==='all')return true;const[min,max]=priceRange.split('-').map(Number);return v>=min&&v<=max}function renderProducts(){const q=document.getElementById('searchInput').value.trim().toLowerCase();let rows=CM.PRODUCTS.filter(p=>(activeCat==='all'||p.category===String(activeCat))&&priceMatches(Number(p.price))&&(!q||(p.name+' '+p.description+' '+p.category_name).toLowerCase().includes(q)));if(sortMode==='price_asc')rows=rows.slice().sort((a,b)=>a.price-b.price);if(sortMode==='price_desc')rows=rows.slice().sort((a,b)=>b.price-a.price);document.getElementById('resultCount').textContent=`${rows.length} صنف`;document.getElementById('productGrid').innerHTML=rows.length?rows.map(renderCard).join(''):'<div class="products-empty">لا توجد أصناف مطابقة للبحث أو التصفية.</div>';document.getElementById('openFilters').classList.toggle('has-filters',priceRange!=='all'||sortMode!=='default')}
+document.addEventListener('click',e=>{const fav=e.target.closest('[data-fav]');if(fav){e.preventDefault();CM.toggleFavorite(fav.dataset.fav);renderProducts();return}const add=e.target.closest('[data-add]');if(add){e.preventDefault();const p=CM.product(add.dataset.add);if(!p||!p.available)return;if(p.requiresChoices){location.href=productUrl(p.id);return}CM.addToCart(add.dataset.add,1)}});document.getElementById('categories').addEventListener('click',e=>{const b=e.target.closest('[data-cat]');if(!b)return;activeCat=b.dataset.cat;document.querySelectorAll('.cat').forEach(x=>x.classList.toggle('active',x===b));document.getElementById('sectionTitle').textContent=activeCat==='all'?'كل الأصناف':(b.innerText.trim()||'الأصناف');renderProducts()});document.getElementById('searchInput').addEventListener('input',renderProducts);const overlay=document.getElementById('filterOverlay');document.getElementById('openFilters').onclick=()=>overlay.classList.add('open');document.getElementById('closeFilters').onclick=()=>overlay.classList.remove('open');document.getElementById('applyFilters').onclick=()=>{overlay.classList.remove('open');renderProducts()};overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.classList.remove('open')});document.getElementById('priceChips').addEventListener('click',e=>{const c=e.target.closest('[data-price]');if(!c)return;priceRange=c.dataset.price;document.querySelectorAll('#priceChips .chip').forEach(x=>x.classList.toggle('active',x===c))});document.getElementById('sortChips').addEventListener('click',e=>{const c=e.target.closest('[data-sort]');if(!c)return;sortMode=c.dataset.sort;document.querySelectorAll('#sortChips .chip').forEach(x=>x.classList.toggle('active',x===c))});document.getElementById('resetFilters').onclick=()=>{priceRange='all';sortMode='default';document.querySelectorAll('#priceChips .chip').forEach(c=>c.classList.toggle('active',c.dataset.price==='all'));document.querySelectorAll('#sortChips .chip').forEach(c=>c.classList.toggle('active',c.dataset.sort==='default'));renderProducts()};renderProducts();
+</script></body></html>

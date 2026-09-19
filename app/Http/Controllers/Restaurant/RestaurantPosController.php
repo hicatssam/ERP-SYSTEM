@@ -53,23 +53,18 @@ class RestaurantPosController extends Controller
             )
             ->with([
                 'category:id,name,name_ar',
-
                 'restaurantMenuItems' => fn ($menuItem) => $menuItem
                     ->where('location_id', $location->id)
                     ->where('is_active', true)
                     ->where('show_in_pos', true),
-
                 'locationProducts' => fn ($query) => $query
                     ->where('location_id', $location->id),
-
                 'activeVariants.size',
                 'activeVariants.attributeValues.attribute',
-
                 'modifierGroupLinks' => fn ($query) => $query
                     ->where('is_active', true)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
-
                 'modifierGroupLinks.group.modifiers' => fn ($query) => $query
                     ->where('is_active', true)
                     ->orderBy('sort_order')
@@ -81,14 +76,21 @@ class RestaurantPosController extends Controller
         $customers = Customer::query()
             ->availableAt($location->id)
             ->orderBy('name')
-            ->get([
-                'id',
-                'name',
-                'phone',
-            ]);
+            ->get(['id', 'name', 'phone']);
 
+        // Legacy methods without location mappings remain visible. Once a method
+        // has branch mappings, POS shows it only in branches where it is active.
         $paymentMethods = PaymentMethod::query()
             ->active()
+            ->where(function ($query) use ($location): void {
+                $query
+                    ->whereDoesntHave('locationPaymentMethods')
+                    ->orWhereHas('locationPaymentMethods', function ($locationMethod) use ($location): void {
+                        $locationMethod
+                            ->where('location_id', $location->id)
+                            ->where('is_active', true);
+                    });
+            })
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -123,37 +125,30 @@ class RestaurantPosController extends Controller
             ->limit(8)
             ->get();
 
-        return view(
-            'restaurant.pos.index',
-            [
-                'location' => $location,
-                'locations' => $locations,
-                'products' => $products,
-                'customers' => $customers,
-                'paymentMethods' => $paymentMethods,
-                'salesChannels' => $salesChannels,
-                'tables' => $tables,
-                'recentOrders' => $recentOrders,
-                'serviceTypes' => RestaurantServiceType::cases(),
-                'paymentArrangements' => PaymentArrangement::cases(),
-            ]
-        );
+        return view('restaurant.pos.index', [
+            'location' => $location,
+            'locations' => $locations,
+            'products' => $products,
+            'customers' => $customers,
+            'paymentMethods' => $paymentMethods,
+            'salesChannels' => $salesChannels,
+            'tables' => $tables,
+            'recentOrders' => $recentOrders,
+            'serviceTypes' => RestaurantServiceType::cases(),
+            'paymentArrangements' => PaymentArrangement::cases(),
+        ]);
     }
 
-    public function store(
-        StoreRestaurantPosOrderRequest $request
-    ) {
+    public function store(StoreRestaurantPosOrderRequest $request)
+    {
         $location = $this->context->resolveLocation(
             $request->user(),
             $request->integer('location_id') ?: null
         );
 
         $data = $request->validated();
-
         $data['location_id'] = $location->id;
-        $data['payment_proof'] = $request->file(
-            'payment_proof'
-        );
+        $data['payment_proof'] = $request->file('payment_proof');
 
         if (! empty($data['customer_id'])) {
             $customerAllowed = Customer::query()
@@ -168,144 +163,71 @@ class RestaurantPosController extends Controller
             );
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Server-side POS menu protection
-        |--------------------------------------------------------------------------
-        */
-        $requestedProductIds = collect(
-            $data['items'] ?? []
-        )
+        $requestedProductIds = collect($data['items'] ?? [])
             ->pluck('product_id')
-            ->map(
-                fn ($id) => (int) $id
-            )
+            ->map(fn ($id) => (int) $id)
             ->filter()
             ->unique()
             ->values();
 
         $allowedProductIds = Product::query()
             ->active()
-            ->whereIn(
-                'id',
-                $requestedProductIds
-            )
+            ->whereIn('id', $requestedProductIds)
             ->whereHas(
                 'restaurantMenuItems',
                 fn ($menuItem) => $menuItem
-                    ->where(
-                        'location_id',
-                        $location->id
-                    )
+                    ->where('location_id', $location->id)
                     ->where('is_active', true)
                     ->where('show_in_pos', true)
             )
             ->whereHas(
                 'locationProducts',
-                fn ($locationProducts) =>
-                    $locationProducts
-                        ->where(
-                            'location_id',
-                            $location->id
-                        )
-                        ->where(
-                            'is_available',
-                            true
-                        )
+                fn ($locationProducts) => $locationProducts
+                    ->where('location_id', $location->id)
+                    ->where('is_available', true)
             )
             ->pluck('id')
-            ->map(
-                fn ($id) => (int) $id
-            );
+            ->map(fn ($id) => (int) $id);
 
-        $invalidProductIds =
-            $requestedProductIds
-                ->diff($allowedProductIds);
+        $invalidProductIds = $requestedProductIds->diff($allowedProductIds);
 
         if ($invalidProductIds->isNotEmpty()) {
             throw ValidationException::withMessages([
-                'items' =>
-                    'أحد أصناف الطلب غير متاح للبيع في منيو هذا الفرع. حدّث شاشة نقطة البيع وحاول مرة أخرى.',
+                'items' => 'أحد أصناف الطلب غير متاح للبيع في منيو هذا الفرع. حدّث شاشة نقطة البيع وحاول مرة أخرى.',
             ]);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Create order once
-        |--------------------------------------------------------------------------
-        |
-        | The browser now uses fetch() for POS actions. Do not redirect that AJAX
-        | request to orders.show, because fetch would follow the whole HTML redirect
-        | before the cashier receives a response.
-        |
-        */
-        $order = $this->restaurantOrders
-            ->createPosOrder(
-                $data,
-                $request->user()
-            );
+        $order = $this->restaurantOrders->createPosOrder(
+            $data,
+            $request->user()
+        );
 
         $order->loadMissing('invoice');
 
-        $status =
-            $order->status instanceof \BackedEnum
-                ? $order->status->value
-                : (string) $order->status;
+        $status = $order->status instanceof \BackedEnum
+            ? $order->status->value
+            : (string) $order->status;
 
-        $message =
-            $status === 'draft'
-                ? 'تم إنشاء طلب المطعم وهو بانتظار تحقق الدفع.'
-                : 'تم إنشاء طلب المطعم وتأكيده بنجاح.';
+        $message = $status === 'draft'
+            ? 'تم إنشاء طلب المطعم وهو بانتظار تحقق الدفع.'
+            : 'تم إنشاء طلب المطعم وتأكيده بنجاح.';
 
-        /*
-        |--------------------------------------------------------------------------
-        | AJAX / POS response
-        |--------------------------------------------------------------------------
-        */
         if ($request->expectsJson()) {
             return response()->json([
                 'ok' => true,
-
                 'message' => $message,
-
-                'order_id' =>
-                    (int) $order->id,
-
-                'order_number' =>
-                    (string)
-                    $order->order_number,
-
+                'order_id' => (int) $order->id,
+                'order_number' => (string) $order->order_number,
                 'status' => $status,
-
-                'redirect_url' =>
-                    route(
-                        'orders.show',
-                        $order
-                    ),
-
-                'invoice_print_url' =>
-                    $order->invoice
-                        ? route(
-                            'invoices.print',
-                            $order->invoice
-                        )
-                        : null,
+                'redirect_url' => route('orders.show', $order),
+                'invoice_print_url' => $order->invoice
+                    ? route('invoices.print', $order->invoice)
+                    : null,
             ], 201);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Normal HTML fallback
-        |--------------------------------------------------------------------------
-        */
         return redirect()
-            ->route(
-                'orders.show',
-                $order
-            )
-            ->with(
-                'success',
-                $message
-            );
+            ->route('orders.show', $order)
+            ->with('success', $message);
     }
 }

@@ -12,9 +12,9 @@ class RestaurantContextService
     /**
      * Resolve the branch that the restaurant operation should use.
      *
-     * - System admins may select any active branch.
-     * - Regular users are restricted to their active primary branch.
-     * - If no location_id is supplied, the user's primary branch is preferred.
+     * System admins and users with the explicit global restaurant permission
+     * may select any active branch. Regular users remain restricted to their
+     * active primary branch.
      */
     public function resolveLocation(User $user, ?int $requestedLocationId = null): Location
     {
@@ -28,7 +28,6 @@ class RestaurantContextService
 
         $primary = $user->primaryLocation();
 
-        // Non-admin users are always locked to their primary branch.
         if (! $this->canSelectAnyBranch($user)) {
             $branch = $locations->first();
 
@@ -42,27 +41,19 @@ class RestaurantContextService
             return $branch;
         }
 
-        // Admin explicitly selected a branch.
         if ($requestedLocationId !== null) {
             $selected = $locations->first(
-                fn (Location $location) =>
-                    (int) $location->id === (int) $requestedLocationId
+                fn (Location $location) => (int) $location->id === (int) $requestedLocationId
             );
 
-            abort_unless(
-                $selected,
-                404,
-                'الفرع المحدد غير موجود أو غير فعال.'
-            );
+            abort_unless($selected, 404, 'الفرع المحدد غير موجود أو غير فعال.');
 
             return $selected;
         }
 
-        // Prefer the admin user's own primary branch when it is an active branch.
         if ($primary) {
             $primaryBranch = $locations->first(
-                fn (Location $location) =>
-                    (int) $location->id === (int) $primary->id
+                fn (Location $location) => (int) $location->id === (int) $primary->id
             );
 
             if ($primaryBranch) {
@@ -73,11 +64,7 @@ class RestaurantContextService
         return $locations->first();
     }
 
-    /**
-     * Branches the current user is allowed to operate.
-     *
-     * @return Collection<int, Location>
-     */
+    /** @return Collection<int, Location> */
     public function selectableLocations(User $user): Collection
     {
         if ($this->canSelectAnyBranch($user)) {
@@ -100,9 +87,7 @@ class RestaurantContextService
             ->whereKey($primary->id)
             ->first();
 
-        return $branch
-            ? collect([$branch])
-            : collect();
+        return $branch ? collect([$branch]) : collect();
     }
 
     private function canSelectAnyBranch(User $user): bool
@@ -115,6 +100,6 @@ class RestaurantContextService
             return true;
         }
 
-        return $user->can('roles.manage');
+        return $user->can('restaurant.view_all_locations');
     }
 }
