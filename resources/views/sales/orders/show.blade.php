@@ -43,7 +43,20 @@
         default => ['label' => 'غير مدفوع', 'class' => 'badge-secondary'],
     };
 
-    $stockErrors = $errors->get('stock');
+    /*
+     * Confirmation failures can arrive through the validation error bag or
+     * through the explicit flash payload set by OrderController. Keep a
+     * normalized array so the admin always sees the reason on this page.
+     */
+    $stockErrors = collect($errors->get('stock'))
+        ->merge((array) session('order_confirm_errors', []))
+        ->filter(fn ($message) => filled($message))
+        ->map(fn ($message) => (string) $message)
+        ->unique()
+        ->values()
+        ->all();
+    $confirmFailed = (bool) session('order_confirm_failed', false) || !empty($stockErrors);
+    $confirmErrorTitle = session('order_confirm_error_title', 'تعذر تأكيد الطلب');
     $proofPayments = $order->payments
         ->filter(fn ($payment) => filled($payment->payment_proof))
         ->sortByDesc('id')
@@ -347,10 +360,21 @@
     @endcan
 @endif
 
-@if(!empty($stockErrors))
+@if($confirmFailed)
+    <div class="order-confirm-error-banner" role="alert">
+        <div class="order-confirm-error-banner__icon">!</div>
+        <div class="order-confirm-error-banner__content">
+            <strong>{{ $confirmErrorTitle }}</strong>
+            <p>لم يتم تأكيد الطلب ولم يتم إنشاء فاتورة أو اعتماد خصم المخزون.</p>
+            @if(!empty($stockErrors))
+                <ul>@foreach($stockErrors as $error)<li>{{ $error }}</li>@endforeach</ul>
+            @endif
+        </div>
+    </div>
+
     <div id="stockErrorModal" class="order-modal is-open" aria-hidden="false" onclick="closeOrderActionModalFromBackdrop(event,'stockErrorModal')">
         <div class="order-modal-dialog">
-            <div class="order-modal-header"><div><small>تعذر تأكيد الطلب</small><h3>المخزون غير كافٍ</h3></div><button type="button" class="order-modal-close" onclick="closeOrderActionModal('stockErrorModal')">×</button></div>
+            <div class="order-modal-header"><div><small>تعذر تأكيد الطلب</small><h3>{{ $confirmErrorTitle }}</h3></div><button type="button" class="order-modal-close" onclick="closeOrderActionModal('stockErrorModal')">×</button></div>
             <div class="order-modal-body"><div class="risk-signals"><strong>لم يتم تأكيد الطلب أو إنشاء فاتورة.</strong><ul>@foreach($stockErrors as $error)<li>{{ $error }}</li>@endforeach</ul></div></div>
             <div class="order-modal-footer"><button type="button" class="btn btn-ghost" onclick="closeOrderActionModal('stockErrorModal')">إغلاق</button></div>
         </div>
@@ -358,7 +382,7 @@
 @endif
 
 <style>
-.order-page-subtitle{margin-top:.25rem;color:var(--text-muted);font-size:.76rem;display:flex;gap:.4rem;align-items:center}.dashboard-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem}.proof-card,.kitchen-card{grid-column:1/-1}.card{border-radius:16px}.order-details-table td:first-child{width:40%;color:var(--text-muted)}.invoice-action-row{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}.invoice-number-link{color:var(--gold);font-weight:800}.order-note{margin-top:1rem;padding:1rem;border-radius:12px;background:var(--off-white)}.order-note small{display:block;color:var(--text-muted);margin-bottom:.35rem}.action-btns{display:flex;gap:.5rem;flex-wrap:wrap}.page-actions-title{color:var(--gold);font-weight:900}
+.order-confirm-error-banner{display:flex;align-items:flex-start;gap:.9rem;margin:0 0 1.25rem;padding:1rem 1.1rem;border:1px solid #f1b7b2;border-radius:15px;background:#fff3f2;color:#7a271a}.order-confirm-error-banner__icon{flex:0 0 38px;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#b42318;color:#fff;font-weight:900;font-size:1.05rem}.order-confirm-error-banner__content{min-width:0}.order-confirm-error-banner__content strong{display:block;font-size:.9rem}.order-confirm-error-banner__content p{margin:.25rem 0;color:#912018;font-size:.73rem;line-height:1.7}.order-confirm-error-banner__content ul{margin:.55rem 0 0;padding-right:1.15rem;font-size:.75rem;line-height:1.85}.order-page-subtitle{margin-top:.25rem;color:var(--text-muted);font-size:.76rem;display:flex;gap:.4rem;align-items:center}.dashboard-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.25rem}.proof-card,.kitchen-card{grid-column:1/-1}.card{border-radius:16px}.order-details-table td:first-child{width:40%;color:var(--text-muted)}.invoice-action-row{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}.invoice-number-link{color:var(--gold);font-weight:800}.order-note{margin-top:1rem;padding:1rem;border-radius:12px;background:var(--off-white)}.order-note small{display:block;color:var(--text-muted);margin-bottom:.35rem}.action-btns{display:flex;gap:.5rem;flex-wrap:wrap}.page-actions-title{color:var(--gold);font-weight:900}
 .payment-proof-alert{display:flex;align-items:center;gap:1rem;margin:0 0 1.25rem;padding:1rem 1.1rem;border-radius:15px;border:1px solid #d8e3ef;background:#f8fbff}.payment-proof-alert.is-warning{border-color:#f0d69b;background:#fff9e9}.payment-proof-alert__icon{width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:#fff;font-size:1.2rem}.payment-proof-alert__body{flex:1}.payment-proof-alert__body strong{display:block;font-size:.88rem}.payment-proof-alert__body p{margin:.25rem 0 0;color:var(--text-muted);font-size:.72rem;line-height:1.7}
 .proof-list{display:grid;gap:1rem}.proof-item{display:grid;grid-template-columns:230px 1fr;gap:1rem;padding:1rem;border:1px solid var(--border);border-radius:16px;background:#fff}.proof-preview{min-height:180px;border-radius:13px;background:var(--off-white);overflow:hidden;display:grid;place-items:center}.proof-preview img{width:100%;height:220px;object-fit:contain;background:#f6f6f6}.proof-file{font-weight:800;color:var(--gold)}.proof-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}.proof-head strong{display:block;font-size:.92rem}.proof-head small{display:block;margin-top:.2rem;color:var(--text-muted)}.risk-pill{padding:.36rem .65rem;border-radius:999px;font-size:.67rem;font-weight:900;white-space:nowrap}.risk-low{background:#e9f8ef;color:#177245}.risk-medium{background:#fff4d8;color:#9a6700}.risk-high{background:#fdecec;color:#b42318}.risk-unknown{background:#eef1f4;color:#667085}.proof-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.65rem;margin-top:1rem}.proof-grid>div{padding:.7rem;border-radius:11px;background:var(--off-white);min-width:0}.proof-grid small{display:block;color:var(--text-muted);font-size:.63rem}.proof-grid b{display:block;margin-top:.18rem;font-size:.74rem;overflow-wrap:anywhere}.risk-signals{margin-top:.85rem;padding:.8rem .9rem;border-radius:11px;background:#fff7ed;border:1px solid #fed7aa}.risk-signals strong{font-size:.75rem;color:#9a3412}.risk-signals ul{margin:.45rem 0 0;padding-right:1rem;font-size:.7rem;line-height:1.8;color:#7c2d12}.proof-actions{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.9rem}.ai-disclaimer{margin-top:.75rem;color:var(--text-muted);font-size:.64rem;line-height:1.7}
 .order-modal{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:1rem;background:rgba(15,23,42,.58);backdrop-filter:blur(3px);opacity:0;visibility:hidden;pointer-events:none;transition:.18s}.order-modal.is-open{opacity:1;visibility:visible;pointer-events:auto}.order-modal-dialog{width:min(520px,100%);background:#fff;border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.22)}.order-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;padding:1.1rem 1.2rem;border-bottom:1px solid var(--border)}.order-modal-header small{color:var(--gold);font-weight:800}.order-modal-header h3{margin:.2rem 0 0}.order-modal-header p{margin:.25rem 0 0;color:var(--text-muted);font-size:.72rem}.order-modal-close{width:34px;height:34px;border:1px solid var(--border);background:#fff;border-radius:50%;font-size:1.3rem;cursor:pointer}.order-modal-body{padding:1.2rem}.order-modal-footer{display:flex;justify-content:flex-end;gap:.6rem;padding:1rem 1.2rem;border-top:1px solid var(--border);background:var(--off-white)}.order-action-message{display:flex;gap:.8rem;align-items:flex-start;padding:.9rem;border-radius:12px;background:#faf7ed;border:1px solid #eee3bf}.order-action-message>b{width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#e8f7ee;color:#16845b}.order-action-message p{margin:.25rem 0 0;color:var(--text-muted);font-size:.72rem;line-height:1.7}
