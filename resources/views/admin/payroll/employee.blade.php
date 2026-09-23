@@ -638,6 +638,7 @@
                             <th>المتبقي</th>
                             <th>المرجع</th>
                             <th>الحالة</th>
+                            <th>الإجراءات</th>
                         </tr>
                     </thead>
 
@@ -665,7 +666,146 @@
                                         @statusArabic($advance->status)
                                     </span>
                                 </td>
+
+                                <td>
+                                    @can('payroll.advances.manage')
+                                        @if(
+                                            in_array($advance->status, ['open', 'partial'], true)
+                                            && (float) $advance->outstanding_amount > 0
+                                        )
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-gold js-open-advance-repayment"
+                                                data-action="{{ route(
+                                                    'payroll.employees.advances.repayments.store',
+                                                    [
+                                                        'employee' => $employee,
+                                                        'advance' => $advance,
+                                                    ]
+                                                ) }}"
+                                                data-outstanding="{{ (float) $advance->outstanding_amount }}"
+                                            >
+                                                سداد
+                                            </button>
+                                        @else
+                                            —
+                                        @endif
+                                    @else
+                                        —
+                                    @endcan
+                                </td>
                             </tr>
+
+                            @if($advance->repayments->isNotEmpty())
+                                <tr>
+                                    <td colspan="7" style="padding:.55rem .75rem 1rem;">
+                                        <div style="border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+                                            <div style="padding:.55rem .75rem;background:color-mix(in srgb,var(--surface) 88%,var(--background));font-size:.72rem;font-weight:800;">
+                                                دفعات سداد السلفة
+                                            </div>
+
+                                            <div style="overflow-x:auto;">
+                                                <table class="pay-table" style="margin:0;">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>التاريخ</th>
+                                                            <th>المستند</th>
+                                                            <th>المبلغ</th>
+                                                            <th>طريقة الدفع</th>
+                                                            <th>المرجع</th>
+                                                            <th>الحالة</th>
+                                                            <th>الإجراء</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach($advance->repayments as $repayment)
+                                                            <tr>
+                                                                <td>{{ $repayment->paid_at?->format('Y-m-d H:i') }}</td>
+                                                                <td>{{ $repayment->document_number }}</td>
+                                                                <td class="pay-money pay-credit">
+                                                                    {{ number_format((float) $repayment->amount, 2) }}
+                                                                </td>
+                                                                <td>
+                                                                    {{ $repayment->paymentMethod?->name_ar
+                                                                        ?: ($repayment->paymentMethod?->name ?? '—') }}
+                                                                </td>
+                                                                <td>{{ $repayment->reference ?: '—' }}</td>
+                                                                <td>
+                                                                    @php
+                                                                        $repaymentStatusLabels = [
+                                                                            'posted' => 'معتمد',
+                                                                            'pending_verification' => 'بانتظار التحقق',
+                                                                            'rejected' => 'مرفوض',
+                                                                        ];
+                                                                    @endphp
+
+                                                                    <span class="pay-badge">
+                                                                        {{ $repaymentStatusLabels[$repayment->status] ?? $repayment->status }}
+                                                                    </span>
+
+                                                                    @if($repayment->rejection_reason)
+                                                                        <small style="display:block;color:var(--theme-danger);margin-top:.25rem;">
+                                                                            {{ $repayment->rejection_reason }}
+                                                                        </small>
+                                                                    @endif
+                                                                </td>
+                                                                <td>
+                                                                    @can('payroll.payments.verify')
+                                                                        @if($repayment->status === 'pending_verification')
+                                                                            <div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;">
+                                                                                <form
+                                                                                    method="POST"
+                                                                                    action="{{ route('payroll.advance-repayments.verify', $repayment) }}"
+                                                                                >
+                                                                                    @csrf
+                                                                                    <button
+                                                                                        class="btn btn-sm btn-gold"
+                                                                                        type="submit"
+                                                                                        onclick="return confirm('اعتماد دفعة سداد السلفة؟')"
+                                                                                    >
+                                                                                        اعتماد
+                                                                                    </button>
+                                                                                </form>
+
+                                                                                <form
+                                                                                    method="POST"
+                                                                                    action="{{ route('payroll.advance-repayments.reject', $repayment) }}"
+                                                                                    style="display:flex;gap:.35rem;"
+                                                                                >
+                                                                                    @csrf
+                                                                                    <input
+                                                                                        class="form-input"
+                                                                                        type="text"
+                                                                                        name="reason"
+                                                                                        maxlength="1000"
+                                                                                        required
+                                                                                        placeholder="سبب الرفض"
+                                                                                        style="min-width:150px;"
+                                                                                    >
+                                                                                    <button
+                                                                                        class="btn btn-sm btn-danger"
+                                                                                        type="submit"
+                                                                                    >
+                                                                                        رفض
+                                                                                    </button>
+                                                                                </form>
+                                                                            </div>
+                                                                        @else
+                                                                            —
+                                                                        @endif
+                                                                    @else
+                                                                        —
+                                                                    @endcan
+                                                                </td>
+                                                            </tr>
+                                                        @endforeach
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>
@@ -1085,6 +1225,127 @@
 </div>
 @endcan
 
+@can('payroll.advances.manage')
+<div class="pay-modal" id="advanceRepaymentModal" aria-hidden="true">
+    <div class="pay-modal-backdrop" data-pay-close></div>
+
+    <div class="pay-modal-dialog" role="dialog" aria-modal="true">
+        <div class="pay-modal-header">
+            <div>
+                <h3>سداد سلفة</h3>
+                <p>
+                    {{ $employee->full_name }}
+                    · المتبقي:
+                    <strong id="advanceRepaymentOutstanding">—</strong>
+                </p>
+            </div>
+
+            <button class="pay-modal-close" type="button" data-pay-close>×</button>
+        </div>
+
+        <form
+            method="POST"
+            id="advanceRepaymentForm"
+            enctype="multipart/form-data"
+        >
+            @csrf
+
+            <div class="pay-modal-body">
+                <div class="pay-modal-grid">
+                    <div class="form-group">
+                        <label class="form-label">قيمة السداد *</label>
+                        <input
+                            class="form-input"
+                            id="advanceRepaymentAmount"
+                            type="number"
+                            name="amount"
+                            step="0.01"
+                            min="0.01"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">تاريخ السداد *</label>
+                        <input
+                            class="form-input"
+                            type="datetime-local"
+                            name="paid_at"
+                            value="{{ now()->format('Y-m-d\TH:i') }}"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-group pay-modal-full">
+                        <label class="form-label">طريقة الدفع *</label>
+                        <select
+                            class="form-input"
+                            name="payment_method_id"
+                            id="advanceRepaymentMethod"
+                            required
+                        >
+                            <option value="">اختر طريقة الدفع</option>
+                            @foreach($paymentMethods as $method)
+                                <option
+                                    value="{{ $method->id }}"
+                                    data-reference="{{ $method->requires_reference ? '1' : '0' }}"
+                                    data-verification="{{ $method->requires_verification ? '1' : '0' }}"
+                                >
+                                    {{ $method->name_ar ?: $method->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <small class="pay-summary-note" id="advanceRepaymentMethodHint"></small>
+                    </div>
+
+                    <div class="form-group pay-modal-full">
+                        <label class="form-label">رقم المرجع / الحوالة</label>
+                        <input
+                            class="form-input"
+                            type="text"
+                            name="reference"
+                            id="advanceRepaymentReference"
+                            maxlength="120"
+                        >
+                    </div>
+
+                    <div class="form-group pay-modal-full">
+                        <label class="form-label">إثبات السداد</label>
+                        <input
+                            class="form-input"
+                            type="file"
+                            name="payment_proof"
+                            id="advanceRepaymentProof"
+                            accept=".jpg,.jpeg,.png,.webp,.pdf"
+                        >
+                    </div>
+
+                    <div class="form-group pay-modal-full">
+                        <label class="form-label">ملاحظات</label>
+                        <textarea
+                            class="form-input"
+                            name="notes"
+                            rows="3"
+                            maxlength="1000"
+                        ></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pay-modal-footer">
+                <button class="btn btn-gold" type="submit">
+                    تسجيل السداد
+                </button>
+
+                <button class="btn btn-ghost" type="button" data-pay-close>
+                    إلغاء
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endcan
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const modals = document.querySelectorAll('.pay-modal');
@@ -1120,6 +1381,110 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    const repaymentForm =
+        document.getElementById('advanceRepaymentForm');
+
+    const repaymentAmount =
+        document.getElementById('advanceRepaymentAmount');
+
+    const repaymentOutstanding =
+        document.getElementById('advanceRepaymentOutstanding');
+
+    const repaymentMethod =
+        document.getElementById('advanceRepaymentMethod');
+
+    const repaymentReference =
+        document.getElementById('advanceRepaymentReference');
+
+    const repaymentProof =
+        document.getElementById('advanceRepaymentProof');
+
+    const repaymentMethodHint =
+        document.getElementById('advanceRepaymentMethodHint');
+
+    const syncRepaymentMethod = () => {
+        if (!repaymentMethod) {
+            return;
+        }
+
+        const selected =
+            repaymentMethod.options[
+                repaymentMethod.selectedIndex
+            ];
+
+        const requiresReference =
+            selected?.dataset.reference === '1';
+
+        const requiresVerification =
+            selected?.dataset.verification === '1';
+
+        if (repaymentReference) {
+            repaymentReference.required =
+                requiresReference;
+        }
+
+        if (repaymentProof) {
+            repaymentProof.required =
+                requiresVerification;
+        }
+
+        if (repaymentMethodHint) {
+            repaymentMethodHint.textContent =
+                requiresVerification
+                    ? 'هذه الطريقة تحتاج إثباتًا واعتمادًا قبل خصم السداد من السلفة.'
+                    : (
+                        requiresReference
+                            ? 'رقم المرجع مطلوب لهذه الطريقة.'
+                            : 'سيتم ترحيل السداد مباشرة بعد الحفظ.'
+                    );
+        }
+    };
+
+    repaymentMethod?.addEventListener(
+        'change',
+        syncRepaymentMethod
+    );
+
+    document
+        .querySelectorAll('.js-open-advance-repayment')
+        .forEach((button) => {
+            button.addEventListener('click', () => {
+                if (repaymentForm) {
+                    repaymentForm.action =
+                        button.dataset.action || '';
+                }
+
+                const outstanding =
+                    Number(button.dataset.outstanding || 0);
+
+                if (repaymentAmount) {
+                    repaymentAmount.value =
+                        outstanding > 0
+                            ? outstanding.toFixed(2)
+                            : '';
+
+                    repaymentAmount.max =
+                        outstanding > 0
+                            ? String(outstanding)
+                            : '';
+                }
+
+                if (repaymentOutstanding) {
+                    repaymentOutstanding.textContent =
+                        outstanding.toLocaleString(
+                            'ar',
+                            {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                            }
+                        );
+                }
+
+                syncRepaymentMethod();
+                openModal('advanceRepaymentModal');
+            });
+        });
+
     document.querySelectorAll('.js-pay-modal').forEach((button) => {
         button.addEventListener('click', () => {
             openModal(button.dataset.modal);
@@ -1147,6 +1512,8 @@ document.addEventListener('DOMContentLoaded', function () {
             openModal('compensationModal');
         @elseif(old('kind') !== null || old('payroll_period_id') !== null)
             openModal('adjustmentModal');
+        @elseif(old('paid_at') !== null && old('payment_method_id') !== null)
+            openModal('advanceRepaymentModal');
         @elseif(old('issued_at') !== null)
             openModal('advanceModal');
         @endif
