@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EmployeeAdvance extends Model
 {
@@ -36,4 +37,13 @@ class EmployeeAdvance extends Model
     {
         return $this->belongsTo(Employee::class);
     }
+
+    public function repayments(): HasMany
+    {
+        return $this->hasMany(
+            EmployeeAdvanceRepayment::class,
+            'employee_advance_id'
+        )->latest('paid_at')->latest('id');
+    }
+
 }
