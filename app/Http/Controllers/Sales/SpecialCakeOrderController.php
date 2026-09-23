@@ -207,6 +207,31 @@ class SpecialCakeOrderController extends Controller
 
     public function store(Request $request)
     {
+        /*
+         * Normalize cash before validation as a server-side safeguard. The UI
+         * also selects pay-on-pickup automatically, but the backend must remain
+         * correct when JavaScript is unavailable or the request is tampered with.
+         */
+        $submittedMethod = PaymentMethod::query()
+            ->whereKey((int) $request->input('payment_method_id'))
+            ->where('is_active', true)
+            ->first();
+
+        if (
+            $submittedMethod
+            && (
+                strtolower((string) $submittedMethod->type) === 'cash'
+                || strtolower((string) $submittedMethod->code) === 'cash'
+            )
+        ) {
+            $request->merge([
+                'payment_arrangement' => 'pay_on_pickup',
+                'location_payment_account_id' => null,
+                'paid_amount' => null,
+                'reference_number' => null,
+            ]);
+        }
+
       $request->validate([
     'customer_id' => [
         'required',
@@ -321,6 +346,17 @@ class SpecialCakeOrderController extends Controller
         if (! $branch) {
             return back()
                 ->withErrors(['location' => 'يجب ربط المستخدم بفرع رئيسي قبل إنشاء طلب الكيك.'])
+                ->withInput();
+        }
+
+        $customerIsAvailable = Customer::query()
+            ->accessibleBy(Auth::user())
+            ->whereKey((int) $request->customer_id)
+            ->exists();
+
+        if (! $customerIsAvailable) {
+            return back()
+                ->withErrors(['customer_id' => 'العميل المحدد غير متاح في فرع المستخدم.'])
                 ->withInput();
         }
 
