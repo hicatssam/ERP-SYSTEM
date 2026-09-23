@@ -10,8 +10,11 @@ use App\Models\Location;
 use App\Models\LocationPaymentAccount;
 use App\Models\PaymentMethod;
 use App\Models\SpecialCakeOrder;
+use App\Notifications\CustomerCreatedNotification;
+use App\Services\Notifications\NotificationDispatcher;
 use App\Services\SpecialCakes\SpecialCakeOrderService;
 use App\Services\SpecialCakes\SpecialCakeStatusTransitionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -113,6 +116,7 @@ class SpecialCakeOrderController extends Controller
         $branch = $user->primaryLocation();
 
         $customers = Customer::query()
+            ->accessibleBy($user)
             ->orderBy('name')
             ->get();
 
@@ -147,6 +151,58 @@ class SpecialCakeOrderController extends Controller
             'paymentMethods',
             'paymentAccounts'
         ));
+    }
+
+    public function quickStoreCustomer(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $branch = $user->primaryLocation();
+
+        if (! $branch || ! $branch->isBranch() || ! $branch->is_active) {
+            abort(403, 'يجب ربط المستخدم بفرع رئيسي فعال قبل إضافة العميل.');
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'phone' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('customers', 'phone')
+                    ->where(fn ($query) => $query->where('location_id', $branch->id))
+                    ->withoutTrashed(),
+            ],
+        ]);
+
+        $customer = Customer::query()->create([
+            'location_id' => $branch->id,
+            'customer_type' => Customer::TYPE_INDIVIDUAL,
+            'scope' => Customer::SCOPE_BRANCH,
+            'name' => trim($validated['name']),
+            'phone' => trim($validated['phone']),
+            'allow_credit' => false,
+            'credit_limit' => null,
+            'billing_cycle' => 'immediate',
+            'payment_terms_days' => 0,
+        ]);
+
+        NotificationDispatcher::notifyByPermissions(
+            new CustomerCreatedNotification($customer),
+            ['customers.view', 'customers.update', 'orders.create'],
+            (int) $branch->id,
+            ['customers.view_all', 'financial.global.view'],
+            (int) $user->id,
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'تمت إضافة العميل واختياره للطلب.',
+            'customer' => [
+                'id' => (int) $customer->id,
+                'name' => (string) $customer->name,
+                'phone' => (string) $customer->phone,
+            ],
+        ], 201);
     }
 
     public function store(Request $request)
@@ -192,8 +248,8 @@ class SpecialCakeOrderController extends Controller
     ],
 
     'payment_method_id' => [
-        'required_unless:payment_arrangement,pay_on_pickup',
-        'nullable',
+        'required',
+        'integer',
         'exists:payment_methods,id',
     ],
 
@@ -268,23 +324,37 @@ class SpecialCakeOrderController extends Controller
                 ->withInput();
         }
 
-        if ($request->payment_arrangement !== 'pay_on_pickup') {
-            $paymentMethod = PaymentMethod::query()
-                ->whereKey((int) $request->payment_method_id)
-                ->where('is_active', true)
-                ->whereHas('locationPaymentMethods', function ($query) use ($branch): void {
-                    $query
-                        ->where('location_id', $branch->id)
-                        ->where('is_active', true);
-                })
-                ->first();
+        $paymentMethod = PaymentMethod::query()
+            ->whereKey((int) $request->payment_method_id)
+            ->where('is_active', true)
+            ->whereHas('locationPaymentMethods', function ($query) use ($branch): void {
+                $query
+                    ->where('location_id', $branch->id)
+                    ->where('is_active', true);
+            })
+            ->first();
 
-            if (! $paymentMethod) {
-                return back()
-                    ->withErrors(['payment_method_id' => 'طريقة الدفع المحددة غير مفعّلة في هذا الفرع.'])
-                    ->withInput();
-            }
+        if (! $paymentMethod) {
+            return back()
+                ->withErrors(['payment_method_id' => 'طريقة الدفع المحددة غير مفعّلة في هذا الفرع.'])
+                ->withInput();
+        }
 
+        $isCash = strtolower((string) $paymentMethod->type) === 'cash'
+            || strtolower((string) $paymentMethod->code) === 'cash';
+
+        if ($isCash) {
+            /*
+             * Cash is collected when the customer receives the cake. Do not
+             * create a paid transaction or request proof/account information.
+             */
+            $request->merge([
+                'payment_arrangement' => 'pay_on_pickup',
+                'location_payment_account_id' => null,
+                'paid_amount' => null,
+                'reference_number' => null,
+            ]);
+        } elseif ($request->payment_arrangement !== 'pay_on_pickup') {
             $activeAccounts = LocationPaymentAccount::query()
                 ->where('location_id', $branch->id)
                 ->where('payment_method_id', $paymentMethod->id)
