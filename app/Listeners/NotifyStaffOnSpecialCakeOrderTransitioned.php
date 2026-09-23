@@ -135,6 +135,18 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
                         'cake_orders.manage',
                     ],
                 ],
+                /*
+                 * The origin branch manager should know that the request
+                 * successfully reached the factory, without notifying every
+                 * generic cake_orders.view user.
+                 */
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.receive',
+                        'cake_orders.manage',
+                    ],
+                ],
             ],
 
             'accepted' => [
