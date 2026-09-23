@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Employee;
+use App\Models\EmployeeAdvanceRepayment;
 use App\Models\EmployeeLedgerEntry;
 use App\Models\PayrollItem;
 use App\Models\PayrollItemComponent;
@@ -136,4 +137,36 @@ class EmployeeLedgerService
             'created_by' => $actorId,
         ]);
     }
+    public function postAdvanceRepayment(
+        EmployeeAdvanceRepayment $repayment,
+        ?int $actorId = null
+    ): EmployeeLedgerEntry {
+        $existing = EmployeeLedgerEntry::query()
+            ->where('source_type', 'employee_advance_repayment')
+            ->where('source_id', $repayment->id)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        return EmployeeLedgerEntry::create([
+            'employee_id' => $repayment->employee_id,
+            'entry_date' => $repayment->paid_at->toDateString(),
+            'direction' => 'credit',
+            'entry_type' => 'advance_repayment',
+            'amount' => $repayment->amount,
+            'currency_id' => $repayment->currency_id,
+            'source_type' => 'employee_advance_repayment',
+            'source_id' => $repayment->id,
+            'description' => 'سداد سلفة ' . $repayment->document_number,
+            'reference' => $repayment->reference,
+            'metadata' => [
+                'employee_advance_id' => $repayment->employee_advance_id,
+                'payment_method_id' => $repayment->payment_method_id,
+            ],
+            'created_by' => $actorId,
+        ]);
+    }
+
 }
