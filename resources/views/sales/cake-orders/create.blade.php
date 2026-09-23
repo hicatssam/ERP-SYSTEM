@@ -31,8 +31,15 @@
             <div class="card-header"><span class="card-title">بيانات العميل والتسليم</span></div>
             <div class="card-body cake-grid cake-grid-3">
                 <div class="form-group">
-                    <label class="form-label">العميل *</label>
-                    <select name="customer_id" class="form-select @error('customer_id') is-invalid @enderror" required>
+                    <div class="customer-field-heading">
+                        <label class="form-label" for="customerSelect">العميل *</label>
+                        <button type="button" class="quick-customer-trigger" id="openQuickCustomer">
+                            <span aria-hidden="true">＋</span>
+                            عميل جديد
+                        </button>
+                    </div>
+                    <select name="customer_id" id="customerSelect"
+                            class="form-select @error('customer_id') is-invalid @enderror" required>
                         <option value="">اختر عميلاً</option>
                         @foreach($customers as $customer)
                             <option value="{{ $customer->id }}" @selected(old('customer_id') == $customer->id)>
@@ -237,6 +244,7 @@
                                     <label class="payment-method-card">
                                         <input type="radio" name="payment_method_id" value="{{ $method->id }}"
                                                data-payment-method
+                                               data-payment-type="{{ strtolower((string) $method->type) }}"
                                                data-requires-verification="{{ $method->requires_verification ? '1' : '0' }}"
                                                data-requires-reference="{{ $method->requires_reference ? '1' : '0' }}"
                                                @checked($selectedPaymentMethodId === (string) $method->id)>
@@ -255,6 +263,18 @@
                                                 @if($method->name && $method->name_ar && $method->name !== $method->name_ar)
                                                     <small>{{ $method->name }}</small>
                                                 @endif
+                                                <span class="payment-method-flags">
+                                                    @if(strtolower((string) $method->type) === 'cash')
+                                                        <em class="payment-flag payment-flag-cash">نقدي عند الاستلام</em>
+                                                    @else
+                                                        @if($method->requires_verification)
+                                                            <em class="payment-flag">يتطلب إثبات دفع</em>
+                                                        @endif
+                                                        @if($method->requires_reference)
+                                                            <em class="payment-flag">يتطلب رقم مرجع</em>
+                                                        @endif
+                                                    @endif
+                                                </span>
                                             </span>
                                             <span class="payment-method-check">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -373,8 +393,53 @@
     </div>
 </form>
 
+<dialog class="quick-customer-dialog" id="quickCustomerDialog" aria-labelledby="quickCustomerTitle">
+    <form method="dialog" class="quick-customer-panel" id="quickCustomerForm">
+        <div class="quick-customer-header">
+            <div>
+                <h2 id="quickCustomerTitle">إضافة عميل جديد</h2>
+                <p>أدخل البيانات الأساسية وسيتم اختيار العميل تلقائيًا في الطلب.</p>
+            </div>
+            <button type="button" class="quick-customer-close" id="closeQuickCustomer"
+                    aria-label="إغلاق">×</button>
+        </div>
+
+        <div class="quick-customer-errors" id="quickCustomerErrors" role="alert" hidden></div>
+
+        <div class="cake-grid cake-grid-2">
+            <div class="form-group">
+                <label class="form-label" for="quickCustomerName">اسم العميل *</label>
+                <input class="form-input" id="quickCustomerName" name="name"
+                       maxlength="150" autocomplete="name" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="quickCustomerPhone">رقم الجوال *</label>
+                <input class="form-input" id="quickCustomerPhone" name="phone"
+                       maxlength="20" inputmode="tel" autocomplete="tel" required>
+            </div>
+        </div>
+
+        <div class="quick-customer-actions">
+            <button type="button" class="btn btn-ghost" id="cancelQuickCustomer">إلغاء</button>
+            <button type="submit" class="btn btn-gold" id="saveQuickCustomer">حفظ واختيار العميل</button>
+        </div>
+    </form>
+</dialog>
+
 <style>
 .cake-grid{display:grid;gap:1rem}
+.customer-field-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.quick-customer-trigger{display:inline-flex;align-items:center;gap:.25rem;padding:.3rem .6rem;color:var(--gold);background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.45);border-radius:999px;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer}
+.quick-customer-trigger:hover{background:rgba(212,175,55,.16)}
+.quick-customer-dialog{width:min(560px,calc(100% - 2rem));padding:0;color:var(--text);background:transparent;border:0;border-radius:18px}
+.quick-customer-dialog::backdrop{background:rgba(8,18,32,.68);backdrop-filter:blur(3px)}
+.quick-customer-panel{padding:1.25rem;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.3)}
+.quick-customer-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1rem}
+.quick-customer-header h2{margin:0 0 .25rem;font-size:1.2rem}
+.quick-customer-header p{margin:0;color:var(--text-muted);font-size:.85rem}
+.quick-customer-close{width:34px;height:34px;display:grid;place-items:center;color:var(--text);background:var(--surface-2,var(--surface));border:1px solid var(--border);border-radius:50%;font-size:1.35rem;cursor:pointer}
+.quick-customer-errors{margin-bottom:1rem;padding:.75rem;color:#b42318;background:rgba(220,53,69,.08);border:1px solid rgba(220,53,69,.35);border-radius:10px}
+.quick-customer-actions{display:flex;justify-content:flex-end;gap:.65rem;margin-top:1rem}
 .cake-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .cake-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .form-help{display:block;margin-top:.4rem;color:#8b8b8b}
@@ -402,6 +467,9 @@
 .payment-method-details strong,.payment-method-details small{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .payment-method-details strong{font-size:.9rem}
 .payment-method-details small{color:var(--text-muted);font-size:.7rem}
+.payment-method-flags{display:flex;flex-wrap:wrap;gap:.3rem;margin-top:.2rem}
+.payment-flag{padding:.16rem .38rem;color:var(--gold);background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.3);border-radius:999px;font-size:.64rem;font-style:normal;font-weight:700}
+.payment-flag-cash{color:#19743b;background:rgba(25,116,59,.1);border-color:rgba(25,116,59,.28)}
 .payment-method-check{width:22px;height:22px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--gold);border-radius:50%;opacity:0;transform:scale(.6);transition:opacity .2s ease,transform .2s ease}
 .payment-method-check svg{width:13px;height:13px}
 .payment-method-card input:checked + .payment-method-content .payment-method-check{opacity:1;transform:scale(1)}
@@ -430,6 +498,77 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // ── Quick customer ───────────────────────────────────────────────────────
+    const quickCustomerDialog = document.getElementById('quickCustomerDialog');
+    const quickCustomerForm = document.getElementById('quickCustomerForm');
+    const quickCustomerErrors = document.getElementById('quickCustomerErrors');
+    const quickCustomerSave = document.getElementById('saveQuickCustomer');
+    const customerSelect = document.getElementById('customerSelect');
+
+    const closeQuickCustomer = () => {
+        if (quickCustomerDialog?.open) {
+            quickCustomerDialog.close();
+        }
+    };
+
+    document.getElementById('openQuickCustomer')?.addEventListener('click', () => {
+        quickCustomerErrors.hidden = true;
+        quickCustomerErrors.textContent = '';
+        quickCustomerDialog.showModal();
+        document.getElementById('quickCustomerName')?.focus();
+    });
+
+    document.getElementById('closeQuickCustomer')?.addEventListener('click', closeQuickCustomer);
+    document.getElementById('cancelQuickCustomer')?.addEventListener('click', closeQuickCustomer);
+
+    quickCustomerForm?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        quickCustomerErrors.hidden = true;
+        quickCustomerSave.disabled = true;
+        quickCustomerSave.textContent = 'جارٍ الحفظ...';
+
+        const payload = new FormData(quickCustomerForm);
+
+        try {
+            const response = await fetch(@json(route('cake-orders.customers.quick-store')), {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': @json(csrf_token()),
+                },
+                body: payload,
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                const messages = result.errors
+                    ? Object.values(result.errors).flat()
+                    : [result.message || 'تعذر إضافة العميل.'];
+                throw new Error(messages.join(' — '));
+            }
+
+            const customer = result.customer;
+            const option = new Option(
+                `${customer.name} — ${customer.phone}`,
+                customer.id,
+                true,
+                true
+            );
+
+            customerSelect.add(option);
+            customerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            quickCustomerForm.reset();
+            closeQuickCustomer();
+        } catch (error) {
+            quickCustomerErrors.textContent = error.message || 'تعذر إضافة العميل.';
+            quickCustomerErrors.hidden = false;
+        } finally {
+            quickCustomerSave.disabled = false;
+            quickCustomerSave.textContent = 'حفظ واختيار العميل';
+        }
+    });
+
     // ── Shape / Size / Layers ─────────────────────────────────────────────────
     const shape      = document.getElementById('cakeShape');
     const sizeGroup  = document.getElementById('sizeGroup');
@@ -599,23 +738,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updatePaymentFields() {
-        const val = arrangementSelect.value;
-        const needsPaidAmount = (val === 'deposit' || val === 'partial_payment' || val === 'pay_now');
-        const needsPaymentMethod = val !== '' && val !== 'pay_on_pickup';
         const selectedMethod = document.querySelector('[data-payment-method]:checked');
-        const methodNeedsVerification = needsPaymentMethod
+        const isCash = selectedMethod?.dataset.paymentType === 'cash';
+
+        if (isCash && arrangementSelect.value !== 'pay_on_pickup') {
+            arrangementSelect.value = 'pay_on_pickup';
+        }
+
+        const val = arrangementSelect.value;
+        const needsPaidAmount = !isCash
+            && (val === 'deposit' || val === 'partial_payment' || val === 'pay_now');
+        const needsImmediatePayment = !isCash && val !== '' && val !== 'pay_on_pickup';
+        const methodNeedsVerification = needsImmediatePayment
             && selectedMethod?.dataset.requiresVerification === '1';
-        const methodNeedsReference = needsPaymentMethod
+        const methodNeedsReference = needsImmediatePayment
             && selectedMethod?.dataset.requiresReference === '1';
-        const needsProof = val === 'pending_verification' || methodNeedsVerification;
-        const needsReference = val === 'pending_verification' || methodNeedsReference;
+        const needsProof = needsImmediatePayment
+            && (val === 'pending_verification' || methodNeedsVerification);
+        const needsReference = needsImmediatePayment
+            && (val === 'pending_verification' || methodNeedsReference);
         const showsVerification = needsProof || needsReference;
 
         paymentMethodInputs.forEach((input, index) => {
-            input.required = needsPaymentMethod && index === 0;
+            input.required = index === 0;
         });
 
-        updatePaymentAccountGroups(needsPaymentMethod);
+        updatePaymentAccountGroups(needsImmediatePayment);
 
         paidAmountGroup.hidden   = !needsPaidAmount;
         paidAmountInput.required = needsPaidAmount;
