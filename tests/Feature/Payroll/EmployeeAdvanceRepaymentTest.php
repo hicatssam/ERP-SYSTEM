@@ -1,0 +1,301 @@
+<?php
+
+namespace Tests\Feature\Payroll;
+
+use App\Models\Currency;
+use App\Models\Employee;
+use App\Models\EmployeeAdvanceRepayment;
+use App\Models\EmployeeCompensationProfile;
+use App\Models\PaymentMethod;
+use App\Models\User;
+use App\Services\EmployeeAdvanceRepaymentService;
+use App\Services\EmployeeLedgerService;
+use App\Services\PayrollService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use PHPUnit\Framework\Attributes\Test;
+use Tests\TestCase;
+
+class EmployeeAdvanceRepaymentTest extends TestCase
+{
+    use RefreshDatabase;
+
+    #[Test]
+    public function cash_repayment_reduces_advance_and_appears_as_credit_in_employee_statement(): void
+    {
+        [$employee, $actor] = $this->employeeWithCurrency();
+        $cash = $this->paymentMethod(
+            'cash',
+            requiresVerification: false,
+            requiresReference: false
+        );
+
+        $advance = app(PayrollService::class)->issueAdvance(
+            $employee,
+            [
+                'amount' => 100,
+                'issued_at' => now()->toDateString(),
+                'payment_method_id' => $cash->id,
+                'reference' => 'ADV-100',
+                'notes' => 'سلفة اختبار',
+            ],
+            $actor
+        );
+
+        $ledger = app(EmployeeLedgerService::class);
+
+        $this->assertSame(-100.0, $ledger->balance($employee));
+
+        $repayment = app(EmployeeAdvanceRepaymentService::class)->create(
+            $advance,
+            [
+                'amount' => 30,
+                'payment_method_id' => $cash->id,
+                'paid_at' => now(),
+                'reference' => 'RPY-30',
+                'notes' => 'سداد نقدي',
+            ],
+            null,
+            $actor
+        );
+
+        $advance->refresh();
+
+        $this->assertSame('posted', $repayment->status);
+        $this->assertSame(30.0, (float) $advance->recovered_amount);
+        $this->assertSame(70.0, (float) $advance->outstanding_amount);
+        $this->assertSame('open', $advance->status);
+        $this->assertSame(-70.0, $ledger->balance($employee));
+
+        $this->assertDatabaseHas('employee_ledger_entries', [
+            'employee_id' => $employee->id,
+            'direction' => 'credit',
+            'entry_type' => 'advance_repayment',
+            'source_type' => 'employee_advance_repayment',
+            'source_id' => $repayment->id,
+            'reference' => 'RPY-30',
+        ]);
+    }
+
+    #[Test]
+    public function employee_cannot_repay_more_than_remaining_advance(): void
+    {
+        [$employee, $actor] = $this->employeeWithCurrency();
+        $cash = $this->paymentMethod(
+            'cash',
+            requiresVerification: false,
+            requiresReference: false
+        );
+
+        $advance = app(PayrollService::class)->issueAdvance(
+            $employee,
+            [
+                'amount' => 100,
+                'issued_at' => now()->toDateString(),
+                'payment_method_id' => $cash->id,
+            ],
+            $actor
+        );
+
+        $this->expectException(ValidationException::class);
+
+        app(EmployeeAdvanceRepaymentService::class)->create(
+            $advance,
+            [
+                'amount' => 100.01,
+                'payment_method_id' => $cash->id,
+                'paid_at' => now(),
+            ],
+            null,
+            $actor
+        );
+    }
+
+    #[Test]
+    public function pending_bank_repayment_does_not_reduce_advance_until_verified(): void
+    {
+        Storage::fake('public');
+
+        [$employee, $actor] = $this->employeeWithCurrency();
+        $cash = $this->paymentMethod(
+            'cash',
+            requiresVerification: false,
+            requiresReference: false
+        );
+        $bank = $this->paymentMethod(
+            'bank_transfer',
+            requiresVerification: true,
+            requiresReference: true
+        );
+
+        $advance = app(PayrollService::class)->issueAdvance(
+            $employee,
+            [
+                'amount' => 100,
+                'issued_at' => now()->toDateString(),
+                'payment_method_id' => $cash->id,
+            ],
+            $actor
+        );
+
+        $repayment = app(EmployeeAdvanceRepaymentService::class)->create(
+            $advance,
+            [
+                'amount' => 40,
+                'payment_method_id' => $bank->id,
+                'paid_at' => now(),
+                'reference' => 'BANK-RPY-40',
+            ],
+            UploadedFile::fake()->image('proof.jpg'),
+            $actor
+        );
+
+        $advance->refresh();
+
+        $this->assertSame(
+            'pending_verification',
+            $repayment->status
+        );
+        $this->assertSame(
+            100.0,
+            (float) $advance->outstanding_amount
+        );
+        $this->assertSame(
+            -100.0,
+            app(EmployeeLedgerService::class)->balance($employee)
+        );
+
+        app(EmployeeAdvanceRepaymentService::class)->verify(
+            $repayment,
+            $actor
+        );
+
+        $repayment->refresh();
+        $advance->refresh();
+
+        $this->assertSame('posted', $repayment->status);
+        $this->assertSame(40.0, (float) $advance->recovered_amount);
+        $this->assertSame(60.0, (float) $advance->outstanding_amount);
+        $this->assertSame(
+            -60.0,
+            app(EmployeeLedgerService::class)->balance($employee)
+        );
+    }
+
+    #[Test]
+    public function pending_repayments_reserve_the_remaining_advance_balance(): void
+    {
+        Storage::fake('public');
+
+        [$employee, $actor] = $this->employeeWithCurrency();
+        $cash = $this->paymentMethod(
+            'cash',
+            requiresVerification: false,
+            requiresReference: false
+        );
+        $bank = $this->paymentMethod(
+            'bank_transfer',
+            requiresVerification: true,
+            requiresReference: true
+        );
+
+        $advance = app(PayrollService::class)->issueAdvance(
+            $employee,
+            [
+                'amount' => 100,
+                'issued_at' => now()->toDateString(),
+                'payment_method_id' => $cash->id,
+            ],
+            $actor
+        );
+
+        app(EmployeeAdvanceRepaymentService::class)->create(
+            $advance,
+            [
+                'amount' => 80,
+                'payment_method_id' => $bank->id,
+                'paid_at' => now(),
+                'reference' => 'BANK-PENDING-80',
+            ],
+            UploadedFile::fake()->image('proof-80.jpg'),
+            $actor
+        );
+
+        try {
+            app(EmployeeAdvanceRepaymentService::class)->create(
+                $advance,
+                [
+                    'amount' => 21,
+                    'payment_method_id' => $cash->id,
+                    'paid_at' => now(),
+                ],
+                null,
+                $actor
+            );
+
+            $this->fail('Expected over-reserved advance repayment to fail.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey(
+                'amount',
+                $exception->errors()
+            );
+        }
+
+        $this->assertSame(
+            1,
+            EmployeeAdvanceRepayment::query()->count()
+        );
+    }
+
+    private function employeeWithCurrency(): array
+    {
+        $actor = User::factory()->create();
+
+        $employee = Employee::query()->create([
+            'employee_number' => 'EMP-RPY-' . uniqid(),
+            'full_name' => 'موظف اختبار السلفة',
+            'employment_status' => 'active',
+        ]);
+
+        $currency = Currency::query()->create([
+            'code' => 'ILS',
+            'name' => 'Israeli New Shekel',
+            'name_ar' => 'شيكل',
+            'symbol' => '₪',
+            'decimal_places' => 2,
+            'is_base' => true,
+            'is_active' => true,
+        ]);
+
+        EmployeeCompensationProfile::query()->create([
+            'employee_id' => $employee->id,
+            'salary_basis' => 'monthly',
+            'base_salary' => 1000,
+            'currency_id' => $currency->id,
+            'effective_from' => now()->subMonth()->toDateString(),
+            'is_active' => true,
+            'created_by' => $actor->id,
+        ]);
+
+        return [$employee, $actor];
+    }
+
+    private function paymentMethod(
+        string $type,
+        bool $requiresVerification,
+        bool $requiresReference
+    ): PaymentMethod {
+        return PaymentMethod::query()->create([
+            'name' => 'Test ' . $type . ' ' . uniqid(),
+            'name_ar' => 'طريقة اختبار',
+            'code' => 'test-' . $type . '-' . uniqid(),
+            'type' => $type,
+            'requires_verification' => $requiresVerification,
+            'requires_reference' => $requiresReference,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+    }
+}
