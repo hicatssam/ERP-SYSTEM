@@ -87,7 +87,15 @@
             <tr>
                 <td>
                     @if($product->image)
-                        <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
+                        @php
+                            $productImageUrl = IlluminateSupportStr::startsWith(
+                                (string) $product->image,
+                                ['http://', 'https://', '//']
+                            )
+                                ? $product->image
+                                : Storage::url($product->image);
+                        @endphp
+                        <img src="{{ $productImageUrl }}" alt="{{ $product->name }}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
                     @else
                         <div style="width:44px;height:44px;border-radius:8px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">
                             <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="width:20px;height:20px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
