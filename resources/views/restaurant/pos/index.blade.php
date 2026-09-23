@@ -188,6 +188,19 @@
                  PRODUCTS PANEL
             ====================================================== --}}
             <section class="rb-products-panel">
+                <div class="rb-menu-panel-head">
+                    <div>
+                        <span class="rb-menu-kicker">منيو الكاشير</span>
+                        <h2>اختر المنتجات</h2>
+                        <p>اضغط على أي صنف لإضافته مباشرة إلى الطلب الحالي.</p>
+                    </div>
+
+                    <div class="rb-menu-location-pill">
+                        <span class="rb-menu-location-dot"></span>
+                        {{ $location->name }}
+                    </div>
+                </div>
+
                 <div class="rb-products-toolbar">
                     <label class="rb-search rb-search-products">
                         <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -286,7 +299,10 @@
                                     <path d="M9 8V6a3 3 0 0 1 6 0v2"></path>
                                 </svg>
                             </span>
-                            <strong>الطلب الحالي</strong>
+                            <div class="rb-order-title-copy">
+                                <small>السلة الحالية</small>
+                                <strong>الطلب الحالي</strong>
+                            </div>
                         </div>
 
                         <div class="rb-order-status-pill">
@@ -2550,10 +2566,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     </span>
 
                     <div class="rb-product-info">
+                        <div class="rb-product-meta-line">
+                            <span class="rb-product-category">${escapeHtml(product.category || 'بدون فئة')}</span>
+                            <span class="rb-product-sku">${escapeHtml(product.sku || '')}</span>
+                        </div>
+
                         <span class="rb-product-name">${escapeHtml(product.name)}</span>
+
                         <div class="rb-product-bottom">
                             <span class="rb-product-price">${money(product.price)}</span>
-                            <span class="rb-product-plus">+</span>
+                            <span class="rb-product-plus">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M12 5v14M5 12h14"></path>
+                                </svg>
+                            </span>
                         </div>
                     </div>
                 </button>
