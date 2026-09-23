@@ -8,6 +8,7 @@ use App\Models\Location;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
@@ -72,19 +73,20 @@ class CustomerMenuOrderLifecycleTest extends TestCase
         }
 
         /*
-         * A public order waiting for payment verification cannot move directly
-         * to confirmed. Simulate the payment being approved first, then confirm
-         * the order and verify the public tracking state.
+         * This test covers the public status endpoint, not the confirmation
+         * workflow itself. Seed the already-approved/confirmed persisted state
+         * directly so Order model lifecycle guards remain active and are tested
+         * separately by their dedicated confirmation/payment tests.
          */
-        $order->update([
-            'payment_status' => 'paid',
-            'payment_arrangement' => 'pay_now',
-        ]);
-
-        $order->update([
-            'status' => 'confirmed',
-            'confirmed_at' => now(),
-        ]);
+        DB::table('orders')
+            ->where('id', $order->id)
+            ->update([
+                'payment_status' => 'paid',
+                'payment_arrangement' => 'pay_now',
+                'status' => 'confirmed',
+                'confirmed_at' => now(),
+                'updated_at' => now(),
+            ]);
 
         $this->getJson(route('customer-menu.status', ['token' => $publicToken]))
             ->assertOk()
