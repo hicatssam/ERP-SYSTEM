@@ -11,6 +11,7 @@ use App\Models\LocationPaymentAccount;
 use App\Models\PaymentMethod;
 use App\Models\SpecialCakeOrder;
 use App\Notifications\CustomerCreatedNotification;
+use App\Notifications\SpecialCakeOrderActivityNotification;
 use App\Services\Notifications\NotificationDispatcher;
 use App\Services\SpecialCakes\SpecialCakeOrderService;
 use App\Services\SpecialCakes\SpecialCakeStatusTransitionService;
@@ -588,33 +589,76 @@ if (
 
     public function addComment(Request $request, SpecialCakeOrder $cakeOrder)
     {
-        $request->validate(['comment' => ['required', 'string', 'max:2000']]);
+        $this->authorize('view', $cakeOrder);
+
+        $validated = $request->validate([
+            'comment' => ['required', 'string', 'max:2000'],
+        ]);
 
         CakeOrderComment::create([
             'special_cake_order_id' => $cakeOrder->id,
             'user_id'               => Auth::id(),
-            'comment'               => $request->comment,
+            'comment'               => $validated['comment'],
             'is_internal'           => true,
         ]);
+
+        $actor = $request->user();
+
+        NotificationDispatcher::notifyByPermissions(
+            new SpecialCakeOrderActivityNotification(
+                $cakeOrder->fresh(),
+                'comment',
+                $actor->display_name,
+                \Illuminate\Support\Str::limit($validated['comment'], 180)
+            ),
+            ['cake_orders.view', 'cake_orders.manage'],
+            array_filter([
+                $cakeOrder->origin_branch_id,
+                $cakeOrder->factory_location_id,
+            ]),
+            ['cake_orders.view_all'],
+            (int) $actor->id,
+        );
 
         return back()->with('success', 'تم إضافة الملاحظة.');
     }
 
     public function addAttachment(Request $request, SpecialCakeOrder $cakeOrder)
     {
-        $request->validate([
+        $this->authorize('view', $cakeOrder);
+
+        $validated = $request->validate([
             'attachment_type' => ['required', 'in:reference_image,customer_design,final_cake_image,other'],
             'file'            => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:10240'],
         ]);
 
-        $path = $request->file('file')->store('cake-attachments', 'public');
+        $uploadedFile = $request->file('file');
+        $path = $uploadedFile->store('cake-attachments', 'public');
 
         $cakeOrder->attachments()->create([
-            'attachment_type' => $request->attachment_type,
+            'attachment_type' => $validated['attachment_type'],
             'file_path'       => $path,
-            'original_name'   => $request->file('file')->getClientOriginalName(),
+            'original_name'   => $uploadedFile->getClientOriginalName(),
             'uploaded_by'     => Auth::id(),
         ]);
+
+        $actor = $request->user();
+
+        NotificationDispatcher::notifyByPermissions(
+            new SpecialCakeOrderActivityNotification(
+                $cakeOrder->fresh(),
+                'attachment',
+                $actor->display_name,
+                'اسم الملف: ' . $uploadedFile->getClientOriginalName()
+            ),
+            ['cake_orders.view', 'cake_orders.manage'],
+            array_filter([
+                $cakeOrder->origin_branch_id,
+                $cakeOrder->factory_location_id,
+            ]),
+            ['cake_orders.view_all'],
+            (int) $actor->id,
+        );
 
         return back()->with('success', 'تم رفع المرفق بنجاح.');
     }
