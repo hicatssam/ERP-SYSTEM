@@ -361,16 +361,9 @@ class OrderController extends Controller
             ->with('paymentMethod')
             ->where('location_id', $order->location_id)
             ->where('is_active', true)
-            ->whereHas(
-                'paymentMethod',
-                function ($query): void {
-                    $query
-                        ->active()
-                        ->whereIn('type', [
-                            'bank_transfer',
-                            'electronic_wallet',
-                        ]);
-                }
+            ->whereIn(
+                'payment_method_id',
+                $bankPaymentMethods->pluck('id')
             )
             ->orderBy('sort_order')
             ->orderBy('name')
