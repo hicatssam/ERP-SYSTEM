@@ -339,6 +339,15 @@ class PaymentController extends Controller
         $paymentAccounts = LocationPaymentAccount::query()
             ->with('paymentMethod')
             ->whereIn('location_id', $locationIds)
+            ->where('is_active', true)
+            ->whereHas('paymentMethod', function ($query): void {
+                $query
+                    ->active()
+                    ->whereIn('type', [
+                        'bank_transfer',
+                        'electronic_wallet',
+                    ]);
+            })
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -369,14 +378,25 @@ class PaymentController extends Controller
             Payment::class
         );
 
-        $this->paymentService->recordPayment(
-            $request->validated(),
+        $validated = $request->validated();
+
+        $payment = $this->paymentService->recordPayment(
+            $validated,
             Auth::user()
         );
 
+        $isOrderBankTransfer =
+            ($validated['entry_context'] ?? null) === 'order_bank_transfer';
+
         return back()->with(
             'success',
-            'تم تسجيل الدفعة بنجاح.'
+            $isOrderBankTransfer
+                ? (
+                    $payment->statusValue() === 'pending_verification'
+                        ? 'تم تسجيل الحوالة وهي الآن بانتظار التحقق.'
+                        : 'تم تسجيل الحوالة وتأكيدها.'
+                )
+                : 'تم تسجيل الدفعة بنجاح.'
         );
     }
 
