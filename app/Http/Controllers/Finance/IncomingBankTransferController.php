@@ -869,6 +869,7 @@ class IncomingBankTransferController extends Controller
             )
         ) {
             $account = LocationPaymentAccount::query()
+                ->whereIn('location_id', $locationIds)
                 ->find(
                     $request->integer(
                         'location_payment_account_id'
