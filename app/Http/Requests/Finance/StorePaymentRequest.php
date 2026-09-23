@@ -13,10 +13,22 @@ class StorePaymentRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('entry_context') === 'order_bank_transfer') {
+            // Manual bank/e-wallet entries from the order page must always
+            // pass through the verification workflow before counting as paid.
+            $this->merge([
+                'force_verification' => true,
+            ]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'entry_context' => ['nullable', 'in:order_bank_transfer'],
+            'force_verification' => ['nullable', 'boolean'],
             'order_type' => ['required', 'in:order,special_cake_order'],
             'order_id' => ['required', 'integer', 'min:1'],
             'payment_method_id' => ['required', 'exists:payment_methods,id'],
@@ -46,6 +58,13 @@ class StorePaymentRequest extends FormRequest
                 return;
             }
 
+            if ($this->input('order_type') !== 'order') {
+                $validator->errors()->add(
+                    'order_type',
+                    'إضافة الحوالة من صفحة الطلب متاحة للطلبات العادية فقط.'
+                );
+            }
+
             $methodId = (int) $this->input('payment_method_id', 0);
 
             if ($methodId <= 0) {
@@ -62,6 +81,11 @@ class StorePaymentRequest extends FormRequest
                     true
                 )
             ) {
+                $validator->errors()->add(
+                    'payment_method_id',
+                    'يجب اختيار طريقة دفع بنكية أو محفظة إلكترونية.'
+                );
+
                 return;
             }
 
