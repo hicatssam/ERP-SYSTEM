@@ -65,7 +65,7 @@ class SpecialCakeOrderCreationFlowTest extends TestCase
         $cash = PaymentMethod::query()->create([
             'name' => 'Cash',
             'name_ar' => 'نقدي',
-            'code' => 'cash',
+            'code' => 'cash-test-' . Str::lower(Str::random(6)),
             'type' => 'cash',
             'requires_verification' => false,
             'requires_reference' => false,
