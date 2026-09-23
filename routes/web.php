@@ -420,11 +420,11 @@ Route::post(
 
         Route::patch('showroom-sweets-requests/{showroomSweetsRequest}/status', [ShowroomSweetsRequestController::class, 'updateStatus'])
             ->name('showroom-sweets-requests.status')
-            ->middleware('can:showroom_sweets_requests.update_status');
+            ->middleware('can:showroom_sweets_requests.view');
 
         Route::patch('showroom-sweets-requests/{showroomSweetsRequest}/cancel', [ShowroomSweetsRequestController::class, 'cancel'])
             ->name('showroom-sweets-requests.cancel')
-            ->middleware('can:showroom_sweets_requests.create');
+            ->middleware('can:showroom_sweets_requests.view');
 
         Route::delete('showroom-sweets-requests/{showroomSweetsRequest}', [ShowroomSweetsRequestController::class, 'destroy'])
             ->name('showroom-sweets-requests.destroy')
