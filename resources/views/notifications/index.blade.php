@@ -893,6 +893,29 @@
         'paid'            => 'مدفوع',
         'failed'          => 'فشل',
         'refunded'        => 'مسترجع',
+
+        // Special cake workflow
+        'pending_factory_review' => 'بانتظار مراجعة المصنع',
+        'accepted'               => 'مقبول',
+        'rejected'               => 'مرفوض',
+        'modification_requested' => 'مطلوب تعديل',
+        'scheduled'              => 'مجدول للإنتاج',
+        'in_preparation'         => 'قيد التحضير',
+        'decorating'             => 'قيد التزيين',
+        'quality_check'          => 'قيد فحص الجودة',
+        'sent_to_branch'         => 'أُرسل إلى الفرع',
+        'received_by_branch'     => 'استلمه الفرع',
+        'ready_for_customer'     => 'جاهز للتسليم للعميل',
+        'delayed'                => 'متأخر',
+        'issue_open'             => 'توجد مشكلة',
+
+        // Showroom sweets workflow
+        'submitted'          => 'مُرسل للمصنع',
+        'in_progress'        => 'قيد التجهيز',
+        'ready_for_dispatch' => 'جاهز للتوصيل',
+        'out_for_delivery'   => 'في الطريق إلى الفرع',
+        'received_at_branch' => 'تم الاستلام في الفرع',
+        'fulfilled'          => 'تم التنفيذ',
     ];
 
     $translateStatus = static function ($status) use ($statusLabels) {
@@ -1120,7 +1143,12 @@
                             [
                                 'label' => 'الفرع',
                                 'value' => data_get($data, 'location_name')
-                                    ?? data_get($data, 'branch_name'),
+                                    ?? data_get($data, 'branch_name')
+                                    ?? data_get($data, 'origin_branch_name'),
+                            ],
+                            [
+                                'label' => 'المصنع',
+                                'value' => data_get($data, 'factory_name'),
                             ],
                             [
                                 'label' => 'العميل',
