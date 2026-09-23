@@ -348,6 +348,13 @@ Route::post('cake-orders', [SpecialCakeOrderController::class, 'store'])
     ->name('cake-orders.store')
     ->middleware('can:cake_orders.create');
 
+Route::post(
+    'cake-orders/customers/quick',
+    [SpecialCakeOrderController::class, 'quickStoreCustomer']
+)
+    ->name('cake-orders.customers.quick-store')
+    ->middleware('can:cake_orders.create');
+
 Route::get('cake-orders/{cakeOrder}', [SpecialCakeOrderController::class, 'show'])
     ->name('cake-orders.show')
     ->middleware('can:cake_orders.view');
