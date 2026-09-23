@@ -6,9 +6,8 @@ use App\Events\SpecialCakeOrderTransitioned;
 use App\Listeners\Concerns\HasNotificationDedup;
 use App\Models\User;
 use App\Notifications\SpecialCakeOrderTransitionedNotification;
-use Illuminate\Contracts\Queue\ShouldQueue;
 
-class NotifyStaffOnSpecialCakeOrderTransitioned implements ShouldQueue
+class NotifyStaffOnSpecialCakeOrderTransitioned
 {
     use HasNotificationDedup;
 
