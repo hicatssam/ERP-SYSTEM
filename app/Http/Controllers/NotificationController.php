@@ -56,14 +56,23 @@ class NotificationController extends Controller
         $notifications = $query->latest()->paginate(20)->withQueryString();
         $unreadCount = $user->unreadNotifications()->count();
 
+        /*
+         * Keep notification type discovery database-agnostic.
+         * Tests run on SQLite while production may run on MySQL, so avoid
+         * MySQL-only JSON_UNQUOTE / JSON_EXTRACT expressions here.
+         */
         $types = $user->notifications()
             ->reorder()
-            ->selectRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.type")) as ntype')
-            ->whereNotNull('data')
-            ->whereRaw('JSON_UNQUOTE(JSON_EXTRACT(data, "$.type")) IS NOT NULL')
-            ->distinct()
-            ->pluck('ntype')
+            ->get(['data'])
+            ->map(function (DatabaseNotification $notification): ?string {
+                $data = $notification->data;
+
+                return is_array($data)
+                    ? ($data['type'] ?? null)
+                    : null;
+            })
             ->filter()
+            ->unique()
             ->values();
 
         return view('notifications.index', compact(
