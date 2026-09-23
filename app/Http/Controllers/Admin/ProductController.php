@@ -456,8 +456,19 @@ class ProductController extends Controller
 
     private function deleteProductImage(Product $product): void
     {
-        if ($product->image && Storage::disk('public')->exists($product->image)) {
-            Storage::disk('public')->delete($product->image);
+        $image = trim((string) $product->image);
+
+        if (
+            $image === ''
+            || str_starts_with($image, 'http://')
+            || str_starts_with($image, 'https://')
+            || str_starts_with($image, '//')
+        ) {
+            return;
+        }
+
+        if (Storage::disk('public')->exists($image)) {
+            Storage::disk('public')->delete($image);
         }
     }
 }
