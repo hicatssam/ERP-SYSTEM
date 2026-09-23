@@ -733,6 +733,10 @@
 
 
 
+@include('sales.orders.partials.bank-transfers')
+
+
+
 {{-- =========================================================
 
      Popup تأكيد الطلب
