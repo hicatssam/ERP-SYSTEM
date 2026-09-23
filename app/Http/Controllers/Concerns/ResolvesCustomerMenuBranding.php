@@ -591,6 +591,50 @@ trait ResolvesCustomerMenuBranding
             return asset($normalized);
         }
 
+        /*
+         * Legacy sweets-menu demo assets were previously stored on the
+         * public disk and therefore rendered through /storage/... .
+         * On Windows/WAMP (especially when the app is served over the LAN)
+         * that symlink can return 403 even though the file exists.
+         *
+         * Migrate ONLY this known public demo prefix into public/images so
+         * customer-menu assets never depend on the storage symlink. Do not
+         * expose arbitrary files from storage/app/public because that disk
+         * also contains protected proofs/attachments in other modules.
+         */
+        if (str_starts_with($normalized, 'images/sweets-menu/')) {
+            $legacySource = storage_path('app/public/' . $normalized);
+
+            if (is_file($legacySource)) {
+                $publicTarget = public_path($normalized);
+                $publicDirectory = dirname($publicTarget);
+
+                if (
+                    ! is_dir($publicDirectory)
+                    && ! mkdir(
+                        $publicDirectory,
+                        0755,
+                        true
+                    )
+                    && ! is_dir($publicDirectory)
+                ) {
+                    return null;
+                }
+
+                if (
+                    ! is_file($publicTarget)
+                    && ! @copy(
+                        $legacySource,
+                        $publicTarget
+                    )
+                ) {
+                    return null;
+                }
+
+                return asset($normalized);
+            }
+        }
+
         if (file_exists(public_path('storage/' . $normalized))) {
             return asset('storage/' . $normalized);
         }
