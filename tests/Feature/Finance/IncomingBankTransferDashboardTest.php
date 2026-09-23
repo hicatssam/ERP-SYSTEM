@@ -112,6 +112,134 @@ class IncomingBankTransferDashboardTest extends TestCase
     }
 
     #[Test]
+    public function dashboard_totals_follow_the_current_admin_filters(): void
+    {
+        $branchA = $this->makeLocation('A');
+        $branchB = $this->makeLocation('B');
+        $admin = $this->makeAdmin();
+
+        [$method, $accountA] = $this->makeMethodAndAccount($branchA);
+        [, $accountB] = $this->makeMethodAndAccount($branchB, $method);
+
+        $this->makeTransfer(
+            $branchA,
+            $method,
+            $accountA,
+            'REF-TOTAL-A',
+            'pending_verification'
+        );
+
+        $this->makeTransfer(
+            $branchB,
+            $method,
+            $accountB,
+            'REF-TOTAL-B',
+            'confirmed'
+        );
+
+        $this->actingAs($admin)
+            ->get(route('incoming-bank-transfers.index', [
+                'location_id' => $branchB->id,
+                'status' => 'confirmed',
+            ]))
+            ->assertOk()
+            ->assertViewHas(
+                'summary',
+                fn ($summary): bool =>
+                    (int) $summary->transfers_count === 1
+                    && (float) $summary->total_amount === 100.0
+                    && (float) $summary->confirmed_total === 100.0
+                    && (float) $summary->pending_total === 0.0
+            );
+    }
+
+    #[Test]
+    public function branch_user_cannot_export_another_branch_transfers(): void
+    {
+        $branchA = $this->makeLocation('A');
+        $branchB = $this->makeLocation('B');
+
+        $user = $this->makeBranchUser($branchA, [
+            'financial.branch.view',
+        ]);
+
+        [$method, $accountB] = $this->makeMethodAndAccount($branchB);
+
+        $this->makeTransfer(
+            $branchB,
+            $method,
+            $accountB,
+            'REF-PRIVATE-B'
+        );
+
+        $this->actingAs($user)
+            ->get(route('incoming-bank-transfers.export.xlsx', [
+                'location_id' => $branchB->id,
+            ]))
+            ->assertForbidden();
+
+        $this->actingAs($user)
+            ->get(route('incoming-bank-transfers.export.pdf', [
+                'location_id' => $branchB->id,
+            ]))
+            ->assertForbidden();
+    }
+
+    #[Test]
+    public function transfer_exports_download_real_excel_and_pdf_files(): void
+    {
+        $branch = $this->makeLocation('A');
+        $admin = $this->makeAdmin();
+
+        [$method, $account] = $this->makeMethodAndAccount($branch);
+
+        $this->makeTransfer(
+            $branch,
+            $method,
+            $account,
+            'REF-EXPORT-1',
+            'confirmed'
+        );
+
+        $xlsxResponse = $this->actingAs($admin)
+            ->get(route('incoming-bank-transfers.export.xlsx', [
+                'location_id' => $branch->id,
+                'payment_method_id' => $method->id,
+                'status' => 'confirmed',
+            ]));
+
+        $xlsxResponse->assertOk();
+
+        $this->assertStringContainsString(
+            '.xlsx',
+            (string) $xlsxResponse->headers->get(
+                'content-disposition'
+            )
+        );
+
+        $pdfResponse = $this->actingAs($admin)
+            ->get(route('incoming-bank-transfers.export.pdf', [
+                'location_id' => $branch->id,
+                'payment_method_id' => $method->id,
+                'status' => 'confirmed',
+            ]));
+
+        $pdfResponse
+            ->assertOk()
+            ->assertHeader(
+                'content-type',
+                'application/pdf'
+            );
+
+        $this->assertStringContainsString(
+            '.pdf',
+            (string) $pdfResponse->headers->get(
+                'content-disposition'
+            )
+        );
+    }
+
+    #[Test]
     public function verifier_can_approve_transfer_from_own_branch(): void
     {
         $branch = $this->makeLocation('A');
