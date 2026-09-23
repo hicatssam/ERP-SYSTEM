@@ -237,6 +237,8 @@
                                     <label class="payment-method-card">
                                         <input type="radio" name="payment_method_id" value="{{ $method->id }}"
                                                data-payment-method
+                                               data-requires-verification="{{ $method->requires_verification ? '1' : '0' }}"
+                                               data-requires-reference="{{ $method->requires_reference ? '1' : '0' }}"
                                                @checked($selectedPaymentMethodId === (string) $method->id)>
                                         <span class="payment-method-content">
                                             <span class="payment-method-logo">
@@ -598,9 +600,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updatePaymentFields() {
         const val = arrangementSelect.value;
-        const needsPaidAmount   = (val === 'deposit' || val === 'partial_payment' || val === 'pay_now');
-        const needsVerification = (val === 'pending_verification');
+        const needsPaidAmount = (val === 'deposit' || val === 'partial_payment' || val === 'pay_now');
         const needsPaymentMethod = val !== '' && val !== 'pay_on_pickup';
+        const selectedMethod = document.querySelector('[data-payment-method]:checked');
+        const methodNeedsVerification = needsPaymentMethod
+            && selectedMethod?.dataset.requiresVerification === '1';
+        const methodNeedsReference = needsPaymentMethod
+            && selectedMethod?.dataset.requiresReference === '1';
+        const needsProof = val === 'pending_verification' || methodNeedsVerification;
+        const needsReference = val === 'pending_verification' || methodNeedsReference;
+        const showsVerification = needsProof || needsReference;
 
         paymentMethodInputs.forEach((input, index) => {
             input.required = needsPaymentMethod && index === 0;
@@ -611,9 +620,9 @@ document.addEventListener('DOMContentLoaded', () => {
         paidAmountGroup.hidden   = !needsPaidAmount;
         paidAmountInput.required = needsPaidAmount;
 
-        verificationGroup.hidden    = !needsVerification;
-        referenceInput.required     = needsVerification;
-        paymentProofInput.required  = needsVerification;
+        verificationGroup.hidden    = !showsVerification;
+        referenceInput.required      = needsReference;
+        paymentProofInput.required   = needsProof;
 
         if (val === 'pay_now') {
             paidAmountInput.readOnly = true;
