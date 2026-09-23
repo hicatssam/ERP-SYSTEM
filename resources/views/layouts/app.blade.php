@@ -1958,7 +1958,7 @@ a.app-page-btn:hover {
                             <span>المبيعات البنكية</span>
                         </a>
 
-                        @if(IlluminateSupportFacadesRoute::has('incoming-bank-transfers.index'))
+                        @if(\Illuminate\Support\Facades\Route::has('incoming-bank-transfers.index'))
                             <a
                                 href="{{ route('incoming-bank-transfers.index') }}"
                                 class="nav-item {{ request()->routeIs('incoming-bank-transfers.*') ? 'active' : '' }}"
