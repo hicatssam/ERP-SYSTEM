@@ -7,6 +7,8 @@ use App\Models\Employee;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\EmployeeCompensationProfile;
 use App\Models\PaymentMethod;
+use App\Models\PayrollItem;
+use App\Models\PayrollPeriod;
 use App\Models\User;
 use App\Services\EmployeeAdvanceRepaymentService;
 use App\Services\EmployeeLedgerService;
@@ -246,6 +248,102 @@ class EmployeeAdvanceRepaymentTest extends TestCase
         $this->assertSame(
             1,
             EmployeeAdvanceRepayment::query()->count()
+        );
+    }
+
+
+    #[Test]
+    public function payroll_period_cannot_be_approved_while_advance_repayment_is_pending(): void
+    {
+        Storage::fake('public');
+
+        [$employee, $actor] = $this->employeeWithCurrency();
+
+        $cash = $this->paymentMethod(
+            'cash',
+            requiresVerification: false,
+            requiresReference: false
+        );
+
+        $bank = $this->paymentMethod(
+            'bank_transfer',
+            requiresVerification: true,
+            requiresReference: true
+        );
+
+        $advance = app(PayrollService::class)->issueAdvance(
+            $employee,
+            [
+                'amount' => 100,
+                'issued_at' => now()->toDateString(),
+                'payment_method_id' => $cash->id,
+            ],
+            $actor
+        );
+
+        app(EmployeeAdvanceRepaymentService::class)->create(
+            $advance,
+            [
+                'amount' => 80,
+                'payment_method_id' => $bank->id,
+                'paid_at' => now(),
+                'reference' => 'PENDING-BEFORE-PAYROLL',
+            ],
+            UploadedFile::fake()->image('pending-proof.jpg'),
+            $actor
+        );
+
+        $currencyId = Currency::query()
+            ->where('is_base', true)
+            ->value('id');
+
+        $period = PayrollPeriod::query()->create([
+            'code' => 'PAY-PENDING-' . uniqid(),
+            'name' => 'دورة اختبار سداد معلق',
+            'start_date' => now()->startOfMonth()->toDateString(),
+            'end_date' => now()->endOfMonth()->toDateString(),
+            'status' => 'calculated',
+            'currency_id' => $currencyId,
+            'created_by' => $actor->id,
+        ]);
+
+        PayrollItem::query()->create([
+            'payroll_period_id' => $period->id,
+            'employee_id' => $employee->id,
+            'base_salary' => 1000,
+            'allowances_total' => 0,
+            'bonuses_total' => 0,
+            'deductions_total' => 0,
+            'gross_salary' => 1000,
+            'net_salary' => 1000,
+            'payable_amount' => 900,
+            'status' => 'calculated',
+        ]);
+
+        try {
+            app(PayrollService::class)->approvePeriod(
+                $period,
+                $actor
+            );
+
+            $this->fail(
+                'Expected payroll approval to be blocked by pending advance repayment.'
+            );
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey(
+                'payroll',
+                $exception->errors()
+            );
+        }
+
+        $this->assertSame(
+            'calculated',
+            $period->fresh()->status
+        );
+
+        $this->assertSame(
+            100.0,
+            (float) $advance->fresh()->outstanding_amount
         );
     }
 
