@@ -71,6 +71,16 @@ class CustomerMenuOrderLifecycleTest extends TestCase
             $this->assertStringContainsString($directive, $cacheControl);
         }
 
+        /*
+         * A public order waiting for payment verification cannot move directly
+         * to confirmed. Simulate the payment being approved first, then confirm
+         * the order and verify the public tracking state.
+         */
+        $order->update([
+            'payment_status' => 'paid',
+            'payment_arrangement' => 'pay_now',
+        ]);
+
         $order->update([
             'status' => 'confirmed',
             'confirmed_at' => now(),
@@ -80,7 +90,9 @@ class CustomerMenuOrderLifecycleTest extends TestCase
             ->assertOk()
             ->assertJsonPath('status', 'confirmed')
             ->assertJsonPath('state', 'accepted')
-            ->assertJsonPath('step', 2);
+            ->assertJsonPath('step', 2)
+            ->assertJsonPath('payment_status', 'paid')
+            ->assertJsonPath('payment_arrangement', 'pay_now');
     }
 
     #[Test]
