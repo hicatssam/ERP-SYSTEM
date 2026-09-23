@@ -1,11 +1,16 @@
 <?php
 
+use App\Http\Controllers\CustomerOrdering\CustomerMenuAssetController;
 use App\Http\Controllers\CustomerOrdering\CustomerMenuController;
 use App\Http\Controllers\Sales\OrderController;
 use App\Http\Controllers\Customer\CartController;
 use App\Http\Controllers\Customer\CheckoutController;
 
 use Illuminate\Support\Facades\Route;
+
+Route::get('menu-assets/{path}', [CustomerMenuAssetController::class, 'show'])
+    ->where('path', 'images/sweets-menu/.*')
+    ->name('customer-menu.assets.show');
 
 Route::prefix('menu')->name('customer-menu.')->group(function (): void {
     Route::get('track/{token}', [CustomerMenuController::class, 'track'])
