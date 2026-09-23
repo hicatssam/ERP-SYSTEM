@@ -861,9 +861,32 @@ class IncomingBankTransferController extends Controller
                 ?? 'الحالة المحددة';
         }
 
+        $accountLabel = null;
+
+        if (
+            $request->filled(
+                'location_payment_account_id'
+            )
+        ) {
+            $account = LocationPaymentAccount::query()
+                ->find(
+                    $request->integer(
+                        'location_payment_account_id'
+                    )
+                );
+
+            $accountLabel = $account
+                ? collect([
+                    $account->name,
+                    $account->provider_name,
+                ])->filter()->implode(' — ')
+                : 'حساب الاستلام المحدد';
+        }
+
         return [
             'الفرع' => $branchLabel,
             'طريقة الدفع' => $methodLabel,
+            'حساب الاستلام' => $accountLabel,
             'الحالة' => $statusLabel,
             'من تاريخ' =>
                 $request->input('date_from'),
