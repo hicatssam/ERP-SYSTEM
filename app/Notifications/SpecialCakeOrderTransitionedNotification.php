@@ -4,10 +4,9 @@ namespace App\Notifications;
 
 use App\Models\SpecialCakeOrder;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class SpecialCakeOrderTransitionedNotification extends Notification implements ShouldQueue
+class SpecialCakeOrderTransitionedNotification extends Notification
 {
     use Queueable;
 
