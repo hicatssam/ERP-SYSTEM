@@ -24,7 +24,7 @@
     )
 )
 
-@section('signature_right', 'توقيع الموظف')
+@section('signature_mode', 'admin_only')
 @section('signature_left', 'اعتماد الإدارة')
 
 @push('print_styles')
@@ -54,6 +54,19 @@
 @endpush
 
 @section('print_content')
+    @php
+        $currencySymbol = $printTheme['currency_symbol'] ?? '₪';
+
+        $entryTypeLabels = [
+            'basic_salary' => 'راتب أساسي',
+            'allowance' => 'بدل',
+            'bonus' => 'مكافأة',
+            'deduction' => 'خصم',
+            'salary_payment' => 'دفعة راتب',
+            'advance' => 'سلفة',
+        ];
+    @endphp
+
     <section class="print-section statement-summary">
         <table
             class="print-summary"
@@ -69,7 +82,7 @@
                     <strong
                         class="print-summary-value {{ $opening >= 0 ? 'print-credit' : 'print-debit' }}"
                     >
-                        {{ number_format((float) $opening, 2) }}
+                        {{ number_format((float) $opening, 2) }} {{ $currencySymbol }}
                     </strong>
                 </td>
 
@@ -103,7 +116,7 @@
                     <strong
                         class="print-summary-value {{ $closing >= 0 ? 'print-credit' : 'print-debit' }}"
                     >
-                        {{ number_format((float) $closing, 2) }}
+                        {{ number_format((float) $closing, 2) }} {{ $currencySymbol }}
                     </strong>
                 </td>
             </tr>
@@ -150,7 +163,7 @@
                             </td>
 
                             <td>
-                                {{ $entry->entry_type ?: '—' }}
+                                {{ $entryTypeLabels[$entry->entry_type] ?? $entry->entry_type ?? '—' }}
                             </td>
 
                             <td class="print-money print-credit">
@@ -158,7 +171,7 @@
                                     ? number_format(
                                         (float) $entry->amount,
                                         2
-                                    )
+                                    ) . ' ' . $currencySymbol
                                     : '—' }}
                             </td>
 
@@ -167,7 +180,7 @@
                                     ? number_format(
                                         (float) $entry->amount,
                                         2
-                                    )
+                                    ) . ' ' . $currencySymbol
                                     : '—' }}
                             </td>
 
@@ -177,7 +190,7 @@
                                 {{ number_format(
                                     $runningBalance,
                                     2
-                                ) }}
+                                ) }} {{ $currencySymbol }}
                             </td>
 
                             <td class="statement-reference">

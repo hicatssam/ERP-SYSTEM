@@ -102,6 +102,7 @@ class SpecialCakeOrderService
             'order_type' => 'special_cake_order',
             'order_id' => $order->id,
             'payment_method_id' => $data['payment_method_id'],
+            'location_payment_account_id' => $data['location_payment_account_id'] ?? null,
             'amount' => (float) ($data['paid_amount'] ?? $order->net_price),
             'reference_number' => $data['reference_number'] ?? null,
             'payment_proof' => $data['payment_proof'] ?? null,

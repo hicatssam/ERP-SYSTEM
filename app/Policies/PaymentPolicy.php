@@ -12,6 +12,18 @@ class PaymentPolicy
         return $user->hasPermissionTo('payments.record');
     }
 
+    public function view(User $user, Payment $payment): bool
+    {
+        return (
+            $user->isAdmin()
+            || $user->can('payments.record')
+            || $user->can('payments.verify')
+            || $user->can('financial.branch.view')
+            || $user->can('financial.global.view')
+            || $user->can('financial.collections.view')
+        ) && $this->belongsToUserLocation($user, $payment);
+    }
+
     public function verify(User $user, Payment $payment): bool
     {
         return ($user->hasPermissionTo('payments.verify') || $user->isAdmin())

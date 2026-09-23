@@ -3,6 +3,7 @@
 namespace App\Services\Payments;
 
 use App\Events\PaymentReceived;
+use App\Models\LocationPaymentAccount;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentCorrection;
@@ -27,6 +28,23 @@ class PaymentService
 
             $method = PaymentMethod::query()->active()->findOrFail($data['payment_method_id']);
             $this->assertMethodAvailable($method, $locationId);
+
+            $account = null;
+
+            if (filled($data['location_payment_account_id'] ?? null)) {
+                $account = LocationPaymentAccount::query()
+                    ->whereKey((int) $data['location_payment_account_id'])
+                    ->where('location_id', $locationId)
+                    ->where('payment_method_id', $method->id)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (! $account) {
+                    throw ValidationException::withMessages([
+                        'location_payment_account_id' => 'حساب الدفع المحدد غير فعال أو لا يتبع فرع وطريقة دفع المستند.',
+                    ]);
+                }
+            }
 
             if ($method->requires_reference && blank($data['reference_number'] ?? null)) {
                 throw ValidationException::withMessages(['reference_number' => 'طريقة الدفع المختارة تتطلب رقم مرجع.']);
@@ -53,6 +71,7 @@ class PaymentService
                 'order_id' => $data['order_id'],
                 'location_id' => $locationId,
                 'payment_method_id' => $method->id,
+                'location_payment_account_id' => $account?->id,
                 'amount' => $amount,
                 'reference_number' => $data['reference_number'] ?? null,
                 'payment_proof' => $proofPath,
@@ -240,8 +259,18 @@ class PaymentService
 
     private function assertMethodAvailable(PaymentMethod $method, int $locationId): void
     {
-        if ($method->locationPaymentMethods()->exists() && ! $method->isAvailableAt($locationId)) {
-            throw ValidationException::withMessages(['payment_method_id' => 'طريقة الدفع غير مفعلة في فرع المستند.']);
+        $assignments = $method->locationPaymentMethods();
+
+        if (
+            (clone $assignments)->exists()
+            && ! (clone $assignments)
+                ->where('location_id', $locationId)
+                ->where('is_active', true)
+                ->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'payment_method_id' => 'طريقة الدفع غير مفعلة في فرع المستند.',
+            ]);
         }
     }
 

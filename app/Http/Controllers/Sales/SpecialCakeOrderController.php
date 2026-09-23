@@ -7,10 +7,14 @@ use App\Http\Controllers\Controller;
 use App\Models\CakeOrderComment;
 use App\Models\Customer;
 use App\Models\Location;
+use App\Models\LocationPaymentAccount;
 use App\Models\PaymentMethod;
 use App\Models\SpecialCakeOrder;
+use App\Notifications\CustomerCreatedNotification;
+use App\Services\Notifications\NotificationDispatcher;
 use App\Services\SpecialCakes\SpecialCakeOrderService;
 use App\Services\SpecialCakes\SpecialCakeStatusTransitionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -22,87 +26,212 @@ class SpecialCakeOrderController extends Controller
         private SpecialCakeStatusTransitionService $transitionService
     ) {}
 
-  public function index(Request $request)
-{
-    $user = Auth::user();
+    public function index(Request $request)
+    {
+        $user = Auth::user();
 
-    $query = SpecialCakeOrder::query()
-        ->with([
-            'customer',
-            'originBranch',
-            'creator',
+        $query = SpecialCakeOrder::query()
+            ->with([
+                'customer',
+                'originBranch',
+                'factory',
+                'creator',
+                'attachments' => fn ($query) => $query->latest('id'),
+            ]);
 
-            // مهم جداً حتى تجلب الصور مع الطلبات
-            'attachments' => function ($query) {
-                $query->latest('id');
-            },
+        if (! $user->isAdmin() && ! $user->can('cake_orders.view_all')) {
+            $locationIds = $user->employee?->locations()
+                ->pluck('locations.id')
+                ->map(fn ($id) => (int) $id)
+                ->all() ?? [];
+
+            $query->where(function ($query) use ($locationIds): void {
+                $query->whereIn('origin_branch_id', $locationIds)
+                    ->orWhereIn('factory_location_id', $locationIds);
+            });
+        }
+
+        $activeStatuses = collect(CakeOrderStatus::cases())
+            ->reject(fn (CakeOrderStatus $status) => $status->isTerminal())
+            ->map(fn (CakeOrderStatus $status) => $status->value)
+            ->values()
+            ->all();
+
+        $summaryQuery = clone $query;
+        $summary = [
+            'total' => (clone $summaryQuery)->count(),
+            'overdue' => (clone $summaryQuery)
+                ->whereIn('status', $activeStatuses)
+                ->whereDate('required_date', '<', today())
+                ->count(),
+            'due_today' => (clone $summaryQuery)
+                ->whereIn('status', $activeStatuses)
+                ->whereDate('required_date', today())
+                ->count(),
+            'due_soon' => (clone $summaryQuery)
+                ->whereIn('status', $activeStatuses)
+                ->whereDate('required_date', '>=', today()->addDay())
+                ->whereDate('required_date', '<=', today()->addDays(3))
+                ->count(),
+        ];
+
+        if ($request->filled('q')) {
+            $search = trim($request->string('q')->toString());
+
+            $query->where(function ($query) use ($search): void {
+                $query->where('order_number', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($customerQuery) use ($search): void {
+                        $customerQuery->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate('required_date', '>=', $request->date('date_from'));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate('required_date', '<=', $request->date('date_to'));
+        }
+
+        $orders = $query
+            ->orderByRaw('required_date IS NULL')
+            ->orderBy('required_date')
+            ->orderBy('required_time')
+            ->latest('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('sales.cake-orders.index', compact('orders', 'summary'));
+    }
+
+    public function create()
+    {
+        $user = Auth::user();
+        $branch = $user->primaryLocation();
+
+        $customers = Customer::query()
+            ->accessibleBy($user)
+            ->orderBy('name')
+            ->get();
+
+        $paymentMethods = collect();
+        $paymentAccounts = collect();
+
+        if ($branch) {
+            $paymentMethods = PaymentMethod::query()
+                ->where('is_active', true)
+                ->whereHas('locationPaymentMethods', function ($query) use ($branch): void {
+                    $query
+                        ->where('location_id', $branch->id)
+                        ->where('is_active', true);
+                })
+                ->orderBy('sort_order')
+                ->orderBy('name_ar')
+                ->get();
+
+            $paymentAccounts = LocationPaymentAccount::query()
+                ->where('location_id', $branch->id)
+                ->where('is_active', true)
+                ->whereIn('payment_method_id', $paymentMethods->pluck('id'))
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->groupBy('payment_method_id');
+        }
+
+        return view('sales.cake-orders.create', compact(
+            'customers',
+            'branch',
+            'paymentMethods',
+            'paymentAccounts'
+        ));
+    }
+
+    public function quickStoreCustomer(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $branch = $user->primaryLocation();
+
+        if (! $branch || ! $branch->isBranch() || ! $branch->is_active) {
+            abort(403, 'يجب ربط المستخدم بفرع رئيسي فعال قبل إضافة العميل.');
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'phone' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('customers', 'phone')
+                    ->where(fn ($query) => $query->where('location_id', $branch->id))
+                    ->withoutTrashed(),
+            ],
         ]);
 
-    if (! $user->isAdmin() && ! $user->can('cake_orders.view_all')) {
-        $locationIds = $user->employee?->locations()
-            ->pluck('locations.id')
-            ->map(fn ($id) => (int) $id)
-            ->all() ?? [];
+        $customer = Customer::query()->create([
+            'location_id' => $branch->id,
+            'customer_type' => Customer::TYPE_INDIVIDUAL,
+            'scope' => Customer::SCOPE_BRANCH,
+            'name' => trim($validated['name']),
+            'phone' => trim($validated['phone']),
+            'allow_credit' => false,
+            'credit_limit' => null,
+            'billing_cycle' => 'immediate',
+            'payment_terms_days' => 0,
+        ]);
 
-        $query->where(function ($q) use ($locationIds) {
-            $q->whereIn('origin_branch_id', $locationIds)
-                ->orWhereIn('factory_location_id', $locationIds);
-        });
-    }
-
-    if ($request->filled('status')) {
-        $query->where(
-            'status',
-            $request->input('status')
+        NotificationDispatcher::notifyByPermissions(
+            new CustomerCreatedNotification($customer),
+            ['customers.view', 'customers.update', 'orders.create'],
+            (int) $branch->id,
+            ['customers.view_all', 'financial.global.view'],
+            (int) $user->id,
         );
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'تمت إضافة العميل واختياره للطلب.',
+            'customer' => [
+                'id' => (int) $customer->id,
+                'name' => (string) $customer->name,
+                'phone' => (string) $customer->phone,
+            ],
+        ], 201);
     }
-
-    if ($request->filled('date_from')) {
-        $query->whereDate(
-            'required_date',
-            '>=',
-            $request->input('date_from')
-        );
-    }
-
-    $orders = $query
-        ->latest()
-        ->paginate(20)
-        ->withQueryString();
-
-    return view(
-        'sales.cake-orders.index',
-        compact('orders')
-    );
-}
-
-
-
-
-public function create()
-{
-    $user = Auth::user();
-    $branch = $user->primaryLocation();
-
-    $customers = Customer::query()
-        ->orderBy('name')
-        ->get();
-
-    $paymentMethods = PaymentMethod::query()
-        ->where('is_active', true)
-        ->orderBy('sort_order')
-        ->orderBy('name_ar')
-        ->get();
-
-    return view('sales.cake-orders.create', compact(
-        'customers',
-        'branch',
-        'paymentMethods'
-    ));
-}
 
     public function store(Request $request)
     {
+        /*
+         * Normalize cash before validation as a server-side safeguard. The UI
+         * also selects pay-on-pickup automatically, but the backend must remain
+         * correct when JavaScript is unavailable or the request is tampered with.
+         */
+        $submittedMethod = PaymentMethod::query()
+            ->whereKey((int) $request->input('payment_method_id'))
+            ->where('is_active', true)
+            ->first();
+
+        if (
+            $submittedMethod
+            && (
+                strtolower((string) $submittedMethod->type) === 'cash'
+                || strtolower((string) $submittedMethod->code) === 'cash'
+            )
+        ) {
+            $request->merge([
+                'payment_arrangement' => 'pay_on_pickup',
+                'location_payment_account_id' => null,
+                'paid_amount' => null,
+                'reference_number' => null,
+            ]);
+        }
+
       $request->validate([
     'customer_id' => [
         'required',
@@ -144,9 +273,15 @@ public function create()
     ],
 
     'payment_method_id' => [
-        'required_unless:payment_arrangement,pay_on_pickup',
-        'nullable',
+        'required',
+        'integer',
         'exists:payment_methods,id',
+    ],
+
+    'location_payment_account_id' => [
+        'nullable',
+        'integer',
+        'exists:location_payment_accounts,id',
     ],
 
     'paid_amount' => [
@@ -206,9 +341,75 @@ public function create()
 ],
 ]);
 
-        // Payment method required unless paying on pickup
-        if ($request->payment_arrangement !== 'pay_on_pickup' && ! $request->payment_method_id) {
-            return back()->withErrors(['payment_method_id' => 'طريقة الدفع مطلوبة.'])->withInput();
+        $branch = Auth::user()->primaryLocation();
+
+        if (! $branch) {
+            return back()
+                ->withErrors(['location' => 'يجب ربط المستخدم بفرع رئيسي قبل إنشاء طلب الكيك.'])
+                ->withInput();
+        }
+
+        $customerIsAvailable = Customer::query()
+            ->accessibleBy(Auth::user())
+            ->whereKey((int) $request->customer_id)
+            ->exists();
+
+        if (! $customerIsAvailable) {
+            return back()
+                ->withErrors(['customer_id' => 'العميل المحدد غير متاح في فرع المستخدم.'])
+                ->withInput();
+        }
+
+        $paymentMethod = PaymentMethod::query()
+            ->whereKey((int) $request->payment_method_id)
+            ->where('is_active', true)
+            ->whereHas('locationPaymentMethods', function ($query) use ($branch): void {
+                $query
+                    ->where('location_id', $branch->id)
+                    ->where('is_active', true);
+            })
+            ->first();
+
+        if (! $paymentMethod) {
+            return back()
+                ->withErrors(['payment_method_id' => 'طريقة الدفع المحددة غير مفعّلة في هذا الفرع.'])
+                ->withInput();
+        }
+
+        $isCash = strtolower((string) $paymentMethod->type) === 'cash'
+            || strtolower((string) $paymentMethod->code) === 'cash';
+
+        if ($isCash) {
+            /*
+             * Cash is collected when the customer receives the cake. Do not
+             * create a paid transaction or request proof/account information.
+             */
+            $request->merge([
+                'payment_arrangement' => 'pay_on_pickup',
+                'location_payment_account_id' => null,
+                'paid_amount' => null,
+                'reference_number' => null,
+            ]);
+        } elseif ($request->payment_arrangement !== 'pay_on_pickup') {
+            $activeAccounts = LocationPaymentAccount::query()
+                ->where('location_id', $branch->id)
+                ->where('payment_method_id', $paymentMethod->id)
+                ->where('is_active', true);
+
+            if ($activeAccounts->exists()) {
+                $paymentAccount = (clone $activeAccounts)
+                    ->find((int) $request->location_payment_account_id);
+
+                if (! $paymentAccount) {
+                    return back()
+                        ->withErrors(['location_payment_account_id' => 'اختر حساب الدفع الصحيح لهذا الفرع.'])
+                        ->withInput();
+                }
+            } elseif ($request->filled('location_payment_account_id')) {
+                return back()
+                    ->withErrors(['location_payment_account_id' => 'حساب الدفع المحدد لا يتبع طريقة الدفع المختارة.'])
+                    ->withInput();
+            }
         }
 
         // Calculate discount
@@ -274,7 +475,21 @@ if (
     ]);
 }
 
-        return redirect()->route('cake-orders.index', $order)->with('success', 'تم إنشاء طلب الكيك بنجاح.');
+        /*
+         * A submitted cake-order form is a real request, not an abandoned draft.
+         * Moving it to factory review also dispatches the operational alert to
+         * eligible staff at the assigned factory and the administration.
+         */
+        $this->transitionService->transition(
+            $order,
+            CakeOrderStatus::PendingFactoryReview->value,
+            Auth::user(),
+            'تم إنشاء الطلب وإرساله إلى المصنع للمراجعة.'
+        );
+
+        return redirect()
+            ->route('cake-orders.show', $order)
+            ->with('success', 'تم إنشاء طلب الكيك وإرساله إلى المصنع للمراجعة.');
     }
 
     public function show(SpecialCakeOrder $cakeOrder)

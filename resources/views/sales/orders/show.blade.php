@@ -177,7 +177,7 @@
 
         @if($orderStatus === 'confirmed')
 
-            @can('update', $order)
+            @can('complete', $order)
 
                 <button
 
@@ -925,7 +925,7 @@
 
 @if($orderStatus === 'confirmed')
 
-    @can('update', $order)
+    @can('complete', $order)
 
         <div
 

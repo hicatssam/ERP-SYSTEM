@@ -27,9 +27,11 @@ use App\Models\User;
 use App\Notifications\LowStockDetectedNotification;
 use App\Notifications\OrderCreatedNotification;
 use App\Services\Inventory\InventoryService;
+use App\Services\SpecialCakes\SpecialCakeStatusTransitionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -780,6 +782,32 @@ class NotificationRoutingTest extends TestCase
     }
 
     // ─── SpecialCakeOrderTransitioned: routing ────────────────────────────────────
+
+    #[Test]
+    public function submitted_cake_order_alert_is_stored_without_a_queue_worker(): void
+    {
+        Queue::fake();
+
+        $branch = $this->branch();
+        $factory = $this->factory();
+        $manager = $this->userAt('Branch Manager', $branch);
+        $actor = $this->globalUser('Admin');
+        $order = $this->cakeOrderFrom($branch, $factory, $actor);
+
+        app(SpecialCakeStatusTransitionService::class)->transition(
+            $order,
+            'pending_factory_review',
+            $actor,
+            'تم إرسال الطلب إلى المصنع للمراجعة.'
+        );
+
+        $this->assertSame(
+            'pending_factory_review',
+            $order->fresh()->status->value
+        );
+        $this->assertCount(1, $manager->fresh()->notifications);
+        Queue::assertNothingPushed();
+    }
 
     #[Test]
     public function cake_order_transition_notifies_branch_manager_at_origin_branch(): void

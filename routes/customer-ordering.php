@@ -14,6 +14,9 @@ Route::prefix('menu')->name('customer-menu.')->group(function (): void {
     Route::get('track/{token}/status', [CustomerMenuController::class, 'status'])
         ->where('token', '[A-Za-z0-9_-]{20,80}')->name('status');
 
+    Route::get('track/{token}/invoice', [CustomerMenuController::class, 'invoice'])
+        ->where('token', '[A-Za-z0-9_-]{20,80}')->name('invoice');
+
     // Every one of these lives under {location:code}/... so none of them
     // can ever collide with the single-segment catch-all "show" route
     // further down, regardless of registration order.

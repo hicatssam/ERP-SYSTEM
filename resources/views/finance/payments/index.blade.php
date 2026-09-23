@@ -1,13 +1,21 @@
 @extends('layouts.app')
 
 @section('title', 'الحركات المالية')
+@section('page-title', 'الحركات المالية')
 
 @section('content')
 
 <div class="page-actions">
+    <div>
+        <div class="page-actions-title">الحركات المالية</div>
+        <div class="text-muted" style="font-size:.78rem;margin-top:.2rem">
+            متابعة جميع التحصيلات والاستردادات واعتماد إثباتات الدفع.
+        </div>
+    </div>
 
-    <div class="page-actions-title">الحركات المالية</div>
-
+    <a href="{{ route('payments.bank-sales') }}" class="btn btn-outline btn-sm">
+        فتح المبيعات البنكية
+    </a>
 </div>
 
 {{-- Filters --}}
@@ -243,6 +251,7 @@
             </div>
         </div>
     </div>
+
 </div>
 
 {{-- Table --}}
@@ -261,6 +270,7 @@
                 <th>الفاتورة</th>
                 <th>الفرع</th>
                 <th>طريقة الدفع</th>
+                <th>حساب التحويل</th>
                 <th>المبلغ</th>
                 <th>الحالة</th>
                 <th>المرجع / الإثبات</th>
@@ -279,6 +289,25 @@
                 $orderType =
                     $payment->order_type?->value
                     ?? (string) $payment->order_type;
+
+                $paymentMethodType = strtolower(
+                    (string) ($payment->paymentMethod?->type ?? '')
+                );
+
+                $isBankingMovement =
+                    $payment->location_payment_account_id !== null
+                    || in_array(
+                        $paymentMethodType,
+                        ['bank_transfer', 'electronic_wallet'],
+                        true
+                    );
+
+                $paymentAccount = $payment->locationPaymentAccount;
+
+                $paymentAccountNumber =
+                    $paymentAccount?->iban
+                    ?: ($paymentAccount?->account_number
+                        ?: $paymentAccount?->phone_number);
 
                 $linkedOrder =
                     $payment->relationLoaded('linkedOrder')
@@ -332,13 +361,7 @@
 
                 $proofUrl =
                     $payment->payment_proof
-                        ? asset(
-                            'storage/'
-                            . ltrim(
-                                $payment->payment_proof,
-                                '/'
-                            )
-                        )
+                        ? route('payments.proof', $payment)
                         : null;
 
                 $refundedAmount =
@@ -545,9 +568,42 @@
                 </td>
 
                 <td>
-                    {{ $payment->paymentMethod?->name_ar
-                        ?? $payment->paymentMethod?->name
-                        ?? '—' }}
+                    <div class="payment-method-cell">
+                        <strong>
+                            {{ $payment->paymentMethod?->name_ar
+                                ?? $payment->paymentMethod?->name
+                                ?? '—' }}
+                        </strong>
+
+                        @if($isBankingMovement)
+                            <small>تحصيل غير نقدي</small>
+                        @endif
+                    </div>
+                </td>
+
+                <td>
+                    @if($paymentAccount)
+                        <div class="payment-account-cell">
+                            <strong>
+                                {{ $paymentAccount->account_holder_name
+                                    ?: $paymentAccount->name }}
+                            </strong>
+
+                            @if($paymentAccount->provider_name)
+                                <small>{{ $paymentAccount->provider_name }}</small>
+                            @endif
+
+                            <span dir="ltr">
+                                {{ $paymentAccountNumber ?: 'بدون رقم مسجل' }}
+                            </span>
+                        </div>
+                    @elseif($isBankingMovement)
+                        <span class="payment-account-missing">
+                            لم يُربط حساب الاستلام
+                        </span>
+                    @else
+                        <span class="text-muted">نقدي</span>
+                    @endif
                 </td>
 
                 <td>
@@ -566,9 +622,26 @@
                 </td>
 
                 <td>
-                    <span class="badge {{ $statusBadge['class'] }}">
-                        {{ $statusBadge['label'] }}
-                    </span>
+                    <div class="payment-status-cell">
+                        <span class="badge {{ $statusBadge['class'] }}">
+                            {{ $statusBadge['label'] }}
+                        </span>
+
+                        @if($payment->verifiedBy)
+                            <small>
+                                بواسطة {{ $payment->verifiedBy->display_name }}
+                                @if($payment->verified_at)
+                                    · {{ $payment->verified_at->format('Y-m-d H:i') }}
+                                @endif
+                            </small>
+                        @endif
+
+                        @if($statusValue === 'rejected' && $payment->rejection_reason)
+                            <small class="payment-rejection-reason">
+                                {{ $payment->rejection_reason }}
+                            </small>
+                        @endif
+                    </div>
                 </td>
 
                 <td>
@@ -745,6 +818,10 @@
                     </td>
 
                     <td>
+                        <span class="text-muted">—</span>
+                    </td>
+
+                    <td>
                         <strong class="movement-debit">
                             − ₪{{ number_format((float) $refund->amount, 2) }}
                         </strong>
@@ -778,7 +855,7 @@
 
         @empty
             <tr>
-                <td colspan="13">
+                <td colspan="14">
                     <div class="empty-state-sm">
                         لا توجد حركات مالية تطابق هذه الفلاتر.
                     </div>
@@ -889,6 +966,39 @@
     font-weight: 700;
 }
 
+.payment-method-cell,
+.payment-account-cell,
+.payment-status-cell {
+    display: grid;
+    gap: .2rem;
+}
+
+.payment-method-cell small,
+.payment-account-cell small,
+.payment-status-cell small {
+    color: var(--text-muted);
+    font-size: .66rem;
+    line-height: 1.5;
+}
+
+.payment-account-cell {
+    min-width: 150px;
+}
+
+.payment-account-cell span {
+    color: var(--text);
+    font-size: .72rem;
+    font-weight: 800;
+    overflow-wrap: anywhere;
+}
+
+.payment-account-missing,
+.payment-rejection-reason {
+    color: #b42318 !important;
+    font-size: .68rem;
+    font-weight: 700;
+}
+
 .payment-reference-cell {
     max-width: 145px;
     display: grid;
@@ -916,7 +1026,7 @@
     }
 
     .data-table {
-        min-width: 1350px;
+        min-width: 1520px;
     }
 }
 </style>

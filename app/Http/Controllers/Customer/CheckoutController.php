@@ -20,6 +20,9 @@ class CheckoutController extends Controller
 
         return view('customer-menu.checkout.checkout', [
             'location' => $location,
+            // The shared cart engine needs the live catalog to rehydrate
+            // older localStorage rows and recalculate current prices.
+            'menuItems' => $this->menuItemsFor($location),
             'tables' => $tables,
             'branding' => $this->branding($location),
             'theme' => $this->theme(),

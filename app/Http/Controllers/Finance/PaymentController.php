@@ -9,6 +9,7 @@ use App\Http\Requests\Finance\StorePaymentRequest;
 use App\Http\Requests\Finance\VerifyPaymentRequest;
 use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\LocationPaymentAccount;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentCorrection;
@@ -23,7 +24,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentController extends Controller
 {
@@ -36,6 +39,20 @@ class PaymentController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+
+        abort_unless(
+            $user->isAdmin()
+            || $user->canAny([
+                'payments.record',
+                'payments.verify',
+                'payments.correct',
+                'payments.refund',
+                'financial.branch.view',
+                'financial.global.view',
+                'financial.collections.view',
+            ]),
+            403
+        );
 
         $canViewAll = $user->isAdmin()
             || $user->can('financial.global.view');
@@ -55,6 +72,7 @@ class PaymentController extends Controller
         */
         $query = Payment::with([
             'paymentMethod',
+            'locationPaymentAccount',
             'location',
             'receivedBy',
             'verifiedBy',
@@ -140,6 +158,207 @@ class PaymentController extends Controller
         );
     }
 
+    public function bankSales(Request $request)
+    {
+        $user = Auth::user();
+
+        abort_unless(
+            $user->isAdmin()
+            || $user->canAny([
+                'payments.record',
+                'payments.verify',
+                'payments.correct',
+                'payments.refund',
+                'financial.branch.view',
+                'financial.global.view',
+                'financial.collections.view',
+            ]),
+            403
+        );
+
+        $canViewAll = $user->isAdmin()
+            || $user->can('financial.global.view');
+
+        $locationIds = $canViewAll
+            ? Location::query()->pluck('id')
+            : collect([$user->primaryLocation()?->id])->filter();
+
+        $query = Payment::query()
+            ->with([
+                'paymentMethod',
+                'locationPaymentAccount',
+                'location',
+                'receivedBy',
+                'verifiedBy',
+            ])
+            ->whereIn('location_id', $locationIds)
+            ->where(function ($bankingQuery): void {
+                $bankingQuery
+                    ->whereNotNull('location_payment_account_id')
+                    ->orWhereHas('paymentMethod', function ($methodQuery): void {
+                        $methodQuery->whereIn('type', [
+                            'bank_transfer',
+                            'electronic_wallet',
+                        ]);
+                    });
+            });
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status')->toString());
+        }
+
+        if ($request->filled('payment_method_id')) {
+            $query->where(
+                'payment_method_id',
+                $request->integer('payment_method_id')
+            );
+        }
+
+        if ($request->filled('location_payment_account_id')) {
+            $query->where(
+                'location_payment_account_id',
+                $request->integer('location_payment_account_id')
+            );
+        }
+
+        if ($request->filled('location_id')) {
+            $query->where(
+                'location_id',
+                $request->integer('location_id')
+            );
+        }
+
+        if ($request->filled('date_from')) {
+            $query->whereDate(
+                'paid_at',
+                '>=',
+                $request->date('date_from')
+            );
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereDate(
+                'paid_at',
+                '<=',
+                $request->date('date_to')
+            );
+        }
+
+        $search = trim(
+            $request->string('search')->toString()
+        );
+
+        if ($search !== '') {
+            $like = '%' . $search . '%';
+
+            $normalOrderIds = Order::query()
+                ->whereIn('location_id', $locationIds)
+                ->where(function ($orderQuery) use ($like): void {
+                    $orderQuery
+                        ->where('order_number', 'like', $like)
+                        ->orWhereHas('customer', function ($customerQuery) use ($like): void {
+                            $customerQuery
+                                ->where('name', 'like', $like)
+                                ->orWhere('phone', 'like', $like);
+                        });
+                })
+                ->pluck('id');
+
+            $cakeOrderIds = SpecialCakeOrder::query()
+                ->whereIn('origin_branch_id', $locationIds)
+                ->where(function ($orderQuery) use ($like): void {
+                    $orderQuery
+                        ->where('order_number', 'like', $like)
+                        ->orWhereHas('customer', function ($customerQuery) use ($like): void {
+                            $customerQuery
+                                ->where('name', 'like', $like)
+                                ->orWhere('phone', 'like', $like);
+                        });
+                })
+                ->pluck('id');
+
+            $query->where(function ($searchQuery) use (
+                $like,
+                $normalOrderIds,
+                $cakeOrderIds
+            ): void {
+                $searchQuery
+                    ->where('reference_number', 'like', $like)
+                    ->orWhereHas('locationPaymentAccount', function ($accountQuery) use ($like): void {
+                        $accountQuery
+                            ->where('name', 'like', $like)
+                            ->orWhere('provider_name', 'like', $like)
+                            ->orWhere('account_holder_name', 'like', $like)
+                            ->orWhere('account_number', 'like', $like)
+                            ->orWhere('iban', 'like', $like)
+                            ->orWhere('phone_number', 'like', $like);
+                    })
+                    ->orWhere(function ($orderPaymentQuery) use ($normalOrderIds): void {
+                        $orderPaymentQuery
+                            ->where('order_type', 'order')
+                            ->whereIn('order_id', $normalOrderIds);
+                    })
+                    ->orWhere(function ($cakePaymentQuery) use ($cakeOrderIds): void {
+                        $cakePaymentQuery
+                            ->where('order_type', 'special_cake_order')
+                            ->whereIn('order_id', $cakeOrderIds);
+                    });
+            });
+        }
+
+        $summary = (clone $query)
+            ->selectRaw('COUNT(*) as transfers_count')
+            ->selectRaw("SUM(CASE WHEN status IN ('confirmed', 'corrected', 'refunded') THEN amount ELSE 0 END) as confirmed_total")
+            ->selectRaw("SUM(CASE WHEN status = 'pending_verification' THEN amount ELSE 0 END) as pending_total")
+            ->selectRaw("SUM(CASE WHEN status = 'rejected' THEN amount ELSE 0 END) as rejected_total")
+            ->selectRaw("SUM(CASE WHEN payment_proof IS NULL OR payment_proof = '' THEN 1 ELSE 0 END) as missing_proof_count")
+            ->first();
+
+        $payments = $query
+            ->latest('paid_at')
+            ->latest('id')
+            ->paginate(30)
+            ->withQueryString();
+
+        $this->attachFinancialSources(
+            $payments->getCollection()
+        );
+
+        $paymentMethods = PaymentMethod::query()
+            ->active()
+            ->whereIn('type', [
+                'bank_transfer',
+                'electronic_wallet',
+            ])
+            ->orderBy('sort_order')
+            ->get();
+
+        $paymentAccounts = LocationPaymentAccount::query()
+            ->with('paymentMethod')
+            ->whereIn('location_id', $locationIds)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $locations = $canViewAll
+            ? Location::query()->active()->orderBy('name')->get()
+            : collect();
+
+        $statusOptions = \App\Enums\PaymentStatus::cases();
+
+        return view(
+            'finance.payments.bank-sales',
+            compact(
+                'payments',
+                'paymentMethods',
+                'paymentAccounts',
+                'locations',
+                'statusOptions',
+                'summary'
+            )
+        );
+    }
+
     public function store(StorePaymentRequest $request)
     {
         $this->authorize(
@@ -173,6 +392,45 @@ class PaymentController extends Controller
         );
 
         return back()->with('success', $approved ? 'تم التحقق من الدفعة وتأكيدها.' : 'تم رفض الدفعة.');
+    }
+
+    public function proof(
+        Payment $payment
+    ): StreamedResponse {
+        $this->authorize('view', $payment);
+
+        $path = ltrim(
+            str_replace('\\', '/', (string) $payment->payment_proof),
+            '/'
+        );
+
+        abort_if(
+            $path === ''
+            || str_contains($path, '..'),
+            404,
+            'إثبات الدفع غير موجود.'
+        );
+
+        $disk = Storage::disk('public');
+
+        abort_unless(
+            $disk->exists($path),
+            404,
+            'ملف إثبات الدفع غير موجود.'
+        );
+
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $downloadName = 'payment-proof-' . $payment->id
+            . ($extension !== '' ? '.' . $extension : '');
+
+        return $disk->response(
+            $path,
+            $downloadName,
+            [
+                'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
     }
 
     public function correct(

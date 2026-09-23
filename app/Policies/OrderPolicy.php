@@ -79,6 +79,20 @@ class OrderPolicy
             && $this->belongsToUserLocation($user, $order);
     }
 
+    public function complete(User $user, Order $order): bool
+    {
+        if ($this->statusValue($order) !== 'confirmed') {
+            return false;
+        }
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->hasPermissionTo('orders.complete')
+            && $this->belongsToUserLocation($user, $order);
+    }
+
     public function delete(User $user, Order $order): bool
     {
         return $user->isAdmin();

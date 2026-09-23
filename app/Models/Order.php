@@ -17,6 +17,7 @@ class Order extends Model
 
     protected $fillable = [
         'order_number', 'public_token', 'public_request_token',
+        'public_request_id', 'public_order_meta',
         'location_id', 'customer_id', 'guest_name', 'guest_phone',
         'delivery_address', 'order_source', 'created_by',
         'status', 'payment_status', 'payment_arrangement',
@@ -26,6 +27,8 @@ class Order extends Model
         'restaurant_service_type', 'restaurant_table_id',
         'restaurant_table_session_id', 'waiter_id', 'guest_count',
         'kitchen_dispatched_at',
+        'customer_status_message', 'customer_status_message_updated_at',
+        'customer_status_message_by',
     ];
 
     protected function casts(): array
@@ -44,6 +47,8 @@ class Order extends Model
             'restaurant_service_type' => RestaurantServiceType::class,
             'guest_count' => 'integer',
             'kitchen_dispatched_at' => 'datetime',
+            'public_order_meta' => 'array',
+            'customer_status_message_updated_at' => 'datetime',
         ];
     }
 
@@ -106,15 +111,20 @@ class Order extends Model
         ]);
     }
 
-   public function isRestaurantOrder(): bool
-{
-    return $this->restaurant_service_type !== null;
-}
+    public function customerStatusMessageAuthor(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'customer_status_message_by');
+    }
 
-public function isCustomerMenuOrder(): bool
-{
-    return $this->order_source === 'customer_menu';
-}
+    public function isRestaurantOrder(): bool
+    {
+        return $this->restaurant_service_type !== null;
+    }
+
+    public function isCustomerMenuOrder(): bool
+    {
+        return $this->order_source === 'customer_menu';
+    }
 
     public function confirmedPaidAmount(): string
     {
