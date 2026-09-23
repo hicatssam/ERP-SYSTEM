@@ -75,161 +75,6 @@
     </div>
 @endif
 
-<div class="stats-grid incoming-transfer-stats">
-    <div class="stat-card stat-blue incoming-stat-card">
-        <div class="stat-info">
-            <div class="stat-value">
-                {{ (int) ($summary->transfers_count ?? 0) }}
-            </div>
-            <div class="stat-label">عدد الحوالات</div>
-        </div>
-    </div>
-
-    <div class="stat-card incoming-stat-card incoming-stat-total">
-        <div class="stat-info">
-            <div class="stat-value">
-                ₪{{ number_format((float) ($summary->total_amount ?? 0), 2) }}
-            </div>
-            <div class="stat-label">إجمالي الحوالات</div>
-        </div>
-    </div>
-
-    <div class="stat-card stat-green incoming-stat-card">
-        <div class="stat-info">
-            <div class="stat-value">
-                ₪{{ number_format((float) ($summary->confirmed_total ?? 0), 2) }}
-            </div>
-            <div class="stat-label">
-                المعتمد
-                · {{ (int) ($summary->confirmed_count ?? 0) }}
-            </div>
-        </div>
-    </div>
-
-    <div class="stat-card stat-gold incoming-stat-card">
-        <div class="stat-info">
-            <div class="stat-value">
-                ₪{{ number_format((float) ($summary->pending_total ?? 0), 2) }}
-            </div>
-            <div class="stat-label">
-                بانتظار التحقق
-                · {{ (int) ($summary->pending_count ?? 0) }}
-            </div>
-        </div>
-    </div>
-
-    <div class="stat-card stat-red incoming-stat-card">
-        <div class="stat-info">
-            <div class="stat-value">
-                ₪{{ number_format((float) ($summary->rejected_total ?? 0), 2) }}
-            </div>
-            <div class="stat-label">
-                المرفوض
-                · {{ (int) ($summary->rejected_count ?? 0) }}
-            </div>
-        </div>
-    </div>
-</div>
-
-@if($methodBreakdown->isNotEmpty())
-    <div class="card incoming-method-card">
-        <div class="card-header incoming-card-head">
-            <div>
-                <span class="card-title">الحوالات حسب طريقة الدفع</span>
-                <small>الإجماليات أدناه تتغير مع الفلاتر الحالية.</small>
-            </div>
-        </div>
-
-        <div class="card-body incoming-method-grid">
-            @foreach($paymentMethods as $method)
-                @php
-                    $row = $methodBreakdown->get($method->id);
-                @endphp
-
-                @if($row)
-                    <a
-                        href="{{ route('incoming-bank-transfers.index', array_merge(request()->except('page', 'payment_method_id'), ['payment_method_id' => $method->id])) }}"
-                        class="incoming-method-item"
-                    >
-                        <div class="incoming-method-name">
-                            {{ $method->name_ar ?: $method->name }}
-                        </div>
-
-                        <strong>
-                            ₪{{ number_format((float) $row->total_amount, 2) }}
-                        </strong>
-
-                        <small>
-                            {{ (int) $row->transfers_count }} حوالة
-                        </small>
-
-                        <div class="incoming-method-statuses">
-                            <span>
-                                معتمد
-                                {{ (int) $row->confirmed_count }}
-                            </span>
-                            <span>
-                                معلق
-                                {{ (int) $row->pending_count }}
-                            </span>
-                            <span>
-                                مرفوض
-                                {{ (int) $row->rejected_count }}
-                            </span>
-                        </div>
-                    </a>
-                @endif
-            @endforeach
-        </div>
-    </div>
-@endif
-
-@if($canViewAll && $branchBreakdown->isNotEmpty())
-    <div class="card incoming-branch-card">
-        <div class="card-header incoming-card-head">
-            <div>
-                <span class="card-title">ملخص الفروع</span>
-                <small>يظهر للأدمن والإدارة المالية العامة فقط.</small>
-            </div>
-        </div>
-
-        <div class="card-body incoming-branch-grid">
-            @foreach($locations as $location)
-                @php
-                    $branchRow = $branchBreakdown->get($location->id);
-                @endphp
-
-                @if($branchRow)
-                    <a
-                        href="{{ route('incoming-bank-transfers.index', array_merge(request()->except('page', 'location_id'), ['location_id' => $location->id])) }}"
-                        class="incoming-branch-item"
-                    >
-                        <div>
-                            <strong>{{ $location->name }}</strong>
-                            <small>{{ (int) $branchRow->transfers_count }} حوالة</small>
-                        </div>
-
-                        <div class="incoming-branch-total">
-                            ₪{{ number_format((float) $branchRow->total_amount, 2) }}
-                        </div>
-
-                        <div class="incoming-branch-statuses">
-                            <span>
-                                معتمد:
-                                ₪{{ number_format((float) $branchRow->confirmed_total, 2) }}
-                            </span>
-                            <span>
-                                معلق:
-                                ₪{{ number_format((float) $branchRow->pending_total, 2) }}
-                            </span>
-                        </div>
-                    </a>
-                @endif
-            @endforeach
-        </div>
-    </div>
-@endif
-
 <div class="card incoming-filter-card incoming-filter-shell">
     <div class="incoming-filter-head">
         <div class="incoming-filter-head-copy">
@@ -445,6 +290,161 @@
         @endif
     </form>
 </div>
+
+<div class="stats-grid incoming-transfer-stats">
+    <div class="stat-card stat-blue incoming-stat-card">
+        <div class="stat-info">
+            <div class="stat-value">
+                {{ (int) ($summary->transfers_count ?? 0) }}
+            </div>
+            <div class="stat-label">عدد الحوالات</div>
+        </div>
+    </div>
+
+    <div class="stat-card incoming-stat-card incoming-stat-total">
+        <div class="stat-info">
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->total_amount ?? 0), 2) }}
+            </div>
+            <div class="stat-label">إجمالي الحوالات</div>
+        </div>
+    </div>
+
+    <div class="stat-card stat-green incoming-stat-card">
+        <div class="stat-info">
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->confirmed_total ?? 0), 2) }}
+            </div>
+            <div class="stat-label">
+                المعتمد
+                · {{ (int) ($summary->confirmed_count ?? 0) }}
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card stat-gold incoming-stat-card">
+        <div class="stat-info">
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->pending_total ?? 0), 2) }}
+            </div>
+            <div class="stat-label">
+                بانتظار التحقق
+                · {{ (int) ($summary->pending_count ?? 0) }}
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card stat-red incoming-stat-card">
+        <div class="stat-info">
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->rejected_total ?? 0), 2) }}
+            </div>
+            <div class="stat-label">
+                المرفوض
+                · {{ (int) ($summary->rejected_count ?? 0) }}
+            </div>
+        </div>
+    </div>
+</div>
+
+@if($methodBreakdown->isNotEmpty())
+    <div class="card incoming-method-card">
+        <div class="card-header incoming-card-head">
+            <div>
+                <span class="card-title">الحوالات حسب طريقة الدفع</span>
+                <small>الإجماليات أدناه تتغير مع الفلاتر الحالية.</small>
+            </div>
+        </div>
+
+        <div class="card-body incoming-method-grid">
+            @foreach($paymentMethods as $method)
+                @php
+                    $row = $methodBreakdown->get($method->id);
+                @endphp
+
+                @if($row)
+                    <a
+                        href="{{ route('incoming-bank-transfers.index', array_merge(request()->except('page', 'payment_method_id'), ['payment_method_id' => $method->id])) }}"
+                        class="incoming-method-item"
+                    >
+                        <div class="incoming-method-name">
+                            {{ $method->name_ar ?: $method->name }}
+                        </div>
+
+                        <strong>
+                            ₪{{ number_format((float) $row->total_amount, 2) }}
+                        </strong>
+
+                        <small>
+                            {{ (int) $row->transfers_count }} حوالة
+                        </small>
+
+                        <div class="incoming-method-statuses">
+                            <span>
+                                معتمد
+                                {{ (int) $row->confirmed_count }}
+                            </span>
+                            <span>
+                                معلق
+                                {{ (int) $row->pending_count }}
+                            </span>
+                            <span>
+                                مرفوض
+                                {{ (int) $row->rejected_count }}
+                            </span>
+                        </div>
+                    </a>
+                @endif
+            @endforeach
+        </div>
+    </div>
+@endif
+
+@if($canViewAll && $branchBreakdown->isNotEmpty())
+    <div class="card incoming-branch-card">
+        <div class="card-header incoming-card-head">
+            <div>
+                <span class="card-title">ملخص الفروع</span>
+                <small>يظهر للأدمن والإدارة المالية العامة فقط.</small>
+            </div>
+        </div>
+
+        <div class="card-body incoming-branch-grid">
+            @foreach($locations as $location)
+                @php
+                    $branchRow = $branchBreakdown->get($location->id);
+                @endphp
+
+                @if($branchRow)
+                    <a
+                        href="{{ route('incoming-bank-transfers.index', array_merge(request()->except('page', 'location_id'), ['location_id' => $location->id])) }}"
+                        class="incoming-branch-item"
+                    >
+                        <div>
+                            <strong>{{ $location->name }}</strong>
+                            <small>{{ (int) $branchRow->transfers_count }} حوالة</small>
+                        </div>
+
+                        <div class="incoming-branch-total">
+                            ₪{{ number_format((float) $branchRow->total_amount, 2) }}
+                        </div>
+
+                        <div class="incoming-branch-statuses">
+                            <span>
+                                معتمد:
+                                ₪{{ number_format((float) $branchRow->confirmed_total, 2) }}
+                            </span>
+                            <span>
+                                معلق:
+                                ₪{{ number_format((float) $branchRow->pending_total, 2) }}
+                            </span>
+                        </div>
+                    </a>
+                @endif
+            @endforeach
+        </div>
+    </div>
+@endif
 
 <div class="incoming-results-bar">
     <div>
