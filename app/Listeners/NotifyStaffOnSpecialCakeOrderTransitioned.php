@@ -33,7 +33,10 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
             ->with(['roles', 'permissions', 'employee.locations'])
             ->get()
             ->filter(function (User $user) use ($permissions, $locationIds): bool {
-                if ($user->isAdmin()) {
+                if (
+                    $user->isAdmin()
+                    || $user->hasAnyRole(self::GLOBAL_ROLES)
+                ) {
                     return true;
                 }
 
@@ -42,10 +45,6 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
 
                 if (! $hasPermission) {
                     return false;
-                }
-
-                if ($user->hasAnyRole(self::GLOBAL_ROLES)) {
-                    return true;
                 }
 
                 if (empty($locationIds) || ! $user->employee) {
@@ -91,14 +90,7 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
     private function permissionsForStatus(string $status): array
     {
         return match ($status) {
-            'pending_deposit',
-            'deposit_paid' => [
-                'cake_orders.view',
-                'cake_orders.manage',
-            ],
-
             'pending_factory_review' => [
-                'cake_orders.view',
                 'cake_orders.review',
                 'cake_orders.accept',
                 'cake_orders.reject',
@@ -107,88 +99,88 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
             ],
 
             'accepted' => [
-                'cake_orders.view',
                 'cake_orders.schedule',
                 'cake_orders.manage',
             ],
 
             'modification_requested' => [
-                'cake_orders.view',
-                'cake_orders.review',
-                'cake_orders.request_modification',
+                'cake_orders.edit',
+                'cake_orders.create',
                 'cake_orders.manage',
             ],
 
             'scheduled' => [
-                'cake_orders.view',
                 'cake_orders.prepare',
                 'cake_orders.manage',
             ],
 
             'in_preparation' => [
-                'cake_orders.view',
-                'cake_orders.prepare',
                 'cake_orders.decorate',
                 'cake_orders.manage',
             ],
 
-            'decorating',
-            'in_decoration' => [
-                'cake_orders.view',
-                'cake_orders.decorate',
+            'decorating' => [
                 'cake_orders.quality_check',
                 'cake_orders.manage',
             ],
 
             'quality_check' => [
-                'cake_orders.view',
                 'cake_orders.quality_check',
-                'cake_orders.dispatch',
                 'cake_orders.manage',
             ],
 
             'ready' => [
-                'cake_orders.view',
                 'cake_orders.dispatch',
+                'cake_orders.manage',
+            ],
+
+            'sent_to_branch' => [
                 'cake_orders.receive',
                 'cake_orders.manage',
             ],
 
-            'sent_to_branch',
-            'dispatched_to_branch' => [
-                'cake_orders.view',
-                'cake_orders.dispatch',
+            'received_by_branch' => [
                 'cake_orders.receive',
                 'cake_orders.manage',
             ],
 
-            'received_by_branch',
-            'received_at_branch',
-            'ready_for_customer',
-            'ready_for_pickup' => [
-                'cake_orders.view',
-                'cake_orders.receive',
+            'ready_for_customer' => [
+                'cake_orders.complete',
                 'cake_orders.manage',
             ],
 
-            'delivered',
             'completed' => [
-                'cake_orders.view',
+                'cake_orders.manage',
+                'cake_orders.view_all',
+            ],
+
+            'rejected' => [
+                'cake_orders.create',
+                'cake_orders.edit',
                 'cake_orders.manage',
             ],
 
-            'rejected',
-            'cancelled',
-            'delayed',
+            'cancelled' => [
+                'cake_orders.manage',
+                'cake_orders.review',
+                'cake_orders.create',
+            ],
+
+            'delayed' => [
+                'cake_orders.schedule',
+                'cake_orders.prepare',
+                'cake_orders.manage',
+            ],
+
             'issue_open' => [
-                'cake_orders.view',
+                'cake_orders.receive',
                 'cake_orders.review',
                 'cake_orders.manage',
             ],
 
             default => [
-                'cake_orders.view',
                 'cake_orders.manage',
+                'cake_orders.view_all',
             ],
         };
     }
@@ -199,19 +191,33 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
         ?int $factoryId
     ): array {
         $branchOnlyStatuses = [
-            'pending_deposit',
-            'deposit_paid',
+            'modification_requested',
+            'sent_to_branch',
             'received_by_branch',
-            'received_at_branch',
             'ready_for_customer',
-            'ready_for_pickup',
-            'delivered',
             'completed',
+            'rejected',
         ];
 
         if (in_array($status, $branchOnlyStatuses, true)) {
             return array_values(
                 array_map('intval', array_filter([$branchId]))
+            );
+        }
+
+        $factoryOnlyStatuses = [
+            'pending_factory_review',
+            'accepted',
+            'scheduled',
+            'in_preparation',
+            'decorating',
+            'quality_check',
+            'ready',
+        ];
+
+        if (in_array($status, $factoryOnlyStatuses, true)) {
+            return array_values(
+                array_map('intval', array_filter([$factoryId]))
             );
         }
 
