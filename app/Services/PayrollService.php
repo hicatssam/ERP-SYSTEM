@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
+use App\Models\EmployeeAdvanceRepayment;
 use App\Models\EmployeeCompensationProfile;
 use App\Models\EmployeePayrollAdjustment;
 use App\Models\PayrollItem;
@@ -391,9 +392,29 @@ class PayrollService
                 break;
             }
 
+            /*
+             * A repayment waiting for bank/wallet verification already
+             * reserves that part of the debt. Do not also deduct the same
+             * amount from salary while verification is pending.
+             */
+            $pendingRepayments = (float) EmployeeAdvanceRepayment::query()
+                ->where('employee_advance_id', $advance->id)
+                ->where('status', 'pending_verification')
+                ->sum('amount');
+
+            $recoverableOutstanding = max(
+                0,
+                (float) $advance->outstanding_amount
+                - $pendingRepayments
+            );
+
+            if ($recoverableOutstanding <= 0.0001) {
+                continue;
+            }
+
             $recover = min(
                 $remainingSalary,
-                (float) $advance->outstanding_amount
+                $recoverableOutstanding
             );
 
             $newRecovered =
