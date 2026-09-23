@@ -196,7 +196,7 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
                 === 'pending_factory_review'
         );
 
-        Notification::assertNotSentTo(
+        Notification::assertSentTo(
             $branchManager,
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
