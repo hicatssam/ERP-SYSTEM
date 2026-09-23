@@ -21,8 +21,7 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
         $factoryId = $order->factory_location_id;
 
         $fingerprint = "cake_transition_{$order->id}_{$event->fromStatus}_{$event->toStatus}";
-        $permissions = $this->permissionsForStatus($event->toStatus);
-        $locationIds = $this->locationsForStatus(
+        $recipientRules = $this->recipientRulesForStatus(
             $event->toStatus,
             $branchId,
             $factoryId
@@ -32,7 +31,7 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
             ->where('is_active', true)
             ->with(['roles', 'permissions', 'employee.locations'])
             ->get()
-            ->filter(function (User $user) use ($permissions, $locationIds): bool {
+            ->filter(function (User $user) use ($recipientRules): bool {
                 if (
                     $user->isAdmin()
                     || $user->hasAnyRole(self::GLOBAL_ROLES)
@@ -40,14 +39,7 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
                     return true;
                 }
 
-                $hasPermission = collect($permissions)
-                    ->contains(fn (string $permission): bool => $user->can($permission));
-
-                if (! $hasPermission) {
-                    return false;
-                }
-
-                if (empty($locationIds) || ! $user->employee) {
+                if (! $user->employee) {
                     return false;
                 }
 
@@ -56,11 +48,35 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
                     ->map(fn ($id) => (int) $id)
                     ->all();
 
-                return collect($locationIds)
-                    ->contains(
-                        fn (int $locationId): bool =>
-                            in_array($locationId, $userLocationIds, true)
-                    );
+                foreach ($recipientRules as $rule) {
+                    $permissions = $rule['permissions'] ?? [];
+                    $locationIds = $rule['location_ids'] ?? [];
+
+                    $hasPermission = collect($permissions)
+                        ->contains(
+                            fn (string $permission): bool =>
+                                $user->can($permission)
+                        );
+
+                    if (! $hasPermission) {
+                        continue;
+                    }
+
+                    if (empty($locationIds)) {
+                        return true;
+                    }
+
+                    if (
+                        collect($locationIds)->contains(
+                            fn (int $locationId): bool =>
+                                in_array($locationId, $userLocationIds, true)
+                        )
+                    ) {
+                        return true;
+                    }
+                }
+
+                return false;
             })
             ->values();
 
@@ -87,147 +103,255 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
         }
     }
 
-    private function permissionsForStatus(string $status): array
-    {
-        return match ($status) {
-            'pending_factory_review' => [
-                'cake_orders.review',
-                'cake_orders.accept',
-                'cake_orders.reject',
-                'cake_orders.request_modification',
-                'cake_orders.manage',
-            ],
-
-            'accepted' => [
-                'cake_orders.schedule',
-                'cake_orders.manage',
-            ],
-
-            'modification_requested' => [
-                'cake_orders.edit',
-                'cake_orders.create',
-                'cake_orders.manage',
-            ],
-
-            'scheduled' => [
-                'cake_orders.prepare',
-                'cake_orders.manage',
-            ],
-
-            'in_preparation' => [
-                'cake_orders.decorate',
-                'cake_orders.manage',
-            ],
-
-            'decorating' => [
-                'cake_orders.quality_check',
-                'cake_orders.manage',
-            ],
-
-            'quality_check' => [
-                'cake_orders.quality_check',
-                'cake_orders.manage',
-            ],
-
-            'ready' => [
-                'cake_orders.dispatch',
-                'cake_orders.manage',
-            ],
-
-            'sent_to_branch' => [
-                'cake_orders.receive',
-                'cake_orders.manage',
-            ],
-
-            'received_by_branch' => [
-                'cake_orders.receive',
-                'cake_orders.manage',
-            ],
-
-            'ready_for_customer' => [
-                'cake_orders.complete',
-                'cake_orders.manage',
-            ],
-
-            'completed' => [
-                'cake_orders.manage',
-                'cake_orders.view_all',
-            ],
-
-            'rejected' => [
-                'cake_orders.create',
-                'cake_orders.edit',
-                'cake_orders.manage',
-            ],
-
-            'cancelled' => [
-                'cake_orders.manage',
-                'cake_orders.review',
-                'cake_orders.create',
-            ],
-
-            'delayed' => [
-                'cake_orders.schedule',
-                'cake_orders.prepare',
-                'cake_orders.manage',
-            ],
-
-            'issue_open' => [
-                'cake_orders.receive',
-                'cake_orders.review',
-                'cake_orders.manage',
-            ],
-
-            default => [
-                'cake_orders.manage',
-                'cake_orders.view_all',
-            ],
-        };
-    }
-
-    private function locationsForStatus(
+    private function recipientRulesForStatus(
         string $status,
         ?int $branchId,
         ?int $factoryId
     ): array {
-        $branchOnlyStatuses = [
-            'modification_requested',
-            'sent_to_branch',
-            'received_by_branch',
-            'ready_for_customer',
-            'completed',
-            'rejected',
-        ];
-
-        if (in_array($status, $branchOnlyStatuses, true)) {
-            return array_values(
-                array_map('intval', array_filter([$branchId]))
-            );
-        }
-
-        $factoryOnlyStatuses = [
-            'pending_factory_review',
-            'accepted',
-            'scheduled',
-            'in_preparation',
-            'decorating',
-            'quality_check',
-            'ready',
-        ];
-
-        if (in_array($status, $factoryOnlyStatuses, true)) {
-            return array_values(
-                array_map('intval', array_filter([$factoryId]))
-            );
-        }
-
-        return array_values(
-            array_unique(
-                array_map(
-                    'intval',
-                    array_filter([$branchId, $factoryId])
-                )
-            )
+        $branch = array_values(
+            array_map('intval', array_filter([$branchId]))
         );
+
+        $factory = array_values(
+            array_map('intval', array_filter([$factoryId]))
+        );
+
+        $both = array_values(
+            array_unique([
+                ...$branch,
+                ...$factory,
+            ])
+        );
+
+        return match ($status) {
+            'pending_factory_review' => [
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.review',
+                        'cake_orders.accept',
+                        'cake_orders.reject',
+                        'cake_orders.request_modification',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'accepted' => [
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.schedule',
+                        'cake_orders.manage',
+                    ],
+                ],
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.create',
+                        'cake_orders.view',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'modification_requested' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.edit',
+                        'cake_orders.create',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'scheduled' => [
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.prepare',
+                        'cake_orders.manage',
+                    ],
+                ],
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.create',
+                        'cake_orders.view',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'in_preparation' => [
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.decorate',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'decorating' => [
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.quality_check',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'quality_check' => [
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.quality_check',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'ready' => [
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.dispatch',
+                        'cake_orders.manage',
+                    ],
+                ],
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.receive',
+                        'cake_orders.create',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'sent_to_branch' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.receive',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'received_by_branch' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.receive',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'ready_for_customer' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.complete',
+                        'cake_orders.create',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'completed' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.create',
+                        'cake_orders.view',
+                        'cake_orders.manage',
+                    ],
+                ],
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'rejected' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.create',
+                        'cake_orders.edit',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'cancelled' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.create',
+                        'cake_orders.manage',
+                    ],
+                ],
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.review',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'delayed' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.create',
+                        'cake_orders.manage',
+                    ],
+                ],
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.schedule',
+                        'cake_orders.prepare',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            'issue_open' => [
+                [
+                    'location_ids' => $branch,
+                    'permissions' => [
+                        'cake_orders.receive',
+                        'cake_orders.manage',
+                    ],
+                ],
+                [
+                    'location_ids' => $factory,
+                    'permissions' => [
+                        'cake_orders.review',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+
+            default => [
+                [
+                    'location_ids' => $both,
+                    'permissions' => [
+                        'cake_orders.view',
+                        'cake_orders.manage',
+                    ],
+                ],
+            ],
+        };
     }
 }
