@@ -430,14 +430,27 @@ Route::post(
             ->middleware('can:showroom_sweets_requests.delete');
 
         // ─── Payments ──────────────────────────────────────────────────────
-        Route::middleware('can:payments.record')->group(function () {
-            Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
-            Route::get('payments/{payment}/proof', [PaymentController::class, 'proof'])->name('payments.proof');
-            Route::post('payments', [PaymentController::class, 'store'])->name('payments.store');
-            Route::post('payments/{payment}/verify', [PaymentController::class, 'verify'])->name('payments.verify')->middleware('can:payments.verify');
-            Route::post('payments/{payment}/correct', [PaymentController::class, 'correct'])->name('payments.correct')->middleware('can:payments.correct');
-            Route::post('payments/{payment}/refund', [PaymentController::class, 'refund'])->name('payments.refund')->middleware('can:payments.refund');
-        });
+        Route::get('payments', [PaymentController::class, 'index'])
+            ->name('payments.index');
+
+        Route::get('payments/{payment}/proof', [PaymentController::class, 'proof'])
+            ->name('payments.proof');
+
+        Route::post('payments', [PaymentController::class, 'store'])
+            ->middleware('can:payments.record')
+            ->name('payments.store');
+
+        Route::post('payments/{payment}/verify', [PaymentController::class, 'verify'])
+            ->middleware('can:payments.verify')
+            ->name('payments.verify');
+
+        Route::post('payments/{payment}/correct', [PaymentController::class, 'correct'])
+            ->middleware('can:payments.correct')
+            ->name('payments.correct');
+
+        Route::post('payments/{payment}/refund', [PaymentController::class, 'refund'])
+            ->middleware('can:payments.refund')
+            ->name('payments.refund');
 
         // ─── Cash Sessions ─────────────────────────────────────────────────
         Route::middleware('can:cash_sessions.manage')->group(function () {

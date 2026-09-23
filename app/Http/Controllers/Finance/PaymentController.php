@@ -39,6 +39,20 @@ class PaymentController extends Controller
     {
         $user = Auth::user();
 
+        abort_unless(
+            $user->isAdmin()
+            || $user->canAny([
+                'payments.record',
+                'payments.verify',
+                'payments.correct',
+                'payments.refund',
+                'financial.branch.view',
+                'financial.global.view',
+                'financial.collections.view',
+            ]),
+            403
+        );
+
         $canViewAll = $user->isAdmin()
             || $user->can('financial.global.view');
 
