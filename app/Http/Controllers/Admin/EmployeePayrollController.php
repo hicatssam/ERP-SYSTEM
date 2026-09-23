@@ -10,6 +10,7 @@ use App\Models\EmployeeCompensationProfile;
 use App\Models\EmployeePayrollAdjustment;
 use App\Models\PayrollPeriod;
 use App\Models\PaymentMethod;
+use App\Models\User;
 use App\Services\EmployeeAdvanceRepaymentService;
 use App\Services\EmployeeLedgerService;
 use App\Services\PayrollService;
@@ -27,8 +28,15 @@ class EmployeePayrollController extends Controller
     ) {
     }
 
-    public function show(Employee $employee): View
-    {
+    public function show(
+        Request $request,
+        Employee $employee
+    ): View {
+        $this->ensureEmployeeAccess(
+            $employee,
+            $request->user()
+        );
+
         return view('admin.payroll.employee', [
             'employee' => $employee,
             'compensation' => EmployeeCompensationProfile::query()
@@ -75,6 +83,11 @@ class EmployeePayrollController extends Controller
         Request $request,
         Employee $employee
     ): RedirectResponse {
+        $this->ensureEmployeeAccess(
+            $employee,
+            $request->user()
+        );
+
         $data = $request->validate([
             'salary_basis' => [
                 'required',
@@ -120,6 +133,11 @@ class EmployeePayrollController extends Controller
         Request $request,
         Employee $employee
     ): RedirectResponse {
+        $this->ensureEmployeeAccess(
+            $employee,
+            $request->user()
+        );
+
         $data = $request->validate([
             'kind' => [
                 'required',
@@ -182,6 +200,11 @@ class EmployeePayrollController extends Controller
         Request $request,
         Employee $employee
     ): RedirectResponse {
+        $this->ensureEmployeeAccess(
+            $employee,
+            $request->user()
+        );
+
         $data = $request->validate([
             'amount' => [
                 'required',
@@ -224,6 +247,11 @@ class EmployeePayrollController extends Controller
         Employee $employee,
         EmployeeAdvance $advance
     ): RedirectResponse {
+        $this->ensureEmployeeAccess(
+            $employee,
+            $request->user()
+        );
+
         abort_unless(
             (int) $advance->employee_id === (int) $employee->id,
             404
@@ -259,6 +287,31 @@ class EmployeePayrollController extends Controller
             $repayment->status === 'pending_verification'
                 ? 'تم تسجيل سداد السلفة وهو بانتظار التحقق.'
                 : 'تم تسجيل سداد السلفة وتحديث كشف حساب الموظف.'
+        );
+    }
+
+    private function ensureEmployeeAccess(
+        Employee $employee,
+        User $user
+    ): void {
+        if (
+            $user->isAdmin()
+            || $user->can('financial.global.view')
+            || $user->can('employees.view_all')
+        ) {
+            return;
+        }
+
+        $locationId = $user->primaryLocation()?->id;
+
+        abort_unless(
+            $locationId
+            && $employee->employeeLocations()
+                ->where('location_id', $locationId)
+                ->where('is_primary', true)
+                ->exists(),
+            403,
+            'لا يمكنك الوصول إلى الملف المالي لموظف تابع لموقع آخر.'
         );
     }
 
