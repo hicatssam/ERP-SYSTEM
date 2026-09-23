@@ -284,6 +284,9 @@ class PaymentController extends Controller
             ): void {
                 $searchQuery
                     ->where('reference_number', 'like', $like)
+                    ->orWhere('sender_name', 'like', $like)
+                    ->orWhere('sender_phone', 'like', $like)
+                    ->orWhere('sender_account_number', 'like', $like)
                     ->orWhereHas('locationPaymentAccount', function ($accountQuery) use ($like): void {
                         $accountQuery
                             ->where('name', 'like', $like)
