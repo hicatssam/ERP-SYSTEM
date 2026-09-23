@@ -236,6 +236,7 @@
                                     @endphp
                                     <label class="payment-method-card">
                                         <input type="radio" name="payment_method_id" value="{{ $method->id }}"
+                                               data-payment-method
                                                @checked($selectedPaymentMethodId === (string) $method->id)>
                                         <span class="payment-method-content">
                                             <span class="payment-method-logo">
@@ -267,6 +268,69 @@
                         @endif
 
                         @error('payment_method_id')<span class="form-error">{{ $message }}</span>@enderror
+
+                        @php
+                            $selectedPaymentAccountId = (string) old('location_payment_account_id', '');
+                        @endphp
+
+                        <div class="payment-account-groups" id="paymentAccountGroups">
+                            @foreach($paymentMethods as $method)
+                                @php
+                                    $accounts = $paymentAccounts->get($method->id, collect());
+                                @endphp
+
+                                @if($accounts->isNotEmpty())
+                                    <div class="payment-account-group"
+                                         data-payment-account-group="{{ $method->id }}"
+                                         hidden>
+                                        <div class="payment-account-heading">
+                                            <strong>حساب الدفع المعتمد للفرع</strong>
+                                            <small>اختر الحساب الذي سيستقبل دفعة هذا الطلب.</small>
+                                        </div>
+
+                                        <div class="payment-accounts-grid">
+                                            @foreach($accounts as $account)
+                                                <label class="payment-account-card">
+                                                    <input type="radio"
+                                                           name="location_payment_account_id"
+                                                           value="{{ $account->id }}"
+                                                           data-payment-account
+                                                           @checked($selectedPaymentAccountId === (string) $account->id)>
+                                                    <span class="payment-account-content">
+                                                        <span class="payment-account-title">
+                                                            <strong>{{ $account->name }}</strong>
+                                                            @if($account->provider_name)
+                                                                <small>{{ $account->provider_name }}</small>
+                                                            @endif
+                                                        </span>
+
+                                                        <span class="payment-account-lines">
+                                                            @if($account->account_holder_name)
+                                                                <span><b>اسم المستفيد:</b> {{ $account->account_holder_name }}</span>
+                                                            @endif
+                                                            @if($account->account_number)
+                                                                <span dir="ltr"><b>رقم الحساب:</b> {{ $account->account_number }}</span>
+                                                            @endif
+                                                            @if($account->iban)
+                                                                <span dir="ltr"><b>IBAN:</b> {{ $account->iban }}</span>
+                                                            @endif
+                                                            @if($account->phone_number)
+                                                                <span dir="ltr"><b>رقم المحفظة/الجوال:</b> {{ $account->phone_number }}</span>
+                                                            @endif
+                                                            @if($account->instructions)
+                                                                <span class="payment-account-note">{{ $account->instructions }}</span>
+                                                            @endif
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
+                        </div>
+
+                        @error('location_payment_account_id')<span class="form-error">{{ $message }}</span>@enderror
                     </div>
                 </div>
 
@@ -339,10 +403,27 @@
 .payment-method-check{width:22px;height:22px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;color:#fff;background:var(--gold);border-radius:50%;opacity:0;transform:scale(.6);transition:opacity .2s ease,transform .2s ease}
 .payment-method-check svg{width:13px;height:13px}
 .payment-method-card input:checked + .payment-method-content .payment-method-check{opacity:1;transform:scale(1)}
+.payment-account-groups{margin-top:1rem}
+.payment-account-group{padding:1rem;background:rgba(212,175,55,.06);border:1px solid rgba(212,175,55,.3);border-radius:14px}
+.payment-account-heading{display:flex;flex-direction:column;gap:.2rem;margin-bottom:.8rem}
+.payment-account-heading strong{color:var(--gold)}
+.payment-account-heading small{color:var(--text-muted)}
+.payment-accounts-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.payment-account-card{position:relative;display:block;cursor:pointer}
+.payment-account-card input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.payment-account-content{min-height:100%;padding:.85rem;display:flex;flex-direction:column;gap:.65rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;transition:border-color .2s ease,box-shadow .2s ease,transform .2s ease}
+.payment-account-card:hover .payment-account-content{border-color:rgba(212,175,55,.65);transform:translateY(-2px)}
+.payment-account-card input:focus-visible + .payment-account-content{border-color:var(--gold);box-shadow:0 0 0 3px rgba(212,175,55,.18)}
+.payment-account-card input:checked + .payment-account-content{border-color:var(--gold);box-shadow:0 5px 16px rgba(212,175,55,.13)}
+.payment-account-title{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.payment-account-title small{color:var(--text-muted)}
+.payment-account-lines{display:flex;flex-direction:column;gap:.3rem;font-size:.82rem;color:var(--text-muted)}
+.payment-account-lines b{color:var(--text)}
+.payment-account-note{margin-top:.2rem;padding-top:.45rem;border-top:1px dashed var(--border)}
 .payment-methods-empty{padding:1rem;color:#dc3545;text-align:center;background:rgba(220,53,69,.08);border:1px dashed rgba(220,53,69,.5);border-radius:10px}
 [hidden]{display:none!important}
-@media(max-width:800px){.cake-grid-3,.cake-grid-2{grid-template-columns:1fr}.payment-methods-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:520px){.payment-methods-grid{grid-template-columns:1fr}}
+@media(max-width:800px){.cake-grid-3,.cake-grid-2{grid-template-columns:1fr}.payment-methods-grid,.payment-accounts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.payment-methods-grid,.payment-accounts-grid{grid-template-columns:1fr}}
 </style>
 
 <script>
@@ -487,11 +568,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const verificationGroup  = document.getElementById('verificationGroup');
     const referenceInput     = document.getElementById('referenceNumber');
     const paymentProofInput  = document.getElementById('paymentProof');
+    const paymentMethodInputs = [...document.querySelectorAll('[data-payment-method]')];
+    const paymentAccountGroups = [...document.querySelectorAll('[data-payment-account-group]')];
+
+    function updatePaymentAccountGroups(needsPaymentMethod) {
+        const selectedMethod = document.querySelector('[data-payment-method]:checked')?.value || '';
+
+        paymentAccountGroups.forEach((group) => {
+            const visible = needsPaymentMethod
+                && group.dataset.paymentAccountGroup === selectedMethod;
+            const accountInputs = [...group.querySelectorAll('[data-payment-account]')];
+
+            group.hidden = !visible;
+
+            accountInputs.forEach((input) => {
+                input.disabled = !visible;
+                input.required = false;
+
+                if (!visible) {
+                    input.checked = false;
+                }
+            });
+
+            if (visible && accountInputs.length > 0) {
+                accountInputs[0].required = true;
+            }
+        });
+    }
 
     function updatePaymentFields() {
         const val = arrangementSelect.value;
         const needsPaidAmount   = (val === 'deposit' || val === 'partial_payment' || val === 'pay_now');
         const needsVerification = (val === 'pending_verification');
+        const needsPaymentMethod = val !== '' && val !== 'pay_on_pickup';
+
+        paymentMethodInputs.forEach((input, index) => {
+            input.required = needsPaymentMethod && index === 0;
+        });
+
+        updatePaymentAccountGroups(needsPaymentMethod);
 
         paidAmountGroup.hidden   = !needsPaidAmount;
         paidAmountInput.required = needsPaidAmount;
@@ -508,6 +623,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     arrangementSelect.addEventListener('change', updatePaymentFields);
+    paymentMethodInputs.forEach((input) => {
+        input.addEventListener('change', updatePaymentFields);
+    });
     updatePaymentFields();
 
 });
