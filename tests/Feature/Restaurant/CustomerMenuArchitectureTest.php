@@ -72,4 +72,58 @@ class CustomerMenuArchitectureTest extends TestCase
         }
     }
 
+
+    #[Test]
+    public function demo_catalog_supports_remote_product_images_without_storage_rewrite(): void
+    {
+        $indexView = file_get_contents(
+            resource_path('views/admin/products/index.blade.php')
+        );
+
+        $showView = file_get_contents(
+            resource_path('views/admin/products/show.blade.php')
+        );
+
+        $menuResolver = file_get_contents(
+            app_path(
+                'Http/Controllers/Concerns/ResolvesCustomerMenuBranding.php'
+            )
+        );
+
+        $seeder = file_get_contents(
+            database_path('seeders/DatabaseSeeder.php')
+        );
+
+        $this->assertStringContainsString(
+            "['http://', 'https://', '//']",
+            $indexView
+        );
+
+        $this->assertStringContainsString(
+            "['http://', 'https://', '//']",
+            $showView
+        );
+
+        $this->assertStringContainsString(
+            "str_starts_with(\$path, 'https://')",
+            $menuResolver
+        );
+
+        $this->assertStringContainsString(
+            'demoProductRemoteImage',
+            $seeder
+        );
+
+        $this->assertStringContainsString(
+            'https://unsplash.com/',
+            $seeder
+        );
+
+        $this->assertStringContainsString(
+            'ensureDemoProductImage',
+            $seeder
+        );
+    }
+
+
 }
