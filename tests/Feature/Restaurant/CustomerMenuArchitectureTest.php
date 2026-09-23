@@ -90,6 +90,14 @@ class CustomerMenuArchitectureTest extends TestCase
             )
         );
 
+        $restaurantMenu = file_get_contents(
+            resource_path('views/restaurant/menu/index.blade.php')
+        );
+
+        $restaurantPos = file_get_contents(
+            resource_path('views/restaurant/pos/index.blade.php')
+        );
+
         $seeder = file_get_contents(
             database_path('seeders/DatabaseSeeder.php')
         );
@@ -107,6 +115,16 @@ class CustomerMenuArchitectureTest extends TestCase
         $this->assertStringContainsString(
             "str_starts_with(\$path, 'https://')",
             $menuResolver
+        );
+
+        $this->assertStringContainsString(
+            "str_starts_with(\$image, 'https://')",
+            $restaurantMenu
+        );
+
+        $this->assertStringContainsString(
+            "str_starts_with(\$image, 'https://')",
+            $restaurantPos
         );
 
         $this->assertStringContainsString(
