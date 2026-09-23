@@ -1,39 +1,21 @@
 @extends('layouts.app')
 
 @section('title', 'الحركات المالية')
+@section('page-title', 'الحركات المالية')
 
 @section('content')
 
-@php
-    $bankingMode = request('payment_channel') === 'banking';
-@endphp
-
 <div class="page-actions">
     <div>
-        <div class="page-actions-title">
-            {{ $bankingMode ? 'المبيعات البنكية والإلكترونية' : 'الحركات المالية' }}
-        </div>
+        <div class="page-actions-title">الحركات المالية</div>
         <div class="text-muted" style="font-size:.78rem;margin-top:.2rem">
-            {{ $bankingMode
-                ? 'كل حوالة مرتبطة بالعميل وحساب الاستلام والمرجع وإثبات الدفع.'
-                : 'متابعة التحصيلات والاستردادات واعتماد إثباتات الدفع.' }}
+            متابعة جميع التحصيلات والاستردادات واعتماد إثباتات الدفع.
         </div>
     </div>
 
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <a
-            href="{{ route('payments.index', ['payment_channel' => 'banking']) }}"
-            class="btn {{ $bankingMode ? 'btn-gold' : 'btn-outline' }} btn-sm"
-        >
-            المبيعات البنكية
-        </a>
-
-        @if($bankingMode)
-            <a href="{{ route('payments.index') }}" class="btn btn-ghost btn-sm">
-                كل الحركات
-            </a>
-        @endif
-    </div>
+    <a href="{{ route('payments.bank-sales') }}" class="btn btn-outline btn-sm">
+        فتح المبيعات البنكية
+    </a>
 </div>
 
 {{-- Filters --}}
@@ -98,19 +80,6 @@
 
             </select>
 
-        </div>
-
-        <div class="filter-group">
-            <label class="filter-label">قناة التحصيل</label>
-            <select name="payment_channel" class="form-select">
-                <option value="">كل القنوات</option>
-                <option value="banking" @selected(request('payment_channel') === 'banking')>
-                    بنكي / محفظة إلكترونية
-                </option>
-                <option value="cash" @selected(request('payment_channel') === 'cash')>
-                    نقدي
-                </option>
-            </select>
         </div>
 
         @if($locations->count() > 0)
@@ -194,8 +163,6 @@
     $pageRefunds = 0.0;
     $pagePending = 0.0;
     $pageMovementCount = 0;
-    $pageBankingNet = 0.0;
-    $pageBankingCount = 0;
 
     foreach ($payments as $summaryPayment) {
         $summaryStatus = $summaryPayment->status?->value
@@ -224,33 +191,6 @@
 
         $pageRefunds +=
             $summaryRefunded;
-
-        $summaryMethodType = strtolower(
-            (string) ($summaryPayment->paymentMethod?->type ?? '')
-        );
-
-        $summaryIsBanking =
-            $summaryPayment->location_payment_account_id !== null
-            || in_array(
-                $summaryMethodType,
-                ['bank_transfer', 'electronic_wallet'],
-                true
-            );
-
-        if ($summaryIsBanking) {
-            $pageBankingCount++;
-
-            if (in_array(
-                $summaryStatus,
-                ['confirmed', 'corrected', 'refunded'],
-                true
-            )) {
-                $pageBankingNet += max(
-                    0,
-                    (float) $summaryPayment->amount - $summaryRefunded
-                );
-            }
-        }
 
         $pageMovementCount +=
             1
@@ -312,16 +252,6 @@
         </div>
     </div>
 
-    <div class="stat-card stat-gold" style="padding:.85rem 1rem">
-        <div class="stat-info">
-            <div class="stat-value" style="font-size:1.15rem">
-                ₪{{ number_format($pageBankingNet, 2) }}
-            </div>
-            <div class="stat-label">
-                صافي {{ $pageBankingCount }} حوالة/دفعة إلكترونية
-            </div>
-        </div>
-    </div>
 </div>
 
 {{-- Table --}}
@@ -1106,7 +1036,7 @@
 @push('styles')
 <style>
 .payment-stats-grid {
-    grid-template-columns:repeat(5,minmax(0,1fr));
+    grid-template-columns:repeat(4,minmax(0,1fr));
 }
 
 .stat-red .stat-value {

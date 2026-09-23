@@ -1932,7 +1932,7 @@ a.app-page-btn:hover {
 
                     ])
 
-                        <a href="{{ route('payments.index') }}" class="nav-item {{ request()->routeIs('payments.*') && request('payment_channel') !== 'banking' ? 'active' : '' }}">
+                        <a href="{{ route('payments.index') }}" class="nav-item {{ request()->routeIs('payments.index') ? 'active' : '' }}">
 
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 
@@ -1947,8 +1947,8 @@ a.app-page-btn:hover {
                         </a>
 
                         <a
-                            href="{{ route('payments.index', ['payment_channel' => 'banking']) }}"
-                            class="nav-item {{ request()->routeIs('payments.*') && request('payment_channel') === 'banking' ? 'active' : '' }}"
+                            href="{{ route('payments.bank-sales') }}"
+                            class="nav-item {{ request()->routeIs('payments.bank-sales') ? 'active' : '' }}"
                         >
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="3" y="10" width="18" height="10" rx="2" />

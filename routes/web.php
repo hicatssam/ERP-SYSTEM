@@ -433,6 +433,9 @@ Route::post(
         Route::get('payments', [PaymentController::class, 'index'])
             ->name('payments.index');
 
+        Route::get('payments/bank-sales', [PaymentController::class, 'bankSales'])
+            ->name('payments.bank-sales');
+
         Route::get('payments/{payment}/proof', [PaymentController::class, 'proof'])
             ->name('payments.proof');
 
