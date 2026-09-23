@@ -224,13 +224,109 @@ class IncomingBankTransferController extends Controller
             $canViewAll
         );
 
+        $columns = [
+            'التاريخ',
+            'الفرع',
+            'طريقة الدفع',
+            'حساب الاستلام',
+            'المحوّل',
+            'رقم الحوالة',
+            'المبلغ',
+            'الحالة',
+            'التحقق',
+        ];
+
+        $formattedRows = $transfers->map(
+            function (IncomingBankTransfer $transfer): array {
+                $account = $transfer->locationPaymentAccount;
+
+                $accountLabel = $account
+                    ? collect([
+                        $account->provider_name,
+                        $account->account_holder_name ?: $account->name,
+                        $account->iban
+                            ?: (
+                                $account->account_number
+                                ?: $account->phone_number
+                            ),
+                    ])->filter()->implode(' — ')
+                    : '—';
+
+                $verifiedLabel = $transfer->verifiedBy
+                    ? collect([
+                        $transfer->verifiedBy->display_name,
+                        $transfer->verified_at?->format('Y-m-d H:i'),
+                    ])->filter()->implode(' — ')
+                    : '—';
+
+                return [
+                    $transfer->received_at?->format('Y-m-d H:i') ?? '—',
+                    $transfer->location?->name ?? '—',
+                    $transfer->paymentMethod?->name_ar
+                        ?: ($transfer->paymentMethod?->name ?? '—'),
+                    $accountLabel,
+                    $transfer->sender_name ?: '—',
+                    $transfer->reference_number ?: '—',
+                    (
+                        $transfer->currency_code === 'ILS'
+                            ? '₪'
+                            : $transfer->currency_code
+                    )
+                    . number_format((float) $transfer->amount, 2),
+                    $transfer->status?->label()
+                        ?? $transfer->statusValue(),
+                    $verifiedLabel,
+                ];
+            }
+        );
+
+        $reportSummary = [
+            'عدد الحوالات' =>
+                number_format((int) ($summary->transfers_count ?? 0)),
+            'إجمالي الحوالات' =>
+                '₪' . number_format((float) ($summary->total_amount ?? 0), 2),
+            'المعتمد' =>
+                '₪' . number_format((float) ($summary->confirmed_total ?? 0), 2),
+            'بانتظار التحقق' =>
+                '₪' . number_format((float) ($summary->pending_total ?? 0), 2),
+            'المرفوض' =>
+                '₪' . number_format((float) ($summary->rejected_total ?? 0), 2),
+        ];
+
+        foreach ($filters as $label => $value) {
+            if (
+                filled($value)
+                && ! in_array(
+                    $value,
+                    ['كل الفروع', 'كل طرق الدفع', 'كل الحالات'],
+                    true
+                )
+            ) {
+                $reportSummary[$label] = $value;
+            }
+        }
+
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+        $title = 'تقرير الحوالات البنكية الواردة';
+        $total = $transfers->count();
+        $truncated = false;
+        $cap = $total;
+
         $html = view(
-            'finance.incoming-bank-transfers.pdf',
-            compact(
-                'transfers',
-                'summary',
-                'filters'
-            )
+            'pdf.reports.template',
+            [
+                'type' => 'incoming-bank-transfers',
+                'title' => $title,
+                'formattedRows' => $formattedRows,
+                'columns' => $columns,
+                'summary' => $reportSummary,
+                'dateFrom' => $dateFrom,
+                'dateTo' => $dateTo,
+                'truncated' => $truncated,
+                'cap' => $cap,
+                'total' => $total,
+            ]
         )->render();
 
         $tempDir = storage_path(
