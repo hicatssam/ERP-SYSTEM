@@ -96,11 +96,6 @@ class IncomingBankTransfersExport implements
         $sheet->setRightToLeft(true);
         $sheet->freezePane('A2');
 
-        $sheet
-            ->getStyle('A:P')
-            ->getAlignment()
-            ->setVertical(Alignment::VERTICAL_TOP);
-
         return [
             1 => [
                 'font' => [
