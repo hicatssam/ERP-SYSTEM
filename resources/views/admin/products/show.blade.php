@@ -103,8 +103,16 @@
         <div class="card-header"><span class="card-title">بيانات المنتج</span></div>
         <div class="card-body" style="display:grid;gap:1rem">
             @if($product->image)
+            @php
+                $productImageUrl = IlluminateSupportStr::startsWith(
+                    (string) $product->image,
+                    ['http://', 'https://', '//']
+                )
+                    ? $product->image
+                    : Storage::url($product->image);
+            @endphp
             <div style="text-align:center;padding:.5rem 0">
-                <img src="{{ Storage::url($product->image) }}" alt="{{ $product->name }}"
+                <img src="{{ $productImageUrl }}" alt="{{ $product->name }}"
                      style="max-width:220px;max-height:220px;width:100%;object-fit:contain;border-radius:12px;border:1px solid var(--border);background:var(--surface);padding:.5rem">
             </div>
             @endif
