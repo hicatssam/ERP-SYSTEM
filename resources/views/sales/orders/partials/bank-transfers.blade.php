@@ -13,9 +13,21 @@
         ->sortByDesc(fn ($payment) => $payment->paid_at?->timestamp ?? $payment->id)
         ->values();
 
+    $pendingPaymentAmount = (float) $order->payments
+        ->filter(
+            fn ($payment): bool =>
+                $payment->statusValue() === 'pending_verification'
+        )
+        ->sum('amount');
+
+    $availableForNewPayment = max(
+        0,
+        $invoiceRemainingAmount - $pendingPaymentAmount
+    );
+
     $canAddBankTransfer =
         in_array($orderStatus, ['confirmed', 'completed'], true)
-        && $invoiceRemainingAmount > 0.004
+        && $availableForNewPayment > 0.004
         && $bankPaymentMethods->isNotEmpty()
         && $bankPaymentAccounts->isNotEmpty();
 
@@ -67,6 +79,10 @@
                 <div class="order-transfer-note is-success">
                     تم تغطية كامل قيمة الطلب، لذلك لا يوجد رصيد متبقٍ لإضافة حوالة جديدة.
                 </div>
+            @elseif($availableForNewPayment <= 0.004 && $pendingPaymentAmount > 0)
+                <div class="order-transfer-note is-warning">
+                    الرصيد المتبقي مغطى حاليًا بحوالات قيد التحقق. اعتمد أو ارفض الحوالات المعلّقة قبل إضافة حوالة جديدة.
+                </div>
             @elseif($bankPaymentMethods->isEmpty())
                 <div class="order-transfer-note is-warning">
                     لا توجد طريقة دفع بنكية أو محفظة إلكترونية مفعلة لهذا الفرع.
@@ -96,8 +112,12 @@
                 <strong>₪{{ number_format($invoiceRemainingAmount, 2) }}</strong>
             </div>
             <div>
-                <span>عدد الحوالات</span>
-                <strong>{{ $bankTransfers->count() }}</strong>
+                <span>قيد التحقق</span>
+                <strong>₪{{ number_format($pendingPaymentAmount, 2) }}</strong>
+            </div>
+            <div>
+                <span>متاح لتحصيل جديد</span>
+                <strong>₪{{ number_format($availableForNewPayment, 2) }}</strong>
             </div>
         </div>
     </div>
@@ -297,8 +317,8 @@
                         <span>تحصيل بنكي / إلكتروني</span>
                         <h3 id="bankTransferModalTitle">إضافة حوالة للطلب {{ $order->order_number }}</h3>
                         <p>
-                            الرصيد المتبقي:
-                            <strong>₪{{ number_format($invoiceRemainingAmount, 2) }}</strong>
+                            المتاح للتحصيل الآن:
+                            <strong>₪{{ number_format($availableForNewPayment, 2) }}</strong>
                         </p>
                     </div>
 
@@ -320,6 +340,7 @@
                 >
                     @csrf
 
+                    <input type="hidden" name="entry_context" value="order_bank_transfer">
                     <input type="hidden" name="order_type" value="order">
                     <input type="hidden" name="order_id" value="{{ $order->id }}">
 
@@ -440,10 +461,10 @@
                                 name="amount"
                                 class="form-input"
                                 min="0.01"
-                                max="{{ number_format($invoiceRemainingAmount, 2, '.', '') }}"
+                                max="{{ number_format($availableForNewPayment, 2, '.', '') }}"
                                 step="0.01"
                                 required
-                                value="{{ old('amount', number_format($invoiceRemainingAmount, 2, '.', '')) }}"
+                                value="{{ old('amount', number_format($availableForNewPayment, 2, '.', '')) }}"
                             >
                             @error('amount')
                                 <div class="order-transfer-error">{{ $message }}</div>
@@ -542,7 +563,7 @@
 
     .order-transfer-summary {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
+        grid-template-columns: repeat(5, minmax(0, 1fr));
         gap: .75rem;
     }
 
