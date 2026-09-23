@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\EmployeeAdvanceRepaymentController;
 use App\Http\Controllers\Admin\EmployeePayrollController;
 use App\Http\Controllers\Admin\PayrollController;
 use App\Http\Controllers\Admin\PayrollDocumentController;
@@ -105,6 +106,24 @@ Route::middleware([
                 [EmployeePayrollController::class, 'advance']
             )->middleware('can:payroll.advances.manage')
                 ->name('employees.advances');
+
+            Route::post(
+                '/employees/{employee}/advances/{advance}/repayments',
+                [EmployeePayrollController::class, 'repayAdvance']
+            )->middleware('can:payroll.advances.manage')
+                ->name('employees.advances.repayments.store');
+
+            Route::post(
+                '/advance-repayments/{repayment}/verify',
+                [EmployeeAdvanceRepaymentController::class, 'verify']
+            )->middleware('can:payroll.payments.verify')
+                ->name('advance-repayments.verify');
+
+            Route::post(
+                '/advance-repayments/{repayment}/reject',
+                [EmployeeAdvanceRepaymentController::class, 'reject']
+            )->middleware('can:payroll.payments.verify')
+                ->name('advance-repayments.reject');
 
             Route::get(
                 '/employees/{employee}/statement/print',
