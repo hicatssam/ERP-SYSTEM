@@ -75,33 +75,6 @@
     </div>
 @endif
 
-@if($activeFilterCount > 0)
-    <div class="incoming-filter-summary">
-        <div class="incoming-filter-summary-title">
-            الفلاتر النشطة
-            <span>{{ $activeFilterCount }}</span>
-        </div>
-
-        <div class="incoming-filter-chips">
-            @foreach($filterLabels as $label => $value)
-                @if(filled($value) && !in_array($value, ['كل الفروع', 'كل طرق الدفع', 'كل الحالات'], true))
-                    <span class="incoming-filter-chip">
-                        <strong>{{ $label }}:</strong>
-                        {{ $value }}
-                    </span>
-                @endif
-            @endforeach
-        </div>
-
-        <a
-            href="{{ route('incoming-bank-transfers.index') }}"
-            class="incoming-clear-filters"
-        >
-            مسح الكل
-        </a>
-    </div>
-@endif
-
 <div class="stats-grid incoming-transfer-stats">
     <div class="stat-card stat-blue incoming-stat-card">
         <div class="stat-info">
@@ -257,48 +230,78 @@
     </div>
 @endif
 
-<div class="card incoming-filter-card">
-    <div class="card-header incoming-card-head">
-        <div>
-            <span class="card-title">فلترة الحوالات</span>
-            <small>
-                التصدير PDF وExcel يلتزم بنفس الفلاتر الحالية.
-            </small>
+<div class="card incoming-filter-card incoming-filter-shell">
+    <div class="incoming-filter-head">
+        <div class="incoming-filter-head-copy">
+            <span class="incoming-filter-head-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                    <path d="M4 5h16M7 12h10M10 19h4"></path>
+                </svg>
+            </span>
+
+            <div>
+                <div class="incoming-filter-title-line">
+                    <span class="card-title">فلترة الحوالات</span>
+
+                    @if($activeFilterCount > 0)
+                        <span class="incoming-filter-count">
+                            {{ $activeFilterCount }}
+                        </span>
+                    @endif
+                </div>
+
+                <small>
+                    ابحث وفلتر حسب الفرع، طريقة الدفع، الحالة والفترة.
+                </small>
+            </div>
         </div>
 
         @if($activeFilterCount > 0)
-            <span class="incoming-filter-count">
-                {{ $activeFilterCount }} فلتر نشط
-            </span>
+            <a
+                href="{{ route('incoming-bank-transfers.index') }}"
+                class="incoming-reset-link"
+            >
+                إعادة تعيين الكل
+            </a>
         @endif
     </div>
 
-    <div class="card-body">
-        <form
-            method="GET"
-            action="{{ route('incoming-bank-transfers.index') }}"
-            class="filter-grid incoming-transfer-filter-grid"
-        >
-            <div class="filter-group incoming-search">
-                <label class="filter-label">بحث</label>
-                <input
-                    type="search"
-                    name="search"
-                    value="{{ request('search') }}"
-                    class="form-input"
-                    placeholder="المحوّل، الهاتف، الحساب، المرجع أو حساب الاستلام"
-                >
+    <form
+        method="GET"
+        action="{{ route('incoming-bank-transfers.index') }}"
+        class="incoming-filter-form"
+    >
+        <div class="incoming-filter-primary">
+            <div class="incoming-filter-field incoming-filter-search-field">
+                <label for="transferSearch">بحث سريع</label>
+
+                <div class="incoming-filter-search-box">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"></circle>
+                        <path d="m20 20-3.5-3.5"></path>
+                    </svg>
+
+                    <input
+                        id="transferSearch"
+                        type="search"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="اسم المحوّل، الجوال، الحساب أو رقم الحوالة"
+                        autocomplete="off"
+                    >
+                </div>
             </div>
 
             @if($locations->isNotEmpty())
-                <div class="filter-group">
-                    <label class="filter-label">الفرع</label>
+                <div class="incoming-filter-field">
+                    <label for="transferFilterLocation">الفرع</label>
+
                     <select
                         name="location_id"
                         id="transferFilterLocation"
-                        class="form-select"
                     >
                         <option value="">كل الفروع</option>
+
                         @foreach($locations as $location)
                             <option
                                 value="{{ $location->id }}"
@@ -311,14 +314,15 @@
                 </div>
             @endif
 
-            <div class="filter-group">
-                <label class="filter-label">طريقة الدفع</label>
+            <div class="incoming-filter-field">
+                <label for="transferFilterMethod">طريقة الدفع</label>
+
                 <select
                     name="payment_method_id"
                     id="transferFilterMethod"
-                    class="form-select"
                 >
                     <option value="">كل طرق الدفع</option>
+
                     @foreach($paymentMethods as $method)
                         <option
                             value="{{ $method->id }}"
@@ -330,10 +334,15 @@
                 </select>
             </div>
 
-            <div class="filter-group">
-                <label class="filter-label">الحالة</label>
-                <select name="status" class="form-select">
+            <div class="incoming-filter-field">
+                <label for="transferFilterStatus">الحالة</label>
+
+                <select
+                    name="status"
+                    id="transferFilterStatus"
+                >
                     <option value="">كل الحالات</option>
+
                     @foreach($statusOptions as $status)
                         <option
                             value="{{ $status->value }}"
@@ -344,16 +353,19 @@
                     @endforeach
                 </select>
             </div>
+        </div>
 
-            <div class="filter-group">
-                <label class="filter-label">حساب الاستلام</label>
+        <div class="incoming-filter-secondary">
+            <div class="incoming-filter-field incoming-account-filter-field">
+                <label for="transferFilterAccount">حساب الاستلام</label>
+
                 <select
                     name="location_payment_account_id"
                     id="transferFilterAccount"
-                    class="form-select"
                     data-current-location="{{ $canViewAll ? '' : $currentLocationId }}"
                 >
-                    <option value="">كل الحسابات</option>
+                    <option value="">كل حسابات الاستلام</option>
+
                     @foreach($paymentAccounts as $account)
                         <option
                             value="{{ $account->id }}"
@@ -370,43 +382,68 @@
                 </select>
             </div>
 
-            <div class="filter-group">
-                <label class="filter-label">من تاريخ</label>
-                <input
-                    type="date"
-                    name="date_from"
-                    value="{{ request('date_from') }}"
-                    class="form-input"
-                >
+            <div class="incoming-filter-date-group">
+                <span class="incoming-filter-date-title">الفترة</span>
+
+                <div class="incoming-filter-dates">
+                    <label class="incoming-date-field">
+                        <span>من</span>
+                        <input
+                            type="date"
+                            name="date_from"
+                            value="{{ request('date_from') }}"
+                        >
+                    </label>
+
+                    <span class="incoming-date-separator">←</span>
+
+                    <label class="incoming-date-field">
+                        <span>إلى</span>
+                        <input
+                            type="date"
+                            name="date_to"
+                            value="{{ request('date_to') }}"
+                        >
+                    </label>
+                </div>
             </div>
 
-            <div class="filter-group">
-                <label class="filter-label">إلى تاريخ</label>
-                <input
-                    type="date"
-                    name="date_to"
-                    value="{{ request('date_to') }}"
-                    class="form-input"
-                >
-            </div>
-
-            <div class="filter-actions">
+            <div class="incoming-filter-actions">
                 <button
                     type="submit"
-                    class="btn btn-gold btn-sm"
+                    class="btn btn-gold incoming-filter-submit"
                 >
                     تطبيق الفلاتر
                 </button>
 
                 <a
                     href="{{ route('incoming-bank-transfers.index') }}"
-                    class="btn btn-ghost btn-sm"
+                    class="btn btn-ghost incoming-filter-clear"
                 >
                     مسح
                 </a>
             </div>
-        </form>
-    </div>
+        </div>
+
+        @if($activeFilterCount > 0)
+            <div class="incoming-active-filters">
+                <span class="incoming-active-filters-label">
+                    الفلاتر النشطة
+                </span>
+
+                <div class="incoming-filter-chips">
+                    @foreach($filterLabels as $label => $value)
+                        @if(filled($value) && !in_array($value, ['كل الفروع', 'كل طرق الدفع', 'كل الحالات'], true))
+                            <span class="incoming-filter-chip">
+                                <strong>{{ $label }}</strong>
+                                <span>{{ $value }}</span>
+                            </span>
+                        @endif
+                    @endforeach
+                </div>
+            </div>
+        @endif
+    </form>
 </div>
 
 <div class="incoming-results-bar">
