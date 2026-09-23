@@ -43,6 +43,9 @@ class StoreRestaurantPosOrderRequest extends FormRequest
             'payment_method_id' => ['nullable', 'integer', 'exists:payment_methods,id'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'reference_number' => ['nullable', 'string', 'max:100'],
+            'sender_name' => ['nullable', 'string', 'max:150'],
+            'sender_phone' => ['nullable', 'string', 'max:50'],
+            'sender_account_number' => ['nullable', 'string', 'max:120'],
             'payment_proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
@@ -156,13 +159,40 @@ class StoreRestaurantPosOrderRequest extends FormRequest
                         'طريقة الدفع المحددة غير مفعلة.'
                     );
                 } else {
+                    $isNonCash = (string) $method->type !== 'cash';
+
                     if (
-                        ($method->requires_reference || $method->requires_verification)
+                        (
+                            $isNonCash
+                            || $method->requires_reference
+                            || $method->requires_verification
+                        )
                         && ! $this->filled('reference_number')
                     ) {
                         $validator->errors()->add(
                             'reference_number',
-                            'رقم العملية مطلوب لطريقة الدفع المحددة.'
+                            'رقم الحوالة أو العملية مطلوب عند اختيار طريقة دفع غير نقدية.'
+                        );
+                    }
+
+                    if (
+                        $isNonCash
+                        && ! $this->filled('sender_name')
+                    ) {
+                        $validator->errors()->add(
+                            'sender_name',
+                            'اسم المحوّل أو صاحب عملية الدفع مطلوب.'
+                        );
+                    }
+
+                    if (
+                        $isNonCash
+                        && ! $this->filled('sender_phone')
+                        && ! $this->filled('sender_account_number')
+                    ) {
+                        $validator->errors()->add(
+                            'sender_phone',
+                            'أدخل رقم جوال المحوّل أو رقم حسابه/محفظته.'
                         );
                     }
 
