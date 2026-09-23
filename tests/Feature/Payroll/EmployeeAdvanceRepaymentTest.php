@@ -4,6 +4,8 @@ namespace Tests\Feature\Payroll;
 
 use App\Models\Currency;
 use App\Models\Employee;
+use App\Models\EmployeeAdvance;
+use App\Models\Location;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\EmployeeCompensationProfile;
 use App\Models\PaymentMethod;
@@ -18,6 +20,8 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\Test;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class EmployeeAdvanceRepaymentTest extends TestCase
@@ -344,6 +348,81 @@ class EmployeeAdvanceRepaymentTest extends TestCase
         $this->assertSame(
             100.0,
             (float) $advance->fresh()->outstanding_amount
+        );
+    }
+
+
+    #[Test]
+    public function branch_user_cannot_repay_advance_for_employee_at_another_location(): void
+    {
+        $branchA = Location::query()->create([
+            'name' => 'فرع الرواتب A',
+            'code' => 'PAY-A-' . uniqid(),
+            'type' => 'branch',
+            'is_active' => true,
+        ]);
+
+        $branchB = Location::query()->create([
+            'name' => 'فرع الرواتب B',
+            'code' => 'PAY-B-' . uniqid(),
+            'type' => 'branch',
+            'is_active' => true,
+        ]);
+
+        $user = User::factory()->create();
+
+        $user->employee->locations()->attach(
+            $branchA->id,
+            ['is_primary' => true]
+        );
+
+        $permission = Permission::findOrCreate(
+            'payroll.advances.manage',
+            'web'
+        );
+
+        $user->givePermissionTo($permission);
+
+        app(PermissionRegistrar::class)
+            ->forgetCachedPermissions();
+
+        $otherEmployee = Employee::query()->create([
+            'employee_number' => 'EMP-OTHER-' . uniqid(),
+            'full_name' => 'موظف فرع آخر',
+            'employment_status' => 'active',
+        ]);
+
+        $otherEmployee->locations()->attach(
+            $branchB->id,
+            ['is_primary' => true]
+        );
+
+        $advance = EmployeeAdvance::query()->create([
+            'employee_id' => $otherEmployee->id,
+            'amount' => 100,
+            'recovered_amount' => 0,
+            'outstanding_amount' => 100,
+            'issued_at' => now()->toDateString(),
+            'status' => 'open',
+            'created_by' => $user->id,
+        ]);
+
+        $this->actingAs($user)
+            ->post(
+                route(
+                    'payroll.employees.advances.repayments.store',
+                    [
+                        'employee' => $otherEmployee,
+                        'advance' => $advance,
+                    ]
+                ),
+                []
+            )
+            ->assertForbidden();
+
+        $this->assertDatabaseCount(
+            'employee_advance_repayments',
+            0
         );
     }
 
