@@ -24,6 +24,7 @@ use App\Http\Controllers\Sales\ShowroomCakeRequestController;
 use App\Http\Controllers\Sales\ShowroomSweetsRequestController;
 use App\Http\Controllers\Finance\CustomerAccountController;
 use App\Http\Controllers\Finance\PaymentController;
+use App\Http\Controllers\Finance\IncomingBankTransferController;
 use App\Http\Controllers\Finance\CashSessionController;
 use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\FinancialPeriodController;
@@ -435,6 +436,20 @@ Route::post(
 
         Route::get('payments/bank-sales', [PaymentController::class, 'bankSales'])
             ->name('payments.bank-sales');
+
+        Route::get('incoming-bank-transfers', [IncomingBankTransferController::class, 'index'])
+            ->name('incoming-bank-transfers.index');
+
+        Route::post('incoming-bank-transfers', [IncomingBankTransferController::class, 'store'])
+            ->middleware('can:payments.record')
+            ->name('incoming-bank-transfers.store');
+
+        Route::get('incoming-bank-transfers/{incomingBankTransfer}/proof', [IncomingBankTransferController::class, 'proof'])
+            ->name('incoming-bank-transfers.proof');
+
+        Route::post('incoming-bank-transfers/{incomingBankTransfer}/verify', [IncomingBankTransferController::class, 'verify'])
+            ->middleware('can:payments.verify')
+            ->name('incoming-bank-transfers.verify');
 
         Route::get('payments/{payment}/proof', [PaymentController::class, 'proof'])
             ->name('payments.proof');
