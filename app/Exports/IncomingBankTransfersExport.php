@@ -10,8 +10,11 @@ use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Border;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class IncomingBankTransfersExport implements
@@ -20,7 +23,8 @@ class IncomingBankTransfersExport implements
     WithMapping,
     ShouldAutoSize,
     WithStyles,
-    WithEvents
+    WithEvents,
+    WithTitle
 {
     public function __construct(
         private readonly Collection $transfers,
@@ -32,6 +36,11 @@ class IncomingBankTransfersExport implements
     public function collection(): Collection
     {
         return $this->transfers;
+    }
+
+    public function title(): string
+    {
+        return 'الحوالات الواردة';
     }
 
     public function headings(): array
@@ -66,7 +75,10 @@ class IncomingBankTransfersExport implements
                 $account->provider_name,
                 $account->account_holder_name ?: $account->name,
                 $account->iban
-                    ?: ($account->account_number ?: $account->phone_number),
+                    ?: (
+                        $account->account_number
+                        ?: $account->phone_number
+                    ),
             ])->filter()->implode(' — ')
             : '';
 
@@ -82,7 +94,8 @@ class IncomingBankTransfersExport implements
             $transfer->reference_number,
             (float) $transfer->amount,
             $transfer->currency_code,
-            $transfer->status?->label() ?? $transfer->statusValue(),
+            $transfer->status?->label()
+                ?? $transfer->statusValue(),
             $transfer->createdBy?->display_name ?? '',
             $transfer->verifiedBy?->display_name ?? '',
             $transfer->verified_at?->format('Y-m-d H:i') ?? '',
@@ -96,10 +109,29 @@ class IncomingBankTransfersExport implements
         $sheet->setRightToLeft(true);
         $sheet->freezePane('A2');
 
+        /*
+         * نفس ترويسة ملفات التقارير العامة في النظام:
+         * نص ذهبي + خلفية بيج فاتحة + محاذاة وسط.
+         */
         return [
             1 => [
                 'font' => [
                     'bold' => true,
+                    'color' => [
+                        'argb' => 'FF8C6818',
+                    ],
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => [
+                        'argb' => 'FFF5EDD8',
+                    ],
+                ],
+                'alignment' => [
+                    'horizontal' =>
+                        Alignment::HORIZONTAL_CENTER,
+                    'vertical' =>
+                        Alignment::VERTICAL_CENTER,
                 ],
             ],
         ];
@@ -108,68 +140,253 @@ class IncomingBankTransfersExport implements
     public function registerEvents(): array
     {
         return [
-            AfterSheet::class => function (AfterSheet $event): void {
+            AfterSheet::class => function (
+                AfterSheet $event
+            ): void {
                 $sheet = $event->sheet->getDelegate();
 
-                $row = $this->transfers->count() + 3;
+                $lastDataRow =
+                    $this->transfers->count() + 1;
 
-                $sheet->mergeCells("A{$row}:H{$row}");
-                $sheet->setCellValue("A{$row}", 'ملخص الحوالات حسب الفلاتر الحالية');
-                $sheet->setCellValue("I{$row}", (float) ($this->summary->total_amount ?? 0));
+                $sheet->getRowDimension(1)
+                    ->setRowHeight(24);
+
+                if ($lastDataRow >= 2) {
+                    $sheet
+                        ->getStyle("A2:P{$lastDataRow}")
+                        ->getAlignment()
+                        ->setVertical(
+                            Alignment::VERTICAL_TOP
+                        );
+
+                    $sheet
+                        ->getStyle("A1:P{$lastDataRow}")
+                        ->getBorders()
+                        ->getAllBorders()
+                        ->setBorderStyle(
+                            Border::BORDER_THIN
+                        )
+                        ->getColor()
+                        ->setARGB('FFE3E7EC');
+                }
+
+                $summaryRow = $lastDataRow + 2;
+
+                $sheet->mergeCells(
+                    "A{$summaryRow}:G{$summaryRow}"
+                );
+
+                $sheet->setCellValue(
+                    "A{$summaryRow}",
+                    'ملخص الحوالات حسب الفلاتر الحالية'
+                );
+
+                $sheet->setCellValue(
+                    "H{$summaryRow}",
+                    (int) (
+                        $this->summary
+                            ->transfers_count
+                        ?? 0
+                    )
+                );
+
+                $sheet->setCellValue(
+                    "I{$summaryRow}",
+                    (float) (
+                        $this->summary
+                            ->total_amount
+                        ?? 0
+                    )
+                );
+
+                $sheet->getStyle(
+                    "A{$summaryRow}:P{$summaryRow}"
+                )->applyFromArray([
+                    'font' => [
+                        'bold' => true,
+                        'color' => [
+                            'argb' => 'FF8C6818',
+                        ],
+                    ],
+                    'fill' => [
+                        'fillType' =>
+                            Fill::FILL_SOLID,
+                        'startColor' => [
+                            'argb' => 'FFF5EDD8',
+                        ],
+                    ],
+                    'alignment' => [
+                        'horizontal' =>
+                            Alignment::HORIZONTAL_CENTER,
+                        'vertical' =>
+                            Alignment::VERTICAL_CENTER,
+                    ],
+                ]);
 
                 $summaryRows = [
                     [
                         'المعتمد',
-                        (int) ($this->summary->confirmed_count ?? 0),
-                        (float) ($this->summary->confirmed_total ?? 0),
+                        (int) (
+                            $this->summary
+                                ->confirmed_count
+                            ?? 0
+                        ),
+                        (float) (
+                            $this->summary
+                                ->confirmed_total
+                            ?? 0
+                        ),
                     ],
                     [
                         'بانتظار التحقق',
-                        (int) ($this->summary->pending_count ?? 0),
-                        (float) ($this->summary->pending_total ?? 0),
+                        (int) (
+                            $this->summary
+                                ->pending_count
+                            ?? 0
+                        ),
+                        (float) (
+                            $this->summary
+                                ->pending_total
+                            ?? 0
+                        ),
                     ],
                     [
                         'المرفوض',
-                        (int) ($this->summary->rejected_count ?? 0),
-                        (float) ($this->summary->rejected_total ?? 0),
+                        (int) (
+                            $this->summary
+                                ->rejected_count
+                            ?? 0
+                        ),
+                        (float) (
+                            $this->summary
+                                ->rejected_total
+                            ?? 0
+                        ),
                     ],
                 ];
 
-                foreach ($summaryRows as $index => [$label, $count, $amount]) {
-                    $summaryRow = $row + $index + 1;
+                foreach (
+                    $summaryRows
+                    as $index => [
+                        $label,
+                        $count,
+                        $amount,
+                    ]
+                ) {
+                    $row =
+                        $summaryRow
+                        + $index
+                        + 1;
 
-                    $sheet->mergeCells("A{$summaryRow}:G{$summaryRow}");
-                    $sheet->setCellValue("A{$summaryRow}", $label);
-                    $sheet->setCellValue("H{$summaryRow}", $count);
-                    $sheet->setCellValue("I{$summaryRow}", $amount);
+                    $sheet->mergeCells(
+                        "A{$row}:G{$row}"
+                    );
+
+                    $sheet->setCellValue(
+                        "A{$row}",
+                        $label
+                    );
+
+                    $sheet->setCellValue(
+                        "H{$row}",
+                        $count
+                    );
+
+                    $sheet->setCellValue(
+                        "I{$row}",
+                        $amount
+                    );
+
+                    $sheet->getStyle(
+                        "A{$row}:P{$row}"
+                    )->applyFromArray([
+                        'fill' => [
+                            'fillType' =>
+                                Fill::FILL_SOLID,
+                            'startColor' => [
+                                'argb' => 'FFF8FAFC',
+                            ],
+                        ],
+                        'alignment' => [
+                            'horizontal' =>
+                                Alignment::HORIZONTAL_CENTER,
+                        ],
+                    ]);
                 }
 
-                $filterRow = $row + 5;
+                $filterValues = collect(
+                    $this->filters
+                )
+                    ->filter(
+                        fn ($value) =>
+                            filled($value)
+                            && ! in_array(
+                                $value,
+                                [
+                                    'كل الفروع',
+                                    'كل طرق الدفع',
+                                    'كل الحالات',
+                                ],
+                                true
+                            )
+                    );
 
-                if ($this->filters !== []) {
-                    $sheet->mergeCells("A{$filterRow}:P{$filterRow}");
+                if ($filterValues->isNotEmpty()) {
+                    $filterRow =
+                        $summaryRow + 5;
+
+                    $sheet->mergeCells(
+                        "A{$filterRow}:P{$filterRow}"
+                    );
+
                     $sheet->setCellValue(
                         "A{$filterRow}",
-                        'الفلاتر: ' . collect($this->filters)
-                            ->filter(fn ($value) => filled($value))
+                        'الفلاتر: '
+                        . $filterValues
                             ->map(
-                                fn ($value, $key) => "{$key}: {$value}"
+                                fn (
+                                    $value,
+                                    $key
+                                ) =>
+                                    "{$key}: {$value}"
                             )
                             ->implode(' | ')
                     );
+
+                    $sheet->getStyle(
+                        "A{$filterRow}:P{$filterRow}"
+                    )->applyFromArray([
+                        'font' => [
+                            'italic' => true,
+                            'color' => [
+                                'argb' => 'FF64748B',
+                            ],
+                        ],
+                        'fill' => [
+                            'fillType' =>
+                                Fill::FILL_SOLID,
+                            'startColor' => [
+                                'argb' => 'FFF8FAFC',
+                            ],
+                        ],
+                        'alignment' => [
+                            'horizontal' =>
+                                Alignment::HORIZONTAL_RIGHT,
+                        ],
+                    ]);
                 }
 
-                $sheet->getStyle("A{$row}:P" . ($filterRow))
-                    ->getAlignment()
-                    ->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-
-                $sheet->getStyle("A{$row}:P{$row}")
-                    ->getFont()
-                    ->setBold(true);
-
-                $sheet->getStyle("H{$row}:I" . ($row + 3))
+                $sheet->getStyle(
+                    "I2:I"
+                    . max(
+                        2,
+                        $summaryRow + 3
+                    )
+                )
                     ->getNumberFormat()
-                    ->setFormatCode('#,##0.00');
+                    ->setFormatCode(
+                        '#,##0.00'
+                    );
             },
         ];
     }
