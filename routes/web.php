@@ -440,6 +440,12 @@ Route::post(
         Route::get('incoming-bank-transfers', [IncomingBankTransferController::class, 'index'])
             ->name('incoming-bank-transfers.index');
 
+        Route::get('incoming-bank-transfers/export/xlsx', [IncomingBankTransferController::class, 'exportXlsx'])
+            ->name('incoming-bank-transfers.export.xlsx');
+
+        Route::get('incoming-bank-transfers/export/pdf', [IncomingBankTransferController::class, 'exportPdf'])
+            ->name('incoming-bank-transfers.export.pdf');
+
         Route::post('incoming-bank-transfers', [IncomingBankTransferController::class, 'store'])
             ->middleware('can:payments.record')
             ->name('incoming-bank-transfers.store');
