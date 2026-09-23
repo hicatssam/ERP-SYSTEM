@@ -142,7 +142,7 @@
         <thead>
             <tr>
                 <th>التاريخ</th>
-                <th>العميل</th>
+                <th>المحوّل</th>
                 <th>الطلب</th>
                 <th>الفرع</th>
                 <th>طريقة الدفع</th>
@@ -190,8 +190,17 @@
                     </td>
 
                     <td>
-                        <strong>{{ $customer?->name ?? 'عميل غير مسجل' }}</strong>
-                        <small class="bank-muted" dir="ltr">{{ $customer?->phone ?: '—' }}</small>
+                        <strong>
+                            {{ $payment->sender_name ?: ($customer?->name ?? 'غير محدد') }}
+                        </strong>
+                        <small class="bank-muted" dir="ltr">
+                            {{ $payment->sender_phone ?: ($customer?->phone ?: '—') }}
+                        </small>
+                        @if($payment->sender_account_number)
+                            <small class="bank-muted" dir="ltr">
+                                {{ $payment->sender_account_number }}
+                            </small>
+                        @endif
                     </td>
 
                     <td>
