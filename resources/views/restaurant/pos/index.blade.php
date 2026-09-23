@@ -450,7 +450,7 @@
                         </div>
 
                         <div class="rb-field" id="rbPaymentMethodGroup">
-                            <label>طريقة الدفع</label>
+                            <label>نوع طريقة الدفع</label>
                             <select
                                 name="payment_method_id"
                                 id="rbPaymentMethod"
@@ -460,6 +460,7 @@
                                 @foreach($paymentMethods as $method)
                                     <option
                                         value="{{ $method->id }}"
+                                        data-type="{{ $method->type }}"
                                         data-reference="{{ $method->requires_reference ? '1' : '0' }}"
                                         data-verification="{{ $method->requires_verification ? '1' : '0' }}"
                                         @selected((string) old('payment_method_id') === (string) $method->id)
@@ -512,6 +513,47 @@
                                 value="{{ old('reference_number') }}"
                                 class="rb-control"
                             >
+                        </div>
+
+                        <div class="rb-field" id="rbSenderNameGroup" hidden>
+                            <label>اسم المحوّل / صاحب العملية *</label>
+                            <input
+                                type="text"
+                                name="sender_name"
+                                value="{{ old('sender_name') }}"
+                                maxlength="150"
+                                class="rb-control"
+                                placeholder="اسم الشخص الذي قام بالدفع"
+                            >
+                        </div>
+
+                        <div class="rb-field" id="rbSenderPhoneGroup" hidden>
+                            <label>رقم جوال المحوّل</label>
+                            <input
+                                type="text"
+                                name="sender_phone"
+                                value="{{ old('sender_phone') }}"
+                                maxlength="50"
+                                class="rb-control"
+                                dir="ltr"
+                                placeholder="مثال: 059xxxxxxx"
+                            >
+                        </div>
+
+                        <div class="rb-field rb-field-wide" id="rbSenderAccountGroup" hidden>
+                            <label>رقم الحساب / المحفظة</label>
+                            <input
+                                type="text"
+                                name="sender_account_number"
+                                value="{{ old('sender_account_number') }}"
+                                maxlength="120"
+                                class="rb-control"
+                                dir="ltr"
+                                placeholder="رقم الحساب أو رقم المحفظة — يكفي هذا أو رقم الجوال"
+                            >
+                            <small class="rb-field-hint">
+                                لطريقة الدفع غير النقدية يجب إدخال رقم الجوال أو رقم الحساب/المحفظة على الأقل.
+                            </small>
                         </div>
 
                         <div class="rb-field rb-field-wide" id="rbProofGroup" hidden>
@@ -2188,9 +2230,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const paymentMethodGroup = document.getElementById('rbPaymentMethodGroup');
     const paidAmountGroup = document.getElementById('rbPaidAmountGroup');
     const referenceGroup = document.getElementById('rbReferenceGroup');
+    const senderNameGroup = document.getElementById('rbSenderNameGroup');
+    const senderPhoneGroup = document.getElementById('rbSenderPhoneGroup');
+    const senderAccountGroup = document.getElementById('rbSenderAccountGroup');
     const proofGroup = document.getElementById('rbProofGroup');
 
     const referenceInput = form.querySelector('[name="reference_number"]');
+    const senderNameInput = form.querySelector('[name="sender_name"]');
+    const senderPhoneInput = form.querySelector('[name="sender_phone"]');
+    const senderAccountInput = form.querySelector('[name="sender_account_number"]');
     const proofInput = form.querySelector('[name="payment_proof"]');
 
     const checkoutModal = document.getElementById('rbCheckoutModal');
@@ -2679,6 +2727,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 paymentMethod.selectedIndex
             ];
 
+        const methodType =
+            !noImmediate
+                ? (selected?.dataset.type || '')
+                : '';
+
+        const isNonCash =
+            !noImmediate
+            && paymentMethod.value !== ''
+            && methodType !== 'cash';
+
         const methodRequiresReference =
             !noImmediate
             && selected?.dataset.reference === '1';
@@ -2688,13 +2746,14 @@ document.addEventListener('DOMContentLoaded', () => {
             && selected?.dataset.verification === '1';
 
         /*
-         * نفس منطق السيرفر:
-         * أي طريقة تحتاج verification نطلب لها reference أيضاً.
+         * في الكاشير: أي دفع غير نقدي يجب أن يحمل بيانات العملية
+         * حتى يمكن مراجعته لاحقاً من الطلب وسجل المدفوعات.
          */
         const requiresReference =
             !noImmediate
             && (
-                methodRequiresReference
+                isNonCash
+                || methodRequiresReference
                 || methodRequiresVerification
                 || arrangement === 'pending_verification'
             );
@@ -2707,10 +2766,17 @@ document.addEventListener('DOMContentLoaded', () => {
             );
 
         referenceGroup.hidden = !requiresReference;
+        senderNameGroup.hidden = !isNonCash;
+        senderPhoneGroup.hidden = !isNonCash;
+        senderAccountGroup.hidden = !isNonCash;
         proofGroup.hidden = !requiresProof;
 
         if (referenceInput) {
             referenceInput.required = requiresReference;
+        }
+
+        if (senderNameInput) {
+            senderNameInput.required = isNonCash;
         }
 
         if (proofInput) {
@@ -2789,6 +2855,41 @@ document.addEventListener('DOMContentLoaded', () => {
             return false;
         }
 
+        const selectedPaymentMethod =
+            paymentMethod.options[
+                paymentMethod.selectedIndex
+            ];
+
+        const nonCashPayment =
+            paymentMethod.required
+            && paymentMethod.value !== ''
+            && (selectedPaymentMethod?.dataset.type || '') !== 'cash';
+
+        if (
+            nonCashPayment
+            && !senderNameInput?.value.trim()
+        ) {
+            showCheckoutError(
+                'اسم المحوّل أو صاحب عملية الدفع مطلوب.',
+                'sender_name'
+            );
+            senderNameInput?.focus();
+            return false;
+        }
+
+        if (
+            nonCashPayment
+            && !senderPhoneInput?.value.trim()
+            && !senderAccountInput?.value.trim()
+        ) {
+            showCheckoutError(
+                'أدخل رقم جوال المحوّل أو رقم حسابه/محفظته.',
+                'sender_phone'
+            );
+            senderPhoneInput?.focus();
+            return false;
+        }
+
         if (
             proofInput?.required
             && !proofInput.files.length
@@ -2829,6 +2930,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 discount_type: discountType.value,
                 discount_value: discountValue.value,
                 reference_number: simpleField('reference_number'),
+                sender_name: simpleField('sender_name'),
+                sender_phone: simpleField('sender_phone'),
+                sender_account_number: simpleField('sender_account_number'),
                 notes: simpleField('notes'),
             },
         };
