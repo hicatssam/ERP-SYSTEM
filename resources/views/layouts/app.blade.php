@@ -1958,6 +1958,20 @@ a.app-page-btn:hover {
                             <span>المبيعات البنكية</span>
                         </a>
 
+                        @if(IlluminateSupportFacadesRoute::has('incoming-bank-transfers.index'))
+                            <a
+                                href="{{ route('incoming-bank-transfers.index') }}"
+                                class="nav-item {{ request()->routeIs('incoming-bank-transfers.*') ? 'active' : '' }}"
+                            >
+                                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M4 5h16v14H4z" />
+                                    <path d="M8 9h8M8 13h5" />
+                                    <path d="m15 16 2 2 3-4" />
+                                </svg>
+                                <span>الحوالات الواردة</span>
+                            </a>
+                        @endif
+
                     @endcanany
 
                     @endif
