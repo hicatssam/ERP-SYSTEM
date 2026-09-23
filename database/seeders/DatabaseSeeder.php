@@ -556,7 +556,22 @@ class DatabaseSeeder extends Seeder
             if (! $category) throw new RuntimeException("التصنيف غير موجود: {$categorySlug}");
 
             foreach ($items as [$sku, $name, $nameAr, $unit, $price]) {
-                $imagePath = $this->ensureDemoProductImage($sku, $name, $nameAr, $categorySlug);
+                /*
+                 * Keep a generated local SVG as an offline fallback, but use a
+                 * real remote food photo for the demo catalog. Product/customer
+                 * menu rendering supports both remote URLs and local storage.
+                 */
+                $imagePath = $this->ensureDemoProductImage(
+                    $sku,
+                    $name,
+                    $nameAr,
+                    $categorySlug
+                );
+
+                $demoImageUrl = $this->demoProductRemoteImage(
+                    $categorySlug
+                );
+
                 // sku/barcode are intentionally guarded in Product. Assign
                 // every required column directly so MySQL never receives an
                 // INSERT without the non-null barcode field.
@@ -571,8 +586,10 @@ class DatabaseSeeder extends Seeder
                 $product->is_active = true;
                 $product->save();
                 $this->upsertExisting('products', ['id' => $product->id], [
-                    'image' => $imagePath, 'image_path' => $imagePath,
-                    'image_url' => '/'.$imagePath, 'description' => $name,
+                    'image' => $demoImageUrl,
+                    'image_path' => $imagePath,
+                    'image_url' => $demoImageUrl,
+                    'description' => $name,
                     'description_ar' => 'صنف طازج من حلويات دهب: '.$nameAr,
                 ]);
 
@@ -589,6 +606,31 @@ class DatabaseSeeder extends Seeder
                 $sequence++;
             }
         }
+    }
+
+    private function demoProductRemoteImage(string $category): string
+    {
+        $images = [
+            'cakes' =>
+                'https://unsplash.com/photos/UuamQBi4_xI/download?force=true&w=1200',
+            'gateaux' =>
+                'https://unsplash.com/photos/1nQvGoWjkKo/download?force=true&w=1200',
+            'oriental-sweets' =>
+                'https://unsplash.com/photos/UU0VNFnTAZc/download?force=true&w=1200',
+            'western-sweets' =>
+                'https://unsplash.com/photos/V2dFgExH2YM/download?force=true&w=1200',
+            'chocolate' =>
+                'https://images.unsplash.com/photo-1597184694636-2986838febd3?auto=format&fit=crop&w=1200&q=80',
+            'drinks' =>
+                'https://unsplash.com/photos/Ic8RmXGyfNc/download?force=true&w=1200',
+            'milkshakes' =>
+                'https://unsplash.com/photos/p49qtDW866I/download?force=true&w=1200',
+            'gifts' =>
+                'https://unsplash.com/photos/drHdN8359Pc/download?force=true&w=1200',
+        ];
+
+        return $images[$category]
+            ?? $images['cakes'];
     }
 
     private function ensureDemoProductImage(string $sku, string $name, string $nameAr, string $category): string
@@ -2391,7 +2433,8 @@ SVG;
                 ? DB::table('kitchen_stations')->where('location_id', $branch->id)->where('is_default', true)->value('id')
                 : null;
             foreach ($menuProducts as $sortIndex => $product) {
-                $imagePath = 'images/demo-products/'.$product->sku.'.svg';
+                $imagePath = $product->image
+                    ?: 'images/demo-products/'.$product->sku.'.svg';
                 $this->upsertExisting('restaurant_menu_items', [
                     'location_id' => $branch->id, 'product_id' => $product->id,
                 ], [
