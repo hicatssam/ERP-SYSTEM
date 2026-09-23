@@ -7,6 +7,7 @@ use App\Http\Requests\Sales\CancelOrderRequest;
 use App\Http\Requests\Sales\StoreOrderRequest;
 use App\Models\Customer;
 use App\Models\Location;
+use App\Models\LocationPaymentAccount;
 use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Models\User;
@@ -320,7 +321,9 @@ class OrderController extends Controller
             'items.product',
             'invoice',
             'payments.paymentMethod',
+            'payments.locationPaymentAccount',
             'payments.receivedBy',
+            'payments.verifiedBy',
             'restaurantTable.area',
             'restaurantTableSession',
             'waiter.employee',
@@ -329,7 +332,55 @@ class OrderController extends Controller
             'kitchenTickets.items',
         ]);
 
-        return view('sales.orders.show', compact('order'));
+        $bankPaymentMethods = PaymentMethod::query()
+            ->active()
+            ->whereIn('type', [
+                'bank_transfer',
+                'electronic_wallet',
+            ])
+            ->where(function ($query) use ($order): void {
+                $query
+                    ->whereDoesntHave('locationPaymentMethods')
+                    ->orWhereHas(
+                        'locationPaymentMethods',
+                        function ($assignment) use ($order): void {
+                            $assignment
+                                ->where(
+                                    'location_id',
+                                    $order->location_id
+                                )
+                                ->where('is_active', true);
+                        }
+                    );
+            })
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $bankPaymentAccounts = LocationPaymentAccount::query()
+            ->with('paymentMethod')
+            ->where('location_id', $order->location_id)
+            ->where('is_active', true)
+            ->whereHas(
+                'paymentMethod',
+                function ($query): void {
+                    $query
+                        ->active()
+                        ->whereIn('type', [
+                            'bank_transfer',
+                            'electronic_wallet',
+                        ]);
+                }
+            )
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return view('sales.orders.show', compact(
+            'order',
+            'bankPaymentMethods',
+            'bankPaymentAccounts'
+        ));
     }
 
     public function edit(Request $request, Order $order)
