@@ -16,6 +16,7 @@ class StorePaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'entry_context' => ['nullable', 'in:order_bank_transfer'],
             'order_type' => ['required', 'in:order,special_cake_order'],
             'order_id' => ['required', 'integer', 'min:1'],
             'payment_method_id' => ['required', 'exists:payment_methods,id'],
@@ -41,6 +42,10 @@ class StorePaymentRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->input('entry_context') !== 'order_bank_transfer') {
+                return;
+            }
+
             $methodId = (int) $this->input('payment_method_id', 0);
 
             if ($methodId <= 0) {
