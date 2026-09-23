@@ -432,6 +432,7 @@ Route::post(
         // ─── Payments ──────────────────────────────────────────────────────
         Route::middleware('can:payments.record')->group(function () {
             Route::get('payments', [PaymentController::class, 'index'])->name('payments.index');
+            Route::get('payments/{payment}/proof', [PaymentController::class, 'proof'])->name('payments.proof');
             Route::post('payments', [PaymentController::class, 'store'])->name('payments.store');
             Route::post('payments/{payment}/verify', [PaymentController::class, 'verify'])->name('payments.verify')->middleware('can:payments.verify');
             Route::post('payments/{payment}/correct', [PaymentController::class, 'correct'])->name('payments.correct')->middleware('can:payments.correct');

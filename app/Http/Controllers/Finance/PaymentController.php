@@ -23,7 +23,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentController extends Controller
 {
@@ -55,6 +57,7 @@ class PaymentController extends Controller
         */
         $query = Payment::with([
             'paymentMethod',
+            'locationPaymentAccount',
             'location',
             'receivedBy',
             'verifiedBy',
@@ -71,6 +74,23 @@ class PaymentController extends Controller
                 'payment_method_id',
                 $request->payment_method_id
             );
+        }
+
+        if ($request->input('payment_channel') === 'banking') {
+            $query->where(function ($bankingQuery): void {
+                $bankingQuery
+                    ->whereNotNull('location_payment_account_id')
+                    ->orWhereHas('paymentMethod', function ($methodQuery): void {
+                        $methodQuery->whereIn('type', [
+                            'bank_transfer',
+                            'electronic_wallet',
+                        ]);
+                    });
+            });
+        } elseif ($request->input('payment_channel') === 'cash') {
+            $query->whereHas('paymentMethod', function ($methodQuery): void {
+                $methodQuery->where('type', 'cash');
+            });
         }
 
         if ($request->filled('location_id')) {
@@ -173,6 +193,45 @@ class PaymentController extends Controller
         );
 
         return back()->with('success', $approved ? 'تم التحقق من الدفعة وتأكيدها.' : 'تم رفض الدفعة.');
+    }
+
+    public function proof(
+        Payment $payment
+    ): StreamedResponse {
+        $this->authorize('view', $payment);
+
+        $path = ltrim(
+            str_replace('\\', '/', (string) $payment->payment_proof),
+            '/'
+        );
+
+        abort_if(
+            $path === ''
+            || str_contains($path, '..'),
+            404,
+            'إثبات الدفع غير موجود.'
+        );
+
+        $disk = Storage::disk('public');
+
+        abort_unless(
+            $disk->exists($path),
+            404,
+            'ملف إثبات الدفع غير موجود.'
+        );
+
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+        $downloadName = 'payment-proof-' . $payment->id
+            . ($extension !== '' ? '.' . $extension : '');
+
+        return $disk->response(
+            $path,
+            $downloadName,
+            [
+                'Cache-Control' => 'private, no-store, no-cache, must-revalidate',
+                'X-Content-Type-Options' => 'nosniff',
+            ]
+        );
     }
 
     public function correct(

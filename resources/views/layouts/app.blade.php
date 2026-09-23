@@ -881,6 +881,65 @@ a.app-page-btn:hover {
     }
 }
 
+.pwa-install-dialog {
+    width: min(92vw, 460px);
+    padding: 0;
+    border: 0;
+    border-radius: 18px;
+    background: var(--theme-card-bg, #fff);
+    color: var(--theme-text, #0d3150);
+    box-shadow: 0 24px 70px rgba(4, 28, 48, .28);
+}
+
+.pwa-install-dialog::backdrop {
+    background: rgba(3, 20, 35, .62);
+    backdrop-filter: blur(3px);
+}
+
+.pwa-install-dialog__body {
+    padding: 1.35rem;
+}
+
+.pwa-install-dialog__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: .8rem;
+}
+
+.pwa-install-dialog__head h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.pwa-install-dialog__close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--theme-border, #d7dde3);
+    border-radius: 9px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.pwa-install-dialog__message {
+    margin: 0;
+    color: var(--text-muted, #667085);
+    font-size: .84rem;
+    line-height: 1.9;
+}
+
+.pwa-install-dialog__hint {
+    margin-top: .85rem;
+    padding: .75rem;
+    border-radius: 10px;
+    background: rgba(212, 175, 55, .1);
+    color: var(--theme-text, #0d3150);
+    font-size: .75rem;
+    line-height: 1.8;
+}
+
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.1/dist/apexcharts.min.js" defer></script>
@@ -1873,7 +1932,7 @@ a.app-page-btn:hover {
 
                     ])
 
-                        <a href="{{ route('payments.index') }}" class="nav-item {{ request()->routeIs('payments.*') ? 'active' : '' }}">
+                        <a href="{{ route('payments.index') }}" class="nav-item {{ request()->routeIs('payments.*') && request('payment_channel') !== 'banking' ? 'active' : '' }}">
 
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 
@@ -1885,6 +1944,18 @@ a.app-page-btn:hover {
 
                             <span>الحركات المالية</span>
 
+                        </a>
+
+                        <a
+                            href="{{ route('payments.index', ['payment_channel' => 'banking']) }}"
+                            class="nav-item {{ request()->routeIs('payments.*') && request('payment_channel') === 'banking' ? 'active' : '' }}"
+                        >
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="10" width="18" height="10" rx="2" />
+                                <path d="M7 10V7a5 5 0 0 1 10 0v3" />
+                                <path d="M7 15h.01M11 15h2" />
+                            </svg>
+                            <span>المبيعات البنكية</span>
                         </a>
 
                     @endcanany
@@ -2303,6 +2374,21 @@ a.app-page-btn:hover {
 
                     <span>تحميل التطبيق</span>
                 </button>
+
+                <dialog class="pwa-install-dialog" id="pwaInstallHelp">
+                    <div class="pwa-install-dialog__body">
+                        <div class="pwa-install-dialog__head">
+                            <h3 id="pwaInstallHelpTitle">تثبيت التطبيق</h3>
+                            <button type="button" class="pwa-install-dialog__close" id="pwaInstallHelpClose" aria-label="إغلاق">×</button>
+                        </div>
+
+                        <p class="pwa-install-dialog__message" id="pwaInstallHelpMessage"></p>
+
+                        <div class="pwa-install-dialog__hint">
+                            التثبيت يحتاج اتصال HTTPS آمن، أو فتح النظام من localhost على نفس الجهاز.
+                        </div>
+                    </div>
+                </dialog>
 
                 @if($chatEnabled && \Illuminate\Support\Facades\Route::has('chat.index'))
 
@@ -3051,6 +3137,10 @@ a.app-page-btn:hover {
     <script>
         (() => {
             const installButton = document.getElementById('installAppButton');
+            const helpDialog = document.getElementById('pwaInstallHelp');
+            const helpTitle = document.getElementById('pwaInstallHelpTitle');
+            const helpMessage = document.getElementById('pwaInstallHelpMessage');
+            const helpClose = document.getElementById('pwaInstallHelpClose');
 
             let deferredInstallPrompt = null;
 
@@ -3058,13 +3148,47 @@ a.app-page-btn:hover {
                 window.matchMedia('(display-mode: standalone)').matches
                 || window.navigator.standalone === true;
 
-            if (isStandalone && installButton) {
-                installButton.hidden = true;
+            const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+            const isAndroid = /android/i.test(navigator.userAgent);
+            const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(location.hostname);
+            const isSecureInstallContext = window.isSecureContext || isLocalHost;
+
+            const openHelp = () => {
+                if (! helpDialog || ! helpMessage || ! helpTitle) {
+                    return;
+                }
+
+                if (! isSecureInstallContext) {
+                    helpTitle.textContent = 'يلزم رابط آمن لتثبيت التطبيق';
+                    helpMessage.textContent =
+                        'أنت تفتح النظام عبر عنوان شبكة HTTP. المتصفح يمنع تثبيت التطبيق وتسجيل Service Worker في هذه الحالة. افتح النظام عبر HTTPS، أو من localhost على جهاز السيرفر.';
+                } else if (isIos) {
+                    helpTitle.textContent = 'تثبيت التطبيق على iPhone أو iPad';
+                    helpMessage.textContent =
+                        'افتح الصفحة في Safari، اضغط زر المشاركة، ثم اختر «إضافة إلى الشاشة الرئيسية».';
+                } else if (isAndroid) {
+                    helpTitle.textContent = 'تثبيت التطبيق على Android';
+                    helpMessage.textContent =
+                        'إذا لم تظهر نافذة التثبيت، افتح قائمة Chrome واختر «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية».';
+                } else {
+                    helpTitle.textContent = 'تثبيت التطبيق على الكمبيوتر';
+                    helpMessage.textContent =
+                        'استخدم Chrome أو Edge، ثم اضغط أيقونة التثبيت في شريط العنوان. إذا لم تظهر، تأكد من فتح النظام عبر HTTPS.';
+                }
+
+                if (typeof helpDialog.showModal === 'function') {
+                    helpDialog.showModal();
+                } else {
+                    helpDialog.setAttribute('open', 'open');
+                }
+            };
+
+            if (installButton) {
+                installButton.hidden = isStandalone;
             }
 
             window.addEventListener('beforeinstallprompt', event => {
                 event.preventDefault();
-
                 deferredInstallPrompt = event;
 
                 if (installButton && ! isStandalone) {
@@ -3073,19 +3197,33 @@ a.app-page-btn:hover {
             });
 
             installButton?.addEventListener('click', async () => {
-                if (! deferredInstallPrompt) {
+                if (deferredInstallPrompt) {
+                    await deferredInstallPrompt.prompt();
+                    const choice = await deferredInstallPrompt.userChoice;
+
+                    if (choice.outcome === 'accepted') {
+                        installButton.hidden = true;
+                    }
+
+                    deferredInstallPrompt = null;
                     return;
                 }
 
-                await deferredInstallPrompt.prompt();
+                openHelp();
+            });
 
-                const choice = await deferredInstallPrompt.userChoice;
-
-                if (choice.outcome === 'accepted') {
-                    installButton.hidden = true;
+            helpClose?.addEventListener('click', () => {
+                if (typeof helpDialog?.close === 'function') {
+                    helpDialog.close();
+                } else {
+                    helpDialog?.removeAttribute('open');
                 }
+            });
 
-                deferredInstallPrompt = null;
+            helpDialog?.addEventListener('click', event => {
+                if (event.target === helpDialog && typeof helpDialog.close === 'function') {
+                    helpDialog.close();
+                }
             });
 
             window.addEventListener('appinstalled', () => {
@@ -3094,9 +3232,13 @@ a.app-page-btn:hover {
                 if (installButton) {
                     installButton.hidden = true;
                 }
+
+                if (helpDialog?.open && typeof helpDialog.close === 'function') {
+                    helpDialog.close();
+                }
             });
 
-            if ('serviceWorker' in navigator) {
+            if ('serviceWorker' in navigator && isSecureInstallContext) {
                 window.addEventListener('load', () => {
                     navigator.serviceWorker.register(
                         @json(asset('sw.js'))
