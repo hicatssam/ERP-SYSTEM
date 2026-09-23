@@ -63,7 +63,9 @@
             'bonus' => 'مكافأة',
             'deduction' => 'خصم',
             'salary_payment' => 'دفعة راتب',
-            'advance' => 'سلفة',
+            'salary_payment_void' => 'عكس دفعة راتب',
+            'advance' => 'سلفة موظف',
+            'advance_repayment' => 'سداد سلفة',
         ];
     @endphp
 
