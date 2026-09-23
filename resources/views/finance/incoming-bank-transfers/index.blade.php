@@ -21,15 +21,40 @@
 
 <div class="page-actions incoming-transfer-header">
     <div>
-        <div class="page-actions-title">الحوالات الواردة</div>
+        <div class="incoming-title-line">
+            <div class="page-actions-title">الحوالات البنكية الواردة</div>
+            <span class="incoming-scope-badge">
+                {{ $canViewAll ? 'جميع الفروع' : ($filterLabels['الفرع'] ?? 'الفرع الحالي') }}
+            </span>
+        </div>
+
         <div class="text-muted incoming-transfer-subtitle">
-            سجل مستقل للحوالات التي تصل إلى حسابات الفروع قبل مطابقتها مع الطلبات.
+            لوحة موحدة لتسجيل ومراجعة الحوالات الواردة، مع إجماليات وتصفية وتصدير حسب نفس الصلاحيات.
         </div>
     </div>
 
     <div class="incoming-transfer-header-actions">
-        <a href="{{ route('payments.bank-sales') }}" class="btn btn-ghost btn-sm">
+        <a
+            href="{{ route('payments.bank-sales') }}"
+            class="btn btn-ghost btn-sm"
+        >
             المبيعات البنكية
+        </a>
+
+        <a
+            href="{{ route('incoming-bank-transfers.export.xlsx', request()->except('page')) }}"
+            class="btn btn-outline btn-sm"
+        >
+            تصدير Excel
+        </a>
+
+        <a
+            href="{{ route('incoming-bank-transfers.export.pdf', request()->except('page')) }}"
+            class="btn btn-outline btn-sm"
+            target="_blank"
+            rel="noopener"
+        >
+            تصدير PDF
         </a>
 
         @if(auth()->user()->isAdmin() || auth()->user()->can('payments.record'))
@@ -50,41 +75,98 @@
     </div>
 @endif
 
+@if($activeFilterCount > 0)
+    <div class="incoming-filter-summary">
+        <div class="incoming-filter-summary-title">
+            الفلاتر النشطة
+            <span>{{ $activeFilterCount }}</span>
+        </div>
+
+        <div class="incoming-filter-chips">
+            @foreach($filterLabels as $label => $value)
+                @if(filled($value) && !in_array($value, ['كل الفروع', 'كل طرق الدفع', 'كل الحالات'], true))
+                    <span class="incoming-filter-chip">
+                        <strong>{{ $label }}:</strong>
+                        {{ $value }}
+                    </span>
+                @endif
+            @endforeach
+        </div>
+
+        <a
+            href="{{ route('incoming-bank-transfers.index') }}"
+            class="incoming-clear-filters"
+        >
+            مسح الكل
+        </a>
+    </div>
+@endif
+
 <div class="stats-grid incoming-transfer-stats">
-    <div class="stat-card stat-blue">
+    <div class="stat-card stat-blue incoming-stat-card">
         <div class="stat-info">
-            <div class="stat-value">{{ (int) ($summary->transfers_count ?? 0) }}</div>
+            <div class="stat-value">
+                {{ (int) ($summary->transfers_count ?? 0) }}
+            </div>
             <div class="stat-label">عدد الحوالات</div>
         </div>
     </div>
 
-    <div class="stat-card stat-green">
+    <div class="stat-card incoming-stat-card incoming-stat-total">
         <div class="stat-info">
-            <div class="stat-value">₪{{ number_format((float) ($summary->confirmed_total ?? 0), 2) }}</div>
-            <div class="stat-label">المعتمد</div>
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->total_amount ?? 0), 2) }}
+            </div>
+            <div class="stat-label">إجمالي الحوالات</div>
         </div>
     </div>
 
-    <div class="stat-card stat-gold">
+    <div class="stat-card stat-green incoming-stat-card">
         <div class="stat-info">
-            <div class="stat-value">₪{{ number_format((float) ($summary->pending_total ?? 0), 2) }}</div>
-            <div class="stat-label">بانتظار التحقق</div>
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->confirmed_total ?? 0), 2) }}
+            </div>
+            <div class="stat-label">
+                المعتمد
+                · {{ (int) ($summary->confirmed_count ?? 0) }}
+            </div>
         </div>
     </div>
 
-    <div class="stat-card stat-red">
+    <div class="stat-card stat-gold incoming-stat-card">
         <div class="stat-info">
-            <div class="stat-value">₪{{ number_format((float) ($summary->rejected_total ?? 0), 2) }}</div>
-            <div class="stat-label">المرفوض</div>
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->pending_total ?? 0), 2) }}
+            </div>
+            <div class="stat-label">
+                بانتظار التحقق
+                · {{ (int) ($summary->pending_count ?? 0) }}
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card stat-red incoming-stat-card">
+        <div class="stat-info">
+            <div class="stat-value">
+                ₪{{ number_format((float) ($summary->rejected_total ?? 0), 2) }}
+            </div>
+            <div class="stat-label">
+                المرفوض
+                · {{ (int) ($summary->rejected_count ?? 0) }}
+            </div>
         </div>
     </div>
 </div>
 
 @if($methodBreakdown->isNotEmpty())
     <div class="card incoming-method-card">
-        <div class="card-header">
-            <span class="card-title">ملخص حسب طريقة الدفع</span>
+        <div class="card-header incoming-card-head">
+            <div>
+                <span class="card-title">الحوالات حسب طريقة الدفع</span>
+                <small>الإجماليات أدناه تتغير مع الفلاتر الحالية.</small>
+            </div>
         </div>
+
         <div class="card-body incoming-method-grid">
             @foreach($paymentMethods as $method)
                 @php
@@ -96,9 +178,32 @@
                         href="{{ route('incoming-bank-transfers.index', array_merge(request()->except('page', 'payment_method_id'), ['payment_method_id' => $method->id])) }}"
                         class="incoming-method-item"
                     >
-                        <span>{{ $method->name_ar ?: $method->name }}</span>
-                        <strong>₪{{ number_format((float) $row->total_amount, 2) }}</strong>
-                        <small>{{ (int) $row->transfers_count }} حوالة</small>
+                        <div class="incoming-method-name">
+                            {{ $method->name_ar ?: $method->name }}
+                        </div>
+
+                        <strong>
+                            ₪{{ number_format((float) $row->total_amount, 2) }}
+                        </strong>
+
+                        <small>
+                            {{ (int) $row->transfers_count }} حوالة
+                        </small>
+
+                        <div class="incoming-method-statuses">
+                            <span>
+                                معتمد
+                                {{ (int) $row->confirmed_count }}
+                            </span>
+                            <span>
+                                معلق
+                                {{ (int) $row->pending_count }}
+                            </span>
+                            <span>
+                                مرفوض
+                                {{ (int) $row->rejected_count }}
+                            </span>
+                        </div>
                     </a>
                 @endif
             @endforeach
@@ -106,115 +211,214 @@
     </div>
 @endif
 
-<div class="filter-row incoming-transfer-filters">
-    <form
-        method="GET"
-        action="{{ route('incoming-bank-transfers.index') }}"
-        class="filter-grid"
-    >
-        <div class="filter-group incoming-search">
-            <label class="filter-label">بحث</label>
-            <input
-                type="search"
-                name="search"
-                value="{{ request('search') }}"
-                class="form-input"
-                placeholder="اسم المحوّل، الهاتف، الحساب، المرجع أو حساب الاستلام"
-            >
+@if($canViewAll && $branchBreakdown->isNotEmpty())
+    <div class="card incoming-branch-card">
+        <div class="card-header incoming-card-head">
+            <div>
+                <span class="card-title">ملخص الفروع</span>
+                <small>يظهر للأدمن والإدارة المالية العامة فقط.</small>
+            </div>
         </div>
 
-        <div class="filter-group">
-            <label class="filter-label">الحالة</label>
-            <select name="status" class="form-select">
-                <option value="">كل الحالات</option>
-                @foreach($statusOptions as $status)
-                    <option
-                        value="{{ $status->value }}"
-                        @selected(request('status') === $status->value)
+        <div class="card-body incoming-branch-grid">
+            @foreach($locations as $location)
+                @php
+                    $branchRow = $branchBreakdown->get($location->id);
+                @endphp
+
+                @if($branchRow)
+                    <a
+                        href="{{ route('incoming-bank-transfers.index', array_merge(request()->except('page', 'location_id'), ['location_id' => $location->id])) }}"
+                        class="incoming-branch-item"
                     >
-                        {{ $status->label() }}
-                    </option>
-                @endforeach
-            </select>
+                        <div>
+                            <strong>{{ $location->name }}</strong>
+                            <small>{{ (int) $branchRow->transfers_count }} حوالة</small>
+                        </div>
+
+                        <div class="incoming-branch-total">
+                            ₪{{ number_format((float) $branchRow->total_amount, 2) }}
+                        </div>
+
+                        <div class="incoming-branch-statuses">
+                            <span>
+                                معتمد:
+                                ₪{{ number_format((float) $branchRow->confirmed_total, 2) }}
+                            </span>
+                            <span>
+                                معلق:
+                                ₪{{ number_format((float) $branchRow->pending_total, 2) }}
+                            </span>
+                        </div>
+                    </a>
+                @endif
+            @endforeach
+        </div>
+    </div>
+@endif
+
+<div class="card incoming-filter-card">
+    <div class="card-header incoming-card-head">
+        <div>
+            <span class="card-title">فلترة الحوالات</span>
+            <small>
+                التصدير PDF وExcel يلتزم بنفس الفلاتر الحالية.
+            </small>
         </div>
 
-        <div class="filter-group">
-            <label class="filter-label">طريقة الدفع</label>
-            <select name="payment_method_id" class="form-select">
-                <option value="">كل طرق الدفع</option>
-                @foreach($paymentMethods as $method)
-                    <option
-                        value="{{ $method->id }}"
-                        @selected((string) request('payment_method_id') === (string) $method->id)
+        @if($activeFilterCount > 0)
+            <span class="incoming-filter-count">
+                {{ $activeFilterCount }} فلتر نشط
+            </span>
+        @endif
+    </div>
+
+    <div class="card-body">
+        <form
+            method="GET"
+            action="{{ route('incoming-bank-transfers.index') }}"
+            class="filter-grid incoming-transfer-filter-grid"
+        >
+            <div class="filter-group incoming-search">
+                <label class="filter-label">بحث</label>
+                <input
+                    type="search"
+                    name="search"
+                    value="{{ request('search') }}"
+                    class="form-input"
+                    placeholder="المحوّل، الهاتف، الحساب، المرجع أو حساب الاستلام"
+                >
+            </div>
+
+            @if($locations->isNotEmpty())
+                <div class="filter-group">
+                    <label class="filter-label">الفرع</label>
+                    <select
+                        name="location_id"
+                        id="transferFilterLocation"
+                        class="form-select"
                     >
-                        {{ $method->name_ar ?: $method->name }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
+                        <option value="">كل الفروع</option>
+                        @foreach($locations as $location)
+                            <option
+                                value="{{ $location->id }}"
+                                @selected((string) request('location_id') === (string) $location->id)
+                            >
+                                {{ $location->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
 
-        <div class="filter-group">
-            <label class="filter-label">حساب الاستلام</label>
-            <select name="location_payment_account_id" class="form-select">
-                <option value="">كل الحسابات</option>
-                @foreach($paymentAccounts as $account)
-                    <option
-                        value="{{ $account->id }}"
-                        @selected((string) request('location_payment_account_id') === (string) $account->id)
-                    >
-                        {{ $account->name }}
-                        @if($account->provider_name)
-                            — {{ $account->provider_name }}
-                        @endif
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        @if($locations->isNotEmpty())
             <div class="filter-group">
-                <label class="filter-label">الفرع</label>
-                <select name="location_id" class="form-select">
-                    <option value="">كل الفروع</option>
-                    @foreach($locations as $location)
+                <label class="filter-label">طريقة الدفع</label>
+                <select
+                    name="payment_method_id"
+                    id="transferFilterMethod"
+                    class="form-select"
+                >
+                    <option value="">كل طرق الدفع</option>
+                    @foreach($paymentMethods as $method)
                         <option
-                            value="{{ $location->id }}"
-                            @selected((string) request('location_id') === (string) $location->id)
+                            value="{{ $method->id }}"
+                            @selected((string) request('payment_method_id') === (string) $method->id)
                         >
-                            {{ $location->name }}
+                            {{ $method->name_ar ?: $method->name }}
                         </option>
                     @endforeach
                 </select>
             </div>
-        @endif
 
-        <div class="filter-group">
-            <label class="filter-label">من تاريخ</label>
-            <input
-                type="date"
-                name="date_from"
-                value="{{ request('date_from') }}"
-                class="form-input"
-            >
-        </div>
+            <div class="filter-group">
+                <label class="filter-label">الحالة</label>
+                <select name="status" class="form-select">
+                    <option value="">كل الحالات</option>
+                    @foreach($statusOptions as $status)
+                        <option
+                            value="{{ $status->value }}"
+                            @selected(request('status') === $status->value)
+                        >
+                            {{ $status->label() }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
 
-        <div class="filter-group">
-            <label class="filter-label">إلى تاريخ</label>
-            <input
-                type="date"
-                name="date_to"
-                value="{{ request('date_to') }}"
-                class="form-input"
-            >
-        </div>
+            <div class="filter-group">
+                <label class="filter-label">حساب الاستلام</label>
+                <select
+                    name="location_payment_account_id"
+                    id="transferFilterAccount"
+                    class="form-select"
+                    data-current-location="{{ $canViewAll ? '' : $currentLocationId }}"
+                >
+                    <option value="">كل الحسابات</option>
+                    @foreach($paymentAccounts as $account)
+                        <option
+                            value="{{ $account->id }}"
+                            data-location="{{ $account->location_id }}"
+                            data-method="{{ $account->payment_method_id }}"
+                            @selected((string) request('location_payment_account_id') === (string) $account->id)
+                        >
+                            {{ $account->name }}
+                            @if($account->provider_name)
+                                — {{ $account->provider_name }}
+                            @endif
+                        </option>
+                    @endforeach
+                </select>
+            </div>
 
-        <div class="filter-actions">
-            <button type="submit" class="btn btn-gold btn-sm">تطبيق</button>
-            <a href="{{ route('incoming-bank-transfers.index') }}" class="btn btn-ghost btn-sm">
-                مسح
-            </a>
-        </div>
-    </form>
+            <div class="filter-group">
+                <label class="filter-label">من تاريخ</label>
+                <input
+                    type="date"
+                    name="date_from"
+                    value="{{ request('date_from') }}"
+                    class="form-input"
+                >
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">إلى تاريخ</label>
+                <input
+                    type="date"
+                    name="date_to"
+                    value="{{ request('date_to') }}"
+                    class="form-input"
+                >
+            </div>
+
+            <div class="filter-actions">
+                <button
+                    type="submit"
+                    class="btn btn-gold btn-sm"
+                >
+                    تطبيق الفلاتر
+                </button>
+
+                <a
+                    href="{{ route('incoming-bank-transfers.index') }}"
+                    class="btn btn-ghost btn-sm"
+                >
+                    مسح
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="incoming-results-bar">
+    <div>
+        <strong>{{ $transfers->total() }}</strong>
+        حوالة مطابقة للفلاتر
+    </div>
+
+    <div>
+        صفحة {{ $transfers->currentPage() }}
+        من {{ max(1, $transfers->lastPage()) }}
+    </div>
 </div>
 
 <div class="table-wrap incoming-transfer-table-wrap">
@@ -344,7 +548,7 @@
                         {{ $transfer->createdBy?->display_name ?? '—' }}
                         @if($transfer->notes)
                             <small class="incoming-muted">
-                                {{ IlluminateSupportStr::limit($transfer->notes, 80) }}
+                                {{ \Illuminate\Support\Str::limit($transfer->notes, 80) }}
                             </small>
                         @endif
                     </td>
@@ -411,6 +615,37 @@
                 </tr>
             @endforelse
         </tbody>
+
+        <tfoot>
+            <tr class="incoming-table-total-row">
+                <td colspan="5">
+                    <strong>إجمالي النتائج حسب الفلاتر الحالية</strong>
+                </td>
+
+                <td>
+                    <strong class="incoming-amount">
+                        ₪{{ number_format((float) ($summary->total_amount ?? 0), 2) }}
+                    </strong>
+                </td>
+
+                <td colspan="5">
+                    <span>
+                        المعتمد:
+                        ₪{{ number_format((float) ($summary->confirmed_total ?? 0), 2) }}
+                    </span>
+                    ·
+                    <span>
+                        المعلق:
+                        ₪{{ number_format((float) ($summary->pending_total ?? 0), 2) }}
+                    </span>
+                    ·
+                    <span>
+                        المرفوض:
+                        ₪{{ number_format((float) ($summary->rejected_total ?? 0), 2) }}
+                    </span>
+                </td>
+            </tr>
+        </tfoot>
     </table>
 </div>
 
