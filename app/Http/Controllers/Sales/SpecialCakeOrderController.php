@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CakeOrderComment;
 use App\Models\Customer;
 use App\Models\Location;
+use App\Models\LocationPaymentAccount;
 use App\Models\PaymentMethod;
 use App\Models\SpecialCakeOrder;
 use App\Services\SpecialCakes\SpecialCakeOrderService;
@@ -107,26 +108,46 @@ class SpecialCakeOrderController extends Controller
     }
 
     public function create()
-{
-    $user = Auth::user();
-    $branch = $user->primaryLocation();
+    {
+        $user = Auth::user();
+        $branch = $user->primaryLocation();
 
-    $customers = Customer::query()
-        ->orderBy('name')
-        ->get();
+        $customers = Customer::query()
+            ->orderBy('name')
+            ->get();
 
-    $paymentMethods = PaymentMethod::query()
-        ->where('is_active', true)
-        ->orderBy('sort_order')
-        ->orderBy('name_ar')
-        ->get();
+        $paymentMethods = collect();
+        $paymentAccounts = collect();
 
-    return view('sales.cake-orders.create', compact(
-        'customers',
-        'branch',
-        'paymentMethods'
-    ));
-}
+        if ($branch) {
+            $paymentMethods = PaymentMethod::query()
+                ->where('is_active', true)
+                ->whereHas('locationPaymentMethods', function ($query) use ($branch): void {
+                    $query
+                        ->where('location_id', $branch->id)
+                        ->where('is_active', true);
+                })
+                ->orderBy('sort_order')
+                ->orderBy('name_ar')
+                ->get();
+
+            $paymentAccounts = LocationPaymentAccount::query()
+                ->where('location_id', $branch->id)
+                ->where('is_active', true)
+                ->whereIn('payment_method_id', $paymentMethods->pluck('id'))
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->groupBy('payment_method_id');
+        }
+
+        return view('sales.cake-orders.create', compact(
+            'customers',
+            'branch',
+            'paymentMethods',
+            'paymentAccounts'
+        ));
+    }
 
     public function store(Request $request)
     {
@@ -174,6 +195,12 @@ class SpecialCakeOrderController extends Controller
         'required_unless:payment_arrangement,pay_on_pickup',
         'nullable',
         'exists:payment_methods,id',
+    ],
+
+    'location_payment_account_id' => [
+        'nullable',
+        'integer',
+        'exists:location_payment_accounts,id',
     ],
 
     'paid_amount' => [
@@ -233,9 +260,50 @@ class SpecialCakeOrderController extends Controller
 ],
 ]);
 
-        // Payment method required unless paying on pickup
-        if ($request->payment_arrangement !== 'pay_on_pickup' && ! $request->payment_method_id) {
-            return back()->withErrors(['payment_method_id' => 'طريقة الدفع مطلوبة.'])->withInput();
+        $branch = Auth::user()->primaryLocation();
+
+        if (! $branch) {
+            return back()
+                ->withErrors(['location' => 'يجب ربط المستخدم بفرع رئيسي قبل إنشاء طلب الكيك.'])
+                ->withInput();
+        }
+
+        if ($request->payment_arrangement !== 'pay_on_pickup') {
+            $paymentMethod = PaymentMethod::query()
+                ->whereKey((int) $request->payment_method_id)
+                ->where('is_active', true)
+                ->whereHas('locationPaymentMethods', function ($query) use ($branch): void {
+                    $query
+                        ->where('location_id', $branch->id)
+                        ->where('is_active', true);
+                })
+                ->first();
+
+            if (! $paymentMethod) {
+                return back()
+                    ->withErrors(['payment_method_id' => 'طريقة الدفع المحددة غير مفعّلة في هذا الفرع.'])
+                    ->withInput();
+            }
+
+            $activeAccounts = LocationPaymentAccount::query()
+                ->where('location_id', $branch->id)
+                ->where('payment_method_id', $paymentMethod->id)
+                ->where('is_active', true);
+
+            if ($activeAccounts->exists()) {
+                $paymentAccount = (clone $activeAccounts)
+                    ->find((int) $request->location_payment_account_id);
+
+                if (! $paymentAccount) {
+                    return back()
+                        ->withErrors(['location_payment_account_id' => 'اختر حساب الدفع الصحيح لهذا الفرع.'])
+                        ->withInput();
+                }
+            } elseif ($request->filled('location_payment_account_id')) {
+                return back()
+                    ->withErrors(['location_payment_account_id' => 'حساب الدفع المحدد لا يتبع طريقة الدفع المختارة.'])
+                    ->withInput();
+            }
         }
 
         // Calculate discount
@@ -301,7 +369,21 @@ if (
     ]);
 }
 
-        return redirect()->route('cake-orders.index', $order)->with('success', 'تم إنشاء طلب الكيك بنجاح.');
+        /*
+         * A submitted cake-order form is a real request, not an abandoned draft.
+         * Moving it to factory review also dispatches the operational alert to
+         * eligible staff at the assigned factory and the administration.
+         */
+        $this->transitionService->transition(
+            $order,
+            CakeOrderStatus::PendingFactoryReview->value,
+            Auth::user(),
+            'تم إنشاء الطلب وإرساله إلى المصنع للمراجعة.'
+        );
+
+        return redirect()
+            ->route('cake-orders.show', $order)
+            ->with('success', 'تم إنشاء طلب الكيك وإرساله إلى المصنع للمراجعة.');
     }
 
     public function show(SpecialCakeOrder $cakeOrder)
