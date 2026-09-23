@@ -101,9 +101,25 @@ class SpecialCakeStatusTransitionService
             throw new AuthorizationException('ليس لديك صلاحية تنفيذ هذه الخطوة في طلب الكيك.');
         }
 
-        $order->update([
+        $update = [
             'status' => CakeOrderStatus::from($toStatus),
-        ]);
+        ];
+
+        if ($toStatus === CakeOrderStatus::Scheduled->value) {
+            $update['scheduled_at'] = now();
+        }
+
+        if ($toStatus === CakeOrderStatus::Completed->value) {
+            $update['completed_at'] = now();
+        }
+
+        if ($toStatus === CakeOrderStatus::Cancelled->value) {
+            $update['cancelled_at'] = now();
+            $update['cancelled_by'] = $user->id;
+            $update['cancellation_reason'] = $note;
+        }
+
+        $order->update($update);
 
         CakeOrderStatusHistory::create([
             'special_cake_order_id' => $order->id,
