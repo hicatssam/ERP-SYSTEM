@@ -180,6 +180,27 @@ class PayrollService
 
             $period->loadMissing(['items.components', 'items.period']);
 
+            $employeeIds = $period->items
+                ->pluck('employee_id')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $pendingAdvanceRepayment = EmployeeAdvanceRepayment::query()
+                ->whereIn('employee_id', $employeeIds)
+                ->where('status', 'pending_verification')
+                ->with('employee:id,full_name')
+                ->first();
+
+            if ($pendingAdvanceRepayment) {
+                throw ValidationException::withMessages([
+                    'payroll' =>
+                        'لا يمكن اعتماد دورة الرواتب قبل معالجة سداد السلفة المعلق للموظف: '
+                        . ($pendingAdvanceRepayment->employee?->full_name ?? 'غير معروف')
+                        . '. اعتمد أو ارفض دفعة السداد أولًا.',
+                ]);
+            }
+
             foreach ($period->items as $item) {
                 foreach ($item->components as $component) {
                     $this->ledger->postComponent(
@@ -392,29 +413,9 @@ class PayrollService
                 break;
             }
 
-            /*
-             * A repayment waiting for bank/wallet verification already
-             * reserves that part of the debt. Do not also deduct the same
-             * amount from salary while verification is pending.
-             */
-            $pendingRepayments = (float) EmployeeAdvanceRepayment::query()
-                ->where('employee_advance_id', $advance->id)
-                ->where('status', 'pending_verification')
-                ->sum('amount');
-
-            $recoverableOutstanding = max(
-                0,
-                (float) $advance->outstanding_amount
-                - $pendingRepayments
-            );
-
-            if ($recoverableOutstanding <= 0.0001) {
-                continue;
-            }
-
             $recover = min(
                 $remainingSalary,
-                $recoverableOutstanding
+                (float) $advance->outstanding_amount
             );
 
             $newRecovered =
