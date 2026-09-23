@@ -11,6 +11,17 @@
         'hourly' => 'بالساعة',
     ];
 
+    $ledgerTypeLabels = [
+        'basic_salary' => 'راتب أساسي',
+        'allowance' => 'بدل',
+        'bonus' => 'مكافأة',
+        'deduction' => 'خصم',
+        'salary_payment' => 'دفعة راتب',
+        'salary_payment_void' => 'عكس دفعة راتب',
+        'advance' => 'سلفة موظف',
+        'advance_repayment' => 'سداد سلفة',
+    ];
+
     $currentSalary = (float) ($compensation?->base_salary ?? 0);
 
     $activeAdvancesCount = collect($advances)
@@ -898,7 +909,7 @@
 
                                 <td>
                                     <span class="pay-badge">
-                                        {{ $entry->entry_type }}
+                                        {{ $ledgerTypeLabels[$entry->entry_type] ?? $entry->entry_type }}
                                     </span>
                                 </td>
 
