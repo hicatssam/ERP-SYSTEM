@@ -1514,15 +1514,84 @@ function syncIncomingTransferFields() {
     }
 }
 
+function syncTransferFilterAccounts() {
+    const location =
+        document.getElementById('transferFilterLocation');
+
+    const method =
+        document.getElementById('transferFilterMethod');
+
+    const account =
+        document.getElementById('transferFilterAccount');
+
+    if (!account) {
+        return;
+    }
+
+    const locationId =
+        String(
+            location?.value
+            || account.dataset.currentLocation
+            || ''
+        );
+
+    const methodId =
+        String(method?.value || '');
+
+    Array.from(account.options).forEach(
+        (option, index) => {
+            if (index === 0) {
+                return;
+            }
+
+            const matchesLocation =
+                locationId === ''
+                || option.dataset.location === locationId;
+
+            const matchesMethod =
+                methodId === ''
+                || option.dataset.method === methodId;
+
+            const visible =
+                matchesLocation && matchesMethod;
+
+            option.hidden = !visible;
+            option.disabled = !visible;
+
+            if (!visible && option.selected) {
+                option.selected = false;
+                account.value = '';
+            }
+        }
+    );
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const location = document.getElementById('incomingLocation');
     const method = document.getElementById('incomingPaymentMethod');
     const form = document.getElementById('incomingTransferForm');
 
+    const filterLocation =
+        document.getElementById('transferFilterLocation');
+
+    const filterMethod =
+        document.getElementById('transferFilterMethod');
+
     location?.addEventListener('change', syncIncomingTransferFields);
     method?.addEventListener('change', syncIncomingTransferFields);
 
+    filterLocation?.addEventListener(
+        'change',
+        syncTransferFilterAccounts
+    );
+
+    filterMethod?.addEventListener(
+        'change',
+        syncTransferFilterAccounts
+    );
+
     syncIncomingTransferFields();
+    syncTransferFilterAccounts();
 
     if (document.getElementById('incomingTransferModal')?.classList.contains('is-open')) {
         document.body.style.overflow = 'hidden';
