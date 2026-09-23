@@ -56,7 +56,7 @@
                 name="search"
                 value="{{ request('search') }}"
                 class="form-input"
-                placeholder="العميل، الهاتف، رقم الطلب، المرجع أو الحساب"
+                placeholder="المحوّل، الهاتف، رقم حساب المحوّل، رقم الطلب، المرجع أو حساب الاستلام"
             >
         </div>
 
