@@ -61,15 +61,22 @@ class SpecialCakeOrderTransitionedNotification extends Notification
             true
         ) ? 'high' : 'medium';
 
+        $this->order->loadMissing([
+            'originBranch:id,name',
+            'factory:id,name',
+        ]);
+
         return [
             'fingerprint' => "cake_transition_{$this->order->id}_{$this->fromStatus}_{$this->toStatus}",
             'type' => 'cake_order_transitioned',
-            'title' => 'تغيير حالة طلب كيك',
+            'title' => 'تحديث طلب كيك #' . $this->order->order_number,
             'message' => "انتقل طلب الكيك {$this->order->order_number} من [{$fromLabel}] إلى [{$toLabel}]",
             'order_id' => $this->order->id,
             'order_number' => $this->order->order_number,
             'origin_branch_id' => $this->order->origin_branch_id,
+            'origin_branch_name' => $this->order->originBranch?->name,
             'factory_location_id' => $this->order->factory_location_id,
+            'factory_name' => $this->order->factory?->name,
             'from_status' => $this->fromStatus,
             'to_status' => $this->toStatus,
             'note' => $this->note,
