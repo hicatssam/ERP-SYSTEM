@@ -59,35 +59,47 @@ class AttendanceService
             $checkOut
         );
 
-        return AttendanceRecord::query()->updateOrCreate(
-            [
-                'employee_id' => $employee->id,
-                'work_date' => $workDate->toDateString(),
-            ],
-            [
-                'work_shift_id' => $shift?->id,
-                'scheduled_start_at' => $scheduledStart,
-                'scheduled_end_at' => $scheduledEnd,
-                'check_in_at' => $checkIn,
-                'check_out_at' => $checkOut,
-                'status' => $data['status'],
-                ...$metrics,
-                'source' => $data['source'] ?? 'manual',
-                'verification_method' =>
-                    $data['verification_method'] ?? null,
-                'verification_provider' =>
-                    $data['verification_provider'] ?? null,
-                'verification_reference' =>
-                    $data['verification_reference'] ?? null,
-                'verification_location_id' =>
-                    $data['verification_location_id'] ?? null,
-                'verification_metadata' =>
-                    $data['verification_metadata'] ?? null,
-                'notes' => $data['notes'] ?? null,
-                'approved_by' => null,
-                'approved_at' => null,
-                'created_by' => $actor->id,
-            ]
+        $values = [
+            'work_shift_id' => $shift?->id,
+            'scheduled_start_at' => $scheduledStart,
+            'scheduled_end_at' => $scheduledEnd,
+            'check_in_at' => $checkIn,
+            'check_out_at' => $checkOut,
+            'status' => $data['status'],
+            ...$metrics,
+            'source' => $data['source'] ?? 'manual',
+            'verification_method' =>
+                $data['verification_method'] ?? null,
+            'verification_provider' =>
+                $data['verification_provider'] ?? null,
+            'verification_reference' =>
+                $data['verification_reference'] ?? null,
+            'verification_location_id' =>
+                $data['verification_location_id'] ?? null,
+            'verification_metadata' =>
+                $data['verification_metadata'] ?? null,
+            'notes' => $data['notes'] ?? null,
+            'approved_by' => null,
+            'approved_at' => null,
+            'created_by' => $actor->id,
+        ];
+
+        /*
+         * Do not use updateOrCreate() with work_date here.
+         *
+         * AttendanceRecord casts work_date as a date. SQLite serializes the
+         * stored value as "Y-m-d 00:00:00", while updateOrCreate() looks up
+         * the raw "Y-m-d" value. That mismatch can miss today's existing row
+         * and then attempt a duplicate INSERT against the unique
+         * (employee_id, work_date) key. MySQL is more forgiving, but keeping
+         * one code path for both databases prevents a production/test drift.
+         */
+        return DB::transaction(
+            fn (): AttendanceRecord => $this->persistDailyRecord(
+                $employee->id,
+                $workDate,
+                $values
+            )
         );
     }
 
@@ -131,11 +143,9 @@ class AttendanceService
                 if ($this->isScheduledWorkDay($shift, $cursor)) {
                     [$start, $finish] = $this->scheduledWindow($shift, $cursor);
 
-                    AttendanceRecord::query()->updateOrCreate(
-                        [
-                            'employee_id' => $leave->employee_id,
-                            'work_date' => $cursor->toDateString(),
-                        ],
+                    $this->persistDailyRecord(
+                        $leave->employee_id,
+                        $cursor,
                         [
                             'work_shift_id' => $shift?->id,
                             'scheduled_start_at' => $start,
@@ -266,10 +276,53 @@ class AttendanceService
         $worked = max(0, $worked - (int) ($shift?->break_minutes ?? 0));
 
         return [
-            'worked_minutes' => $worked,
-            'late_minutes' => $late,
-            'early_leave_minutes' => $early,
-            'overtime_minutes' => $overtime,
+            'worked_minutes' =>
+                (int) floor($worked),
+            'late_minutes' =>
+                (int) floor($late),
+            'early_leave_minutes' =>
+                (int) floor($early),
+            'overtime_minutes' =>
+                (int) floor($overtime),
         ];
+    }
+
+    /**
+     * Persist the single attendance row for an employee/day using a
+     * date-aware lookup that behaves the same on MySQL and SQLite.
+     */
+    private function persistDailyRecord(
+        int $employeeId,
+        Carbon|string $workDate,
+        array $values
+    ): AttendanceRecord {
+        $date = Carbon::parse(
+            $workDate
+        )->toDateString();
+
+        $record = AttendanceRecord::query()
+            ->where(
+                'employee_id',
+                $employeeId
+            )
+            ->whereDate(
+                'work_date',
+                $date
+            )
+            ->lockForUpdate()
+            ->first();
+
+        if ($record) {
+            $record->fill($values);
+            $record->save();
+
+            return $record->fresh();
+        }
+
+        return AttendanceRecord::query()->create([
+            'employee_id' => $employeeId,
+            'work_date' => $date,
+            ...$values,
+        ]);
     }
 }
