@@ -10,6 +10,7 @@ use App\Models\Location;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
 class FaceAttendanceService
@@ -51,6 +52,24 @@ class FaceAttendanceService
         return $value !== ''
             ? $value
             : null;
+    }
+
+    public function apiKey(): ?string
+    {
+        $value = trim(
+            (string) config(
+                'attendance-face.faceio.api_key'
+            )
+        );
+
+        return $value !== ''
+            ? $value
+            : null;
+    }
+
+    public function canPurgeProviderProfile(): bool
+    {
+        return (bool) $this->apiKey();
     }
 
     public function requiresWebhook(): bool
@@ -103,7 +122,8 @@ class FaceAttendanceService
                 $employee,
                 $actor,
                 $hash,
-                $provider
+                $provider,
+                $facialId
             ): EmployeeFaceProfile {
                 $duplicate = EmployeeFaceProfile::query()
                     ->where('provider', $provider)
@@ -150,6 +170,8 @@ class FaceAttendanceService
                 $profile->fill([
                     'provider_face_id_hash' =>
                         $hash,
+                    'provider_face_id' =>
+                        $facialId,
                     'status' =>
                         $this->requiresWebhook()
                             ? 'pending_verification'
@@ -207,10 +229,55 @@ class FaceAttendanceService
         EmployeeFaceProfile $profile,
         User $actor
     ): EmployeeFaceProfile {
+        $profile = $profile->fresh();
+
+        $purgeState = 'not_configured';
+
+        if (
+            $profile->provider === 'faceio'
+            && $profile->provider_face_id
+            && $this->apiKey()
+        ) {
+            $response = Http::timeout(8)
+                ->acceptJson()
+                ->withHeaders([
+                    'WWW-Authenticate' =>
+                        'Bearer ' . $this->apiKey(),
+                ])
+                ->get(
+                    (string) config(
+                        'attendance-face.faceio.delete_url'
+                    ),
+                    [
+                        'fid' =>
+                            $profile->provider_face_id,
+                    ]
+                );
+
+            $deleted =
+                $response->successful()
+                && (int) $response->json(
+                    'status'
+                ) === 200
+                && (bool) $response->json(
+                    'payload'
+                );
+
+            if (! $deleted) {
+                throw ValidationException::withMessages([
+                    'face' =>
+                        'تعذر حذف بصمة الوجه من FACEIO. لم يتم إلغاء الربط المحلي حتى لا تصبح البيانات غير متزامنة.',
+                ]);
+            }
+
+            $purgeState = 'deleted';
+        }
+
         return DB::transaction(
             function () use (
                 $profile,
-                $actor
+                $actor,
+                $purgeState
             ): EmployeeFaceProfile {
                 $profile = EmployeeFaceProfile::query()
                     ->lockForUpdate()
@@ -222,8 +289,15 @@ class FaceAttendanceService
                 $metadata['revoked_by'] =
                     $actor->id;
 
+                $metadata['provider_purge'] =
+                    $purgeState;
+
                 $profile->update([
                     'status' => 'revoked',
+                    'provider_face_id' =>
+                        $purgeState === 'deleted'
+                            ? null
+                            : $profile->provider_face_id,
                     'revoked_at' => now(),
                     'metadata' => $metadata,
                 ]);
@@ -385,6 +459,8 @@ class FaceAttendanceService
                         ->update([
                             'status' =>
                                 'revoked',
+                            'provider_face_id' =>
+                                null,
                             'revoked_at' =>
                                 now(),
                         ]);
