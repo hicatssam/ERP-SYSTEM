@@ -7,7 +7,9 @@ use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkShift;
+use App\Services\AttendanceFeatureService;
 use App\Services\AttendanceService;
+use App\Services\FaceAttendanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,7 +19,9 @@ use Illuminate\View\View;
 class AttendanceController extends Controller
 {
     public function __construct(
-        private readonly AttendanceService $attendance
+        private readonly AttendanceService $attendance,
+        private readonly AttendanceFeatureService $features,
+        private readonly FaceAttendanceService $faceAttendance
     ) {
     }
 
@@ -74,6 +78,7 @@ class AttendanceController extends Controller
             )
             ->where('employment_status', 'active')
             ->with([
+                'faceProfile',
                 'employeeLocations' => function ($query): void {
                     $query
                         ->where('is_primary', true)
@@ -132,6 +137,12 @@ class AttendanceController extends Controller
 
             'canViewAllLocations' => $canViewAllLocations,
             'currentLocation' => $currentLocation,
+            'biometricAttendanceEnabled' =>
+                $this->features->biometricEnabled(),
+            'faceAttendanceConfigured' =>
+                $this->faceAttendance->configured(),
+            'faceAttendanceWebhookRequired' =>
+                $this->faceAttendance->requiresWebhook(),
         ]);
     }
 
