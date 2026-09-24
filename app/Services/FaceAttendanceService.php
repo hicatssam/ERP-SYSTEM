@@ -71,58 +71,74 @@ class FaceAttendanceService
 
         /*
          * Prevent the same physical face from being enrolled under two
-         * employees. Recognition is checked before creating the new subject.
-         * An empty collection simply returns no subject and enrollment
-         * continues normally.
+         * employees. Skip recognition for the very first profile because the
+         * CompreFace collection can still be empty at that point.
          */
-        $possibleMatch =
-            $this->compreface
-                ->recognize(
-                    (string) $images[0],
-                    false
-                );
+        $hasActiveProfiles =
+            EmployeeFaceProfile::query()
+                ->where(
+                    'provider',
+                    $provider
+                )
+                ->where(
+                    'status',
+                    'active'
+                )
+                ->whereNull(
+                    'revoked_at'
+                )
+                ->exists();
 
-        if (
-            ! empty(
-                $possibleMatch['subject']
-            )
-            && (float) $possibleMatch[
-                'similarity'
-            ] >= $this->similarityThreshold()
-        ) {
-            $matchedProfile =
-                EmployeeFaceProfile::query()
-                    ->where(
-                        'provider',
-                        $provider
-                    )
-                    ->where(
-                        'provider_face_id_hash',
-                        $this->hashProviderId(
-                            (string) $possibleMatch[
-                                'subject'
-                            ]
-                        )
-                    )
-                    ->where(
-                        'status',
-                        'active'
-                    )
-                    ->whereNull(
-                        'revoked_at'
-                    )
-                    ->first();
+        if ($hasActiveProfiles) {
+            $possibleMatch =
+                $this->compreface
+                    ->recognize(
+                        (string) $images[0],
+                        false
+                    );
 
             if (
-                $matchedProfile
-                && (int) $matchedProfile
-                    ->employee_id
-                    !== (int) $employee->id
+                ! empty(
+                    $possibleMatch['subject']
+                )
+                && (float) $possibleMatch[
+                    'similarity'
+                ] >= $this->similarityThreshold()
             ) {
-                throw ValidationException::withMessages([
-                    'face' =>
-                        'هذا الوجه مسجل بالفعل لموظف آخر.',
-                ]);
+                $matchedProfile =
+                    EmployeeFaceProfile::query()
+                        ->where(
+                            'provider',
+                            $provider
+                        )
+                        ->where(
+                            'provider_face_id_hash',
+                            $this->hashProviderId(
+                                (string) $possibleMatch[
+                                    'subject'
+                                ]
+                            )
+                        )
+                        ->where(
+                            'status',
+                            'active'
+                        )
+                        ->whereNull(
+                            'revoked_at'
+                        )
+                        ->first();
+
+                if (
+                    $matchedProfile
+                    && (int) $matchedProfile
+                        ->employee_id
+                        !== (int) $employee->id
+                ) {
+                    throw ValidationException::withMessages([
+                        'face' =>
+                            'هذا الوجه مسجل بالفعل لموظف آخر.',
+                    ]);
+                }
             }
         }
 
