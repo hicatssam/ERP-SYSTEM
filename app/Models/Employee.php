@@ -36,6 +36,11 @@ class Employee extends Model
         return $this->hasOne(User::class);
     }
 
+    public function faceProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(EmployeeFaceProfile::class);
+    }
+
     public function locations(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
         return $this->belongsToMany(Location::class, 'employee_locations')
