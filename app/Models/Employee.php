@@ -36,9 +36,26 @@ class Employee extends Model
         return $this->hasOne(User::class);
     }
 
+    public function faceProfiles(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(
+            EmployeeFaceProfile::class
+        );
+    }
+
     public function faceProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasOne(EmployeeFaceProfile::class);
+        return $this
+            ->hasOne(
+                EmployeeFaceProfile::class
+            )
+            ->where(
+                'provider',
+                (string) config(
+                    'attendance-face.provider',
+                    'compreface'
+                )
+            );
     }
 
     public function locations(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
