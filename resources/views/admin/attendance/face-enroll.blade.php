@@ -42,6 +42,16 @@
         'revoked' => 'بصمة الوجه ملغاة',
         default => 'لم يتم تسجيل الوجه بعد',
     };
+
+    $canEnroll = !$faceProfile
+        || $profileStatus === 'revoked';
+
+    $enrollLabel = match($profileStatus) {
+        'active' => 'الوجه مسجل بالفعل',
+        'pending_verification' => 'بانتظار تأكيد التسجيل',
+        'revoked' => 'تسجيل وجه جديد',
+        default => 'تسجيل الوجه الآن',
+    };
 @endphp
 
 <div class="face-page">
@@ -84,7 +94,8 @@
                     <h3>كيف يتم التسجيل؟</h3>
                     <p>
                         يفتح FACEIO الكاميرا، يتحقق من الوجه، ثم يعيد معرفًا فريدًا.
-                        النظام يخزن Hash لهذا المعرف فقط ولا يخزن صورة الوجه.
+                        النظام لا يخزن صورة الوجه. يتم حفظ Hash للبحث ومعرف FACEIO مشفرًا فقط
+                        حتى يمكن حذفه من المزود عند إلغاء البصمة.
                     </p>
                 </div>
 
@@ -110,8 +121,9 @@
                     type="button"
                     class="btn btn-gold"
                     id="faceEnrollButton"
+                    @disabled(!$canEnroll)
                 >
-                    {{ $faceProfile ? 'إعادة تسجيل الوجه' : 'تسجيل الوجه الآن' }}
+                    {{ $enrollLabel }}
                 </button>
 
                 @if($faceProfile && $faceProfile->status !== 'revoked')
@@ -136,6 +148,14 @@
                     وضع الأمان الكامل مفعل: تسجيل الوجه يحتاج Webhook مؤكد من FACEIO قبل التفعيل.
                 @else
                     وضع Webhook غير مطلوب في الإعدادات الحالية. هذا مناسب للاختبار فقط، وليس للإنتاج.
+                @endif
+
+                <br>
+
+                @if($providerPurgeAvailable)
+                    حذف FACEIO من الـBackend مهيأ؛ عند إلغاء البصمة يتم حذف المعرف والبيانات البيومترية من المزود أيضًا.
+                @else
+                    FACEIO_API_KEY غير مضاف. يمكن تعطيل البصمة محليًا، لكن الحذف الكامل من FACEIO يحتاج API Key أو حذف يدوي من FACEIO Console.
                 @endif
             </div>
         </div>
