@@ -157,37 +157,22 @@
                         </svg>
                     </div>
                     <div>
-                        <h3>بصمة الوجه — FACEIO</h3>
-                        <p>حضور وانصراف بالكاميرا بدون جهاز بصمة مستقل.</p>
+                        <h3>بصمة الوجه — CompreFace</h3>
+                        <p>تعرف على الوجه محليًا ومجانيًا بدون بوابة خارجية مدفوعة.</p>
                     </div>
                 </div>
 
                 <div class="att-setting-body">
                     <div class="att-toggle-row">
                         <div class="att-toggle-copy">
-                            <strong>حالة الربط</strong>
+                            <strong>حالة الإعداد</strong>
                             <small>
                                 @if($faceAttendance['configured'])
-                                    <span style="color:var(--theme-success);font-weight:850">● جاهز</span>
-                                    — Public ID موجود{{ $faceAttendance['webhook_required'] ? ' وWebhook الآمن مطلوب.' : '.' }}
+                                    <span style="color:var(--theme-success);font-weight:850">● مهيأ</span>
+                                    — Laravel مربوط بعنوان CompreFace ومفتاح الخدمة موجود.
                                 @else
                                     <span style="color:var(--theme-warning);font-weight:850">● غير مهيأ</span>
-                                    — أضف FACEIO_PUBLIC_ID وFACEIO_WEBHOOK_TOKEN داخل ملف .env.
-                                @endif
-                            </small>
-                        </div>
-                    </div>
-
-                    <div class="att-toggle-row">
-                        <div class="att-toggle-copy">
-                            <strong>حذف البيانات من FACEIO</strong>
-                            <small>
-                                @if($faceAttendance['api_key_configured'])
-                                    <span style="color:var(--theme-success);font-weight:850">● API Key جاهز</span>
-                                    — إلغاء البصمة من النظام يحذف Facial ID والبيانات المرتبطة من FACEIO أيضًا.
-                                @else
-                                    <span style="color:var(--theme-warning);font-weight:850">● API Key غير مضاف</span>
-                                    — أضف FACEIO_API_KEY لتفعيل الحذف الكامل وإعادة التسجيل بشكل نظيف.
+                                    — أضف COMPREFACE_BASE_URL وCOMPREFACE_API_KEY داخل ملف .env.
                                 @endif
                             </small>
                         </div>
@@ -195,19 +180,49 @@
 
                     <div class="att-toggle-row">
                         <div class="att-toggle-copy" style="width:100%">
-                            <strong>Webhook URL</strong>
+                            <strong>عنوان CompreFace المحلي</strong>
                             <small>
-                                أضف هذا الرابط داخل FACEIO Console → Application → Webhooks:
+                                الاتصال يتم من Laravel إلى CompreFace فقط؛ API Key لا يظهر في المتصفح.
                             </small>
+
                             <code style="display:block;margin-top:.45rem;padding:.55rem .65rem;border-radius:9px;background:var(--off-white);border:1px solid var(--border);overflow-wrap:anywhere;direction:ltr;text-align:left">
-                                {{ $faceAttendance['webhook_url'] }}
+                                {{ $faceAttendance['base_url'] ?: 'غير محدد' }}
                             </code>
                         </div>
                     </div>
 
+                    <div class="att-toggle-row">
+                        <div class="att-toggle-copy">
+                            <strong>حد مطابقة الوجه</strong>
+                            <small>
+                                {{ number_format((float) $faceAttendance['similarity_threshold'] * 100, 0) }}%
+                                — أي نتيجة أقل من هذا الحد لا تسجل حضورًا.
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="att-toggle-row">
+                        <div class="att-toggle-copy">
+                            <strong>اختبار الاتصال</strong>
+                            <small id="comprefaceConnectionText">
+                                اضغط لاختبار الاتصال الفعلي بخدمة CompreFace.
+                            </small>
+                        </div>
+
+                        <button
+                            class="btn btn-outline btn-sm"
+                            type="button"
+                            id="comprefaceConnectionButton"
+                            data-url="{{ $faceAttendance['connection_test_url'] }}"
+                        >
+                            اختبار الاتصال
+                        </button>
+                    </div>
+
                     <div class="att-warning" style="margin-top:.8rem">
-                        تشغيل الكاميرا على أجهزة الشبكة يحتاج HTTPS في المتصفح.
-                        لا تضع Webhook Token أو أي Secret داخل JavaScript؛ يبقى داخل .env فقط.
+                        التسجيل والحضور يعتمدان على لقطة أمامية + حركة رأس يتم التحقق منها
+                        عبر <strong>pose</strong> داخل CompreFace. لا يتم إرسال الوجه إلى خدمة سحابية خارجية.
+                        تشغيل الكاميرا من هاتف داخل الشبكة يحتاج HTTPS، أما localhost على نفس الجهاز فيعمل للتجربة.
                     </div>
                 </div>
             </div>
@@ -373,6 +388,71 @@ document.addEventListener('DOMContentLoaded', function () {
     biometric?.addEventListener('change', syncDependencies);
 
     syncDependencies();
+
+    const connectionButton =
+        document.getElementById(
+            'comprefaceConnectionButton'
+        );
+
+    const connectionText =
+        document.getElementById(
+            'comprefaceConnectionText'
+        );
+
+    connectionButton?.addEventListener(
+        'click',
+        async function () {
+            const url =
+                connectionButton.dataset.url;
+
+            connectionButton.disabled = true;
+            connectionButton.textContent =
+                'جاري الاختبار...';
+
+            if (connectionText) {
+                connectionText.textContent =
+                    'يتم الاتصال بخدمة CompreFace المحلية...';
+            }
+
+            try {
+                const response = await fetch(
+                    url,
+                    {
+                        headers: {
+                            'Accept':
+                                'application/json',
+                            'X-Requested-With':
+                                'XMLHttpRequest'
+                        }
+                    }
+                );
+
+                const data =
+                    await response.json();
+
+                if (
+                    response.ok
+                    && data.ok
+                ) {
+                    connectionText.innerHTML =
+                        '<span style="color:var(--theme-success);font-weight:850">● الاتصال ناجح</span>'
+                        + ' — CompreFace جاهز لاستقبال بصمات الوجه.';
+                } else {
+                    connectionText.innerHTML =
+                        '<span style="color:var(--theme-danger);font-weight:850">● تعذر الاتصال</span>'
+                        + ' — تحقق من تشغيل Docker والعنوان وAPI Key.';
+                }
+            } catch (error) {
+                connectionText.innerHTML =
+                    '<span style="color:var(--theme-danger);font-weight:850">● تعذر الاتصال</span>'
+                    + ' — الخدمة غير متاحة حاليًا.';
+            } finally {
+                connectionButton.disabled = false;
+                connectionButton.textContent =
+                    'اختبار الاتصال';
+            }
+        }
+    );
 });
 </script>
 @endpush
