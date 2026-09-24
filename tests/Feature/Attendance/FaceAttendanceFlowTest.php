@@ -5,7 +5,6 @@ namespace Tests\Feature\Attendance;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\EmployeeFaceProfile;
-use App\Models\FaceVerificationEvent;
 use App\Models\Location;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -27,13 +26,26 @@ class FaceAttendanceFlowTest extends TestCase
         parent::setUp();
 
         config([
-            'attendance-face.provider' => 'faceio',
-            'attendance-face.faceio.public_id' => 'fio-test-app',
-            'attendance-face.faceio.webhook_token' => 'faceio-webhook-secret',
-            'attendance-face.require_webhook' => true,
-            'attendance-face.auth_event_ttl_seconds' => 120,
-            'attendance-face.enroll_event_ttl_seconds' => 600,
-            'attendance-face.minimum_checkout_gap_seconds' => 0,
+            'attendance-face.provider' =>
+                'compreface',
+            'attendance-face.compreface.base_url' =>
+                'http://compreface.test',
+            'attendance-face.compreface.api_key' =>
+                'compreface-test-key',
+            'attendance-face.compreface.det_prob_threshold' =>
+                0.80,
+            'attendance-face.compreface.similarity_threshold' =>
+                0.78,
+            'attendance-face.compreface.front_max_abs_yaw' =>
+                15,
+            'attendance-face.compreface.turned_min_abs_yaw' =>
+                18,
+            'attendance-face.compreface.min_yaw_delta' =>
+                14,
+            'attendance-face.challenge_ttl_seconds' =>
+                90,
+            'attendance-face.minimum_checkout_gap_seconds' =>
+                0,
         ]);
 
         SystemSetting::set(
@@ -51,8 +63,25 @@ class FaceAttendanceFlowTest extends TestCase
     }
 
     #[Test]
-    public function face_enrollment_stays_pending_until_signed_faceio_webhook_arrives(): void
+    public function employee_face_enrollment_is_saved_locally_after_compreface_accepts_examples(): void
     {
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/faces*' =>
+                Http::sequence()
+                    ->push([
+                        'image_id' => 'image-1',
+                        'subject' => 'subject',
+                    ], 200)
+                    ->push([
+                        'image_id' => 'image-2',
+                        'subject' => 'subject',
+                    ], 200)
+                    ->push([
+                        'image_id' => 'image-3',
+                        'subject' => 'subject',
+                    ], 200),
+        ]);
+
         $branch = $this->makeLocation('A');
         $manager = $this->makeManager($branch);
         $employee = $this->makeEmployee(
@@ -67,18 +96,22 @@ class FaceAttendanceFlowTest extends TestCase
                     $employee
                 ),
                 [
-                    'facial_id' => 'face-enroll-001',
+                    'images' => [
+                        $this->image('front'),
+                        $this->image('right'),
+                        $this->image('left'),
+                    ],
                     'consent' => true,
                 ]
             )
             ->assertOk()
             ->assertJsonPath(
                 'status',
-                'pending_verification'
+                'active'
             )
             ->assertJsonPath(
                 'active',
-                false
+                true
             );
 
         $profile =
@@ -87,11 +120,27 @@ class FaceAttendanceFlowTest extends TestCase
                     'employee_id',
                     $employee->id
                 )
+                ->where(
+                    'provider',
+                    'compreface'
+                )
                 ->sole();
 
+        $this->assertTrue(
+            $profile->isActive()
+        );
+
+        $this->assertStringStartsWith(
+            'emp-' . $employee->id . '-',
+            (string) $profile->provider_face_id
+        );
+
         $this->assertSame(
-            'pending_verification',
-            $profile->status
+            3,
+            (int) data_get(
+                $profile->metadata,
+                'examples_count'
+            )
         );
 
         $this->assertTrue(
@@ -101,49 +150,14 @@ class FaceAttendanceFlowTest extends TestCase
             )
         );
 
-        $this->assertSame(
-            $manager->id,
-            (int) data_get(
-                $profile->metadata,
-                'consent_confirmed_by'
-            )
-        );
-
-        $this->assertNotEmpty(
-            data_get(
-                $profile->metadata,
-                'consent_confirmed_at'
-            )
-        );
-
-        $this->faceioWebhook(
-            'ENROLL',
-            'face-enroll-001'
-        )->assertOk();
-
-        $profile->refresh();
-
-        $this->assertSame(
-            'active',
-            $profile->status
-        );
-
-        $this->assertNotNull(
-            $profile->activated_at
-        );
-
-        $this->assertDatabaseHas(
-            'face_verification_events',
-            [
-                'event_name' => 'ENROLL',
-                'app_id' => 'fio-test-app',
-            ]
-        );
+        Http::assertSentCount(3);
     }
 
     #[Test]
-    public function face_enrollment_requires_explicit_employee_consent(): void
+    public function enrollment_requires_explicit_employee_consent(): void
     {
+        Http::fake();
+
         $branch = $this->makeLocation('A');
         $manager = $this->makeManager($branch);
         $employee = $this->makeEmployee(
@@ -158,8 +172,10 @@ class FaceAttendanceFlowTest extends TestCase
                     $employee
                 ),
                 [
-                    'facial_id' =>
-                        'face-no-consent',
+                    'images' => [
+                        $this->image('one'),
+                        $this->image('two'),
+                    ],
                 ]
             )
             ->assertUnprocessable()
@@ -171,75 +187,52 @@ class FaceAttendanceFlowTest extends TestCase
             'employee_face_profiles',
             0
         );
+
+        Http::assertNothingSent();
     }
 
     #[Test]
-    public function invalid_faceio_webhook_token_is_rejected(): void
+    public function verified_compreface_frames_create_check_in_then_check_out(): void
     {
-        $response = $this
-            ->withHeader(
-                'WWW-Authenticate',
-                'Bearer wrong-token'
-            )
-            ->postJson(
-                route(
-                    'attendance.integrations.faceio.webhook'
-                ),
-                [
-                    'eventName' => 'AUTH',
-                    'facialId' => 'face-invalid-token',
-                    'appId' => 'fio-test-app',
-                    'clientIp' => '203.0.113.20',
-                ]
-            );
+        $subject = 'emp-clock-test';
 
-        $response->assertUnauthorized();
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' =>
+                Http::sequence()
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.95,
+                            2
+                        ),
+                        200
+                    )
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.93,
+                            27
+                        ),
+                        200
+                    )
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.96,
+                            1
+                        ),
+                        200
+                    )
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.94,
+                            -25
+                        ),
+                        200
+                    ),
+        ]);
 
-        $this->assertDatabaseCount(
-            'face_verification_events',
-            0
-        );
-    }
-
-    #[Test]
-    public function browser_cannot_spoof_facial_id_without_recent_auth_webhook(): void
-    {
-        $branch = $this->makeLocation('A');
-        $manager = $this->makeManager($branch);
-        $employee = $this->makeEmployee(
-            $branch,
-            'Protected Employee'
-        );
-
-        $this->makeActiveProfile(
-            $employee,
-            'face-protected-001'
-        );
-
-        $this->actingAs($manager)
-            ->postJson(
-                route('attendance.face.punch'),
-                [
-                    'facial_id' =>
-                        'face-protected-001',
-                    'location_id' =>
-                        $branch->id,
-                ]
-            )
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors([
-                'face_confirmation',
-            ]);
-
-        $this->assertDatabaseCount(
-            'attendance_records',
-            0
-        );
-    }
-
-    #[Test]
-    public function verified_face_creates_check_in_then_check_out_and_consumes_each_auth_event_once(): void
-    {
         $branch = $this->makeLocation('A');
         $manager = $this->makeManager($branch);
         $employee = $this->makeEmployee(
@@ -249,21 +242,29 @@ class FaceAttendanceFlowTest extends TestCase
 
         $this->makeActiveProfile(
             $employee,
-            'face-clock-001'
+            $subject
         );
 
-        $this->faceioWebhook(
-            'AUTH',
-            'face-clock-001',
-            '203.0.113.21'
-        )->assertOk();
+        $firstChallenge =
+            $this->actingAs($manager)
+                ->postJson(
+                    route(
+                        'attendance.face.challenge'
+                    )
+                )
+                ->assertOk()
+                ->json('token');
 
         $this->actingAs($manager)
             ->postJson(
                 route('attendance.face.punch'),
                 [
-                    'facial_id' =>
-                        'face-clock-001',
+                    'front_image' =>
+                        $this->image('front-in'),
+                    'turned_image' =>
+                        $this->image('turn-in'),
+                    'challenge_token' =>
+                        $firstChallenge,
                     'location_id' =>
                         $branch->id,
                 ]
@@ -290,68 +291,38 @@ class FaceAttendanceFlowTest extends TestCase
         );
 
         $this->assertSame(
-            'face',
-            $record->source
-        );
-
-        $this->assertSame(
-            'face',
-            $record->verification_method
-        );
-
-        $this->assertSame(
-            'faceio',
+            'compreface',
             $record->verification_provider
         );
 
         $this->assertSame(
-            $branch->id,
-            $record->verification_location_id
-        );
-
-        $this->assertSame(
-            1,
-            FaceVerificationEvent::query()
-                ->where(
-                    'event_name',
-                    'AUTH'
-                )
-                ->whereNotNull(
-                    'consumed_at'
-                )
-                ->count()
-        );
-
-        /*
-         * The consumed AUTH event cannot be replayed.
-         */
-        $this->actingAs($manager)
-            ->postJson(
-                route('attendance.face.punch'),
-                [
-                    'facial_id' =>
-                        'face-clock-001',
-                    'location_id' =>
-                        $branch->id,
-                ]
+            'head_pose_delta',
+            data_get(
+                $record->verification_metadata,
+                'basic_liveness'
             )
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors([
-                'face_confirmation',
-            ]);
+        );
 
-        $this->faceioWebhook(
-            'AUTH',
-            'face-clock-001',
-            '203.0.113.22'
-        )->assertOk();
+        $secondChallenge =
+            $this->actingAs($manager)
+                ->postJson(
+                    route(
+                        'attendance.face.challenge'
+                    )
+                )
+                ->assertOk()
+                ->json('token');
 
         $this->actingAs($manager)
             ->postJson(
                 route('attendance.face.punch'),
                 [
-                    'facial_id' =>
-                        'face-clock-001',
+                    'front_image' =>
+                        $this->image('front-out'),
+                    'turned_image' =>
+                        $this->image('turn-out'),
+                    'challenge_token' =>
+                        $secondChallenge,
                     'location_id' =>
                         $branch->id,
                 ]
@@ -386,8 +357,154 @@ class FaceAttendanceFlowTest extends TestCase
     }
 
     #[Test]
+    public function insufficient_head_movement_is_rejected(): void
+    {
+        $subject = 'emp-liveness-test';
+
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' =>
+                Http::sequence()
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.94,
+                            2
+                        ),
+                        200
+                    )
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.94,
+                            7
+                        ),
+                        200
+                    ),
+        ]);
+
+        $branch = $this->makeLocation('A');
+        $manager = $this->makeManager($branch);
+        $employee = $this->makeEmployee(
+            $branch,
+            'Liveness Employee'
+        );
+
+        $this->makeActiveProfile(
+            $employee,
+            $subject
+        );
+
+        $token =
+            $this->actingAs($manager)
+                ->postJson(
+                    route(
+                        'attendance.face.challenge'
+                    )
+                )
+                ->json('token');
+
+        $this->actingAs($manager)
+            ->postJson(
+                route('attendance.face.punch'),
+                [
+                    'front_image' =>
+                        $this->image('front'),
+                    'turned_image' =>
+                        $this->image('not-turned'),
+                    'challenge_token' =>
+                        $token,
+                    'location_id' =>
+                        $branch->id,
+                ]
+            )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'liveness',
+            ]);
+
+        $this->assertDatabaseCount(
+            'attendance_records',
+            0
+        );
+    }
+
+    #[Test]
+    public function one_time_challenge_cannot_be_reused(): void
+    {
+        Http::fake();
+
+        $branch = $this->makeLocation('A');
+        $manager = $this->makeManager($branch);
+
+        $token =
+            $this->actingAs($manager)
+                ->postJson(
+                    route(
+                        'attendance.face.challenge'
+                    )
+                )
+                ->assertOk()
+                ->json('token');
+
+        $payload = [
+            'front_image' =>
+                $this->image('front'),
+            'turned_image' =>
+                $this->image('turn'),
+            'challenge_token' =>
+                $token,
+            'location_id' =>
+                $branch->id,
+        ];
+
+        /*
+         * First request consumes the challenge before recognition.
+         * It fails later because Http::fake() has no valid recognition body.
+         */
+        $this->actingAs($manager)
+            ->postJson(
+                route('attendance.face.punch'),
+                $payload
+            )
+            ->assertUnprocessable();
+
+        $this->actingAs($manager)
+            ->postJson(
+                route('attendance.face.punch'),
+                $payload
+            )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'challenge_token',
+            ]);
+    }
+
+    #[Test]
     public function branch_kiosk_cannot_punch_employee_from_another_branch(): void
     {
+        $subject = 'emp-other-branch';
+
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' =>
+                Http::sequence()
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.95,
+                            1
+                        ),
+                        200
+                    )
+                    ->push(
+                        $this->recognition(
+                            $subject,
+                            0.94,
+                            25
+                        ),
+                        200
+                    ),
+        ]);
+
         $branchA = $this->makeLocation('A');
         $branchB = $this->makeLocation('B');
 
@@ -402,26 +519,28 @@ class FaceAttendanceFlowTest extends TestCase
 
         $this->makeActiveProfile(
             $employeeB,
-            'face-branch-b'
+            $subject
         );
 
-        $this->faceioWebhook(
-            'AUTH',
-            'face-branch-b'
-        )->assertOk();
+        $token =
+            $this->actingAs($managerA)
+                ->postJson(
+                    route(
+                        'attendance.face.challenge'
+                    )
+                )
+                ->json('token');
 
         $this->actingAs($managerA)
             ->postJson(
                 route('attendance.face.punch'),
                 [
-                    'facial_id' =>
-                        'face-branch-b',
-
-                    /*
-                     * A branch user cannot spoof this:
-                     * controller resolves the user's primary
-                     * location instead.
-                     */
+                    'front_image' =>
+                        $this->image('front'),
+                    'turned_image' =>
+                        $this->image('turn'),
+                    'challenge_token' =>
+                        $token,
                     'location_id' =>
                         $branchB->id,
                 ]
@@ -438,58 +557,72 @@ class FaceAttendanceFlowTest extends TestCase
     }
 
     #[Test]
-    public function same_face_cannot_be_linked_to_two_employees(): void
+    public function revoking_profile_deletes_subject_from_compreface(): void
     {
-        $branch = $this->makeLocation('A');
-        $manager = $this->makeManager($branch);
+        $subject = 'emp-delete-test';
 
-        $employeeA =
-            $this->makeEmployee(
-                $branch,
-                'Employee A'
-            );
-
-        $employeeB =
-            $this->makeEmployee(
-                $branch,
-                'Employee B'
-            );
-
-        config([
-            'attendance-face.require_webhook' =>
-                false,
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/subjects/*' =>
+                Http::response([
+                    'subject' => $subject,
+                ], 200),
         ]);
 
-        $service =
-            app(
-                FaceAttendanceService::class
-            );
-
-        $service->recordEnrollment(
-            $employeeA,
-            'same-face-001',
-            $manager,
-            true
+        $branch = $this->makeLocation('A');
+        $manager = $this->makeManager($branch);
+        $employee = $this->makeEmployee(
+            $branch,
+            'Revoked Employee'
         );
 
-        $this->actingAs($manager)
-            ->postJson(
-                route(
-                    'attendance.face.enroll',
-                    $employeeB
-                ),
-                [
-                    'facial_id' =>
-                        'same-face-001',
-                    'consent' => true,
-                ]
-            )
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors([
-                'facial_id',
-            ]);
-    }
+        $profile =
+            $this->makeActiveProfile(
+                $employee,
+                $subject
+            );
 
+        $this->actingAs($manager)
+            ->post(
+                route(
+                    'attendance.face.revoke',
+                    $employee
+                )
+            )
+            ->assertRedirect();
+
+        $profile->refresh();
+
+        $this->assertSame(
+            'revoked',
+            $profile->status
+        );
+
+        $this->assertNull(
+            $profile->provider_face_id
+        );
+
+        $this->assertSame(
+            'deleted',
+            data_get(
+                $profile->metadata,
+                'provider_purge'
+            )
+        );
+
+        Http::assertSent(
+            fn ($request): bool =>
+                $request->method() === 'DELETE'
+                && str_contains(
+                    $request->url(),
+                    '/api/v1/recognition/subjects/'
+                    . $subject
+                )
+                && $request->hasHeader(
+                    'x-api-key',
+                    'compreface-test-key'
+                )
+        );
+    }
 
     #[Test]
     public function manual_attendance_edit_clears_face_verification_stamp(): void
@@ -508,15 +641,12 @@ class FaceAttendanceFlowTest extends TestCase
             'status' => 'present',
             'source' => 'face',
             'verification_method' => 'face',
-            'verification_provider' => 'faceio',
-            'verification_reference' => 'faceio:event:1',
+            'verification_provider' => 'compreface',
+            'verification_reference' => 'compreface:test',
             'verification_location_id' => $branch->id,
             'verification_metadata' => [
-                'face_scans' => [
-                    'check_in' => [
-                        'event_id' => 1,
-                    ],
-                ],
+                'basic_liveness' =>
+                    'head_pose_delta',
             ],
             'created_by' => $manager->id,
         ]);
@@ -573,147 +703,71 @@ class FaceAttendanceFlowTest extends TestCase
     }
 
     #[Test]
-    public function revoking_face_profile_purges_faceio_when_api_key_is_configured(): void
+    public function settings_user_can_test_compreface_connection(): void
     {
         Http::fake([
-            'https://api.faceio.net/deletefacialid*' =>
+            'http://compreface.test/api/v1/recognition/subjects/*' =>
                 Http::response([
-                    'status' => 200,
-                    'payload' => true,
+                    'subjects' => [],
                 ], 200),
         ]);
 
-        config([
-            'attendance-face.faceio.api_key' =>
-                'faceio-api-key-test',
-        ]);
-
         $branch = $this->makeLocation('A');
-        $manager = $this->makeManager($branch);
-        $employee = $this->makeEmployee(
+        $manager = $this->makeManager(
             $branch,
-            'Revoked Employee'
+            [
+                'settings.manage',
+            ]
         );
-
-        $profile = EmployeeFaceProfile::query()
-            ->create([
-                'employee_id' => $employee->id,
-                'provider' => 'faceio',
-                'provider_face_id_hash' =>
-                    app(
-                        FaceAttendanceService::class
-                    )->hashFaceId(
-                        'face-delete-001'
-                    ),
-                'provider_face_id' =>
-                    'face-delete-001',
-                'status' => 'active',
-                'enrolled_at' => now(),
-                'activated_at' => now(),
-            ]);
 
         $this->actingAs($manager)
-            ->post(
+            ->getJson(
                 route(
-                    'attendance.face.revoke',
-                    $employee
+                    'attendance.face.connection-test'
                 )
             )
-            ->assertRedirect();
-
-        $profile->refresh();
-
-        $this->assertSame(
-            'revoked',
-            $profile->status
-        );
-
-        $this->assertNull(
-            $profile->provider_face_id
-        );
-
-        $this->assertSame(
-            'deleted',
-            data_get(
-                $profile->metadata,
-                'provider_purge'
-            )
-        );
-
-        Http::assertSent(
-            function ($request): bool {
-                return str_starts_with(
-                    $request->url(),
-                    'https://api.faceio.net/deletefacialid'
-                )
-                    && $request->hasHeader(
-                        'WWW-Authenticate',
-                        'Bearer faceio-api-key-test'
-                    )
-                    && str_contains(
-                        $request->url(),
-                        'fid=face-delete-001'
-                    );
-            }
-        );
+            ->assertOk()
+            ->assertJsonPath('ok', true)
+            ->assertJsonPath(
+                'provider',
+                'compreface'
+            );
     }
 
-    #[Test]
-    public function wrong_faceio_application_id_is_rejected(): void
-    {
-        $this
-            ->withHeader(
-                'WWW-Authenticate',
-                'Bearer faceio-webhook-secret'
-            )
-            ->postJson(
-                route(
-                    'attendance.integrations.faceio.webhook'
-                ),
+    private function recognition(
+        string $subject,
+        float $similarity,
+        float $yaw
+    ): array {
+        return [
+            'result' => [
                 [
-                    'eventName' => 'AUTH',
-                    'facialId' =>
-                        'face-wrong-app',
-                    'appId' =>
-                        'another-faceio-app',
-                ]
-            )
-            ->assertUnauthorized();
-
-        $this->assertDatabaseCount(
-            'face_verification_events',
-            0
-        );
-    }
-
-    private function faceioWebhook(
-        string $eventName,
-        string $facialId,
-        string $clientIp = '203.0.113.10'
-    ) {
-        return $this
-            ->withHeader(
-                'WWW-Authenticate',
-                'Bearer faceio-webhook-secret'
-            )
-            ->postJson(
-                route(
-                    'attendance.integrations.faceio.webhook'
-                ),
-                [
-                    'eventName' =>
-                        $eventName,
-                    'facialId' =>
-                        $facialId,
-                    'appId' =>
-                        'fio-test-app',
-                    'clientIp' =>
-                        $clientIp,
-                    'details' => [
-                        'timestamp' =>
-                            now()->toIso8601String(),
+                    'box' => [
+                        'probability' => 0.99,
                     ],
-                ]
+                    'subjects' => [
+                        [
+                            'subject' => $subject,
+                            'similarity' =>
+                                $similarity,
+                        ],
+                    ],
+                    'pose' => [
+                        'pitch' => 1.0,
+                        'roll' => 0.5,
+                        'yaw' => $yaw,
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private function image(
+        string $label
+    ): string {
+        return 'data:image/jpeg;base64,'
+            . base64_encode(
+                'fake-image-' . $label
             );
     }
 
@@ -764,7 +818,8 @@ class FaceAttendanceFlowTest extends TestCase
     }
 
     private function makeManager(
-        Location $location
+        Location $location,
+        array $extraPermissions = []
     ): User {
         $employee =
             $this->makeEmployee(
@@ -783,10 +838,11 @@ class FaceAttendanceFlowTest extends TestCase
             ]);
 
         foreach (
-            [
+            array_unique([
                 'attendance.view',
                 'attendance.manage',
-            ]
+                ...$extraPermissions,
+            ])
             as $name
         ) {
             $user->givePermissionTo(
@@ -805,19 +861,22 @@ class FaceAttendanceFlowTest extends TestCase
 
     private function makeActiveProfile(
         Employee $employee,
-        string $facialId
+        string $subject
     ): EmployeeFaceProfile {
         return EmployeeFaceProfile::query()
             ->create([
                 'employee_id' =>
                     $employee->id,
-                'provider' => 'faceio',
+                'provider' =>
+                    'compreface',
                 'provider_face_id_hash' =>
                     app(
                         FaceAttendanceService::class
-                    )->hashFaceId(
-                        $facialId
+                    )->hashProviderId(
+                        $subject
                     ),
+                'provider_face_id' =>
+                    $subject,
                 'status' => 'active',
                 'enrolled_at' => now(),
                 'activated_at' => now(),
