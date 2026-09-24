@@ -6,44 +6,71 @@ return [
     | Face attendance provider
     |--------------------------------------------------------------------------
     |
-    | FACEIO is the first provider. Keep this configuration provider-neutral
-    | so another backend can be introduced later without changing attendance
-    | records or employee mappings.
+    | CompreFace is self-hosted and free/open-source. Laravel talks to it
+    | server-to-server; the browser never receives the recognition API key.
     |
     */
-    'provider' => env('ATTENDANCE_FACE_PROVIDER', 'faceio'),
+    'provider' => env(
+        'ATTENDANCE_FACE_PROVIDER',
+        'compreface'
+    ),
 
-    'faceio' => [
-        'public_id' => env('FACEIO_PUBLIC_ID'),
-        'webhook_token' => env('FACEIO_WEBHOOK_TOKEN'),
-        'api_key' => env('FACEIO_API_KEY'),
-        'script_url' => 'https://cdn.faceio.net/fio.js',
-        'delete_url' => 'https://api.faceio.net/deletefacialid',
+    'compreface' => [
+        'base_url' => rtrim(
+            (string) env(
+                'COMPREFACE_BASE_URL',
+                'http://127.0.0.1:8001'
+            ),
+            '/'
+        ),
+
+        'api_key' =>
+            env('COMPREFACE_API_KEY'),
+
+        'timeout_seconds' => (int) env(
+            'COMPREFACE_TIMEOUT_SECONDS',
+            12
+        ),
+
+        'det_prob_threshold' => (float) env(
+            'COMPREFACE_DET_PROB_THRESHOLD',
+            0.80
+        ),
+
+        'similarity_threshold' => (float) env(
+            'COMPREFACE_SIMILARITY_THRESHOLD',
+            0.78
+        ),
+
+        /*
+         * Basic active liveness:
+         * 1) capture a mostly-forward frame
+         * 2) ask employee to turn the head clearly to either side
+         * 3) CompreFace pose plugin must report enough yaw movement
+         */
+        'front_max_abs_yaw' => (float) env(
+            'COMPREFACE_FRONT_MAX_ABS_YAW',
+            15
+        ),
+
+        'turned_min_abs_yaw' => (float) env(
+            'COMPREFACE_TURNED_MIN_ABS_YAW',
+            18
+        ),
+
+        'min_yaw_delta' => (float) env(
+            'COMPREFACE_MIN_YAW_DELTA',
+            14
+        ),
     ],
 
-    /*
-     * Production-safe default: a browser result alone is never sufficient
-     * to create an attendance punch. A recent signed FACEIO AUTH webhook
-     * must exist and can only be consumed once.
-     */
-    'require_webhook' => (bool) env(
-        'FACEIO_REQUIRE_WEBHOOK',
-        true
-    ),
-
-    'auth_event_ttl_seconds' => (int) env(
-        'FACEIO_AUTH_EVENT_TTL_SECONDS',
-        120
-    ),
-
-    'enroll_event_ttl_seconds' => (int) env(
-        'FACEIO_ENROLL_EVENT_TTL_SECONDS',
-        600
+    'challenge_ttl_seconds' => (int) env(
+        'FACE_ATTENDANCE_CHALLENGE_TTL_SECONDS',
+        90
     ),
 
     /*
-     * Prevent an accidental second scan immediately after check-in from
-     * becoming a check-out.
+     * Prevent an accidental immediate second scan from becoming check-out.
      */
     'minimum_checkout_gap_seconds' => (int) env(
         'FACE_ATTENDANCE_MIN_CHECKOUT_GAP_SECONDS',
