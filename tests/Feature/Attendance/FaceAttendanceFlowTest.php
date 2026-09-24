@@ -67,6 +67,7 @@ class FaceAttendanceFlowTest extends TestCase
                 ),
                 [
                     'facial_id' => 'face-enroll-001',
+                    'consent' => true,
                 ]
             )
             ->assertOk()
@@ -114,6 +115,38 @@ class FaceAttendanceFlowTest extends TestCase
                 'event_name' => 'ENROLL',
                 'app_id' => 'fio-test-app',
             ]
+        );
+    }
+
+    #[Test]
+    public function face_enrollment_requires_explicit_employee_consent(): void
+    {
+        $branch = $this->makeLocation('A');
+        $manager = $this->makeManager($branch);
+        $employee = $this->makeEmployee(
+            $branch,
+            'Consent Employee'
+        );
+
+        $this->actingAs($manager)
+            ->postJson(
+                route(
+                    'attendance.face.enroll',
+                    $employee
+                ),
+                [
+                    'facial_id' =>
+                        'face-no-consent',
+                ]
+            )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'consent',
+            ]);
+
+        $this->assertDatabaseCount(
+            'employee_face_profiles',
+            0
         );
     }
 
@@ -412,7 +445,8 @@ class FaceAttendanceFlowTest extends TestCase
         $service->recordEnrollment(
             $employeeA,
             'same-face-001',
-            $manager
+            $manager,
+            true
         );
 
         $this->actingAs($manager)
@@ -424,6 +458,7 @@ class FaceAttendanceFlowTest extends TestCase
                 [
                     'facial_id' =>
                         'same-face-001',
+                    'consent' => true,
                 ]
             )
             ->assertUnprocessable()
