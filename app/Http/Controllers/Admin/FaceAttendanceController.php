@@ -83,6 +83,8 @@ class FaceAttendanceController extends Controller
                     ),
                 'webhookRequired' =>
                     $this->face->requiresWebhook(),
+                'providerPurgeAvailable' =>
+                    $this->face->canPurgeProviderProfile(),
             ]
         );
     }
