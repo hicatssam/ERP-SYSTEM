@@ -29,6 +29,14 @@ return new class extends Migration
                     64
                 );
 
+                /*
+                 * Stored encrypted via Eloquent's encrypted cast. Needed only
+                 * for provider-side deletion/re-enrollment; never exposed.
+                 */
+                $table->text(
+                    'provider_face_id'
+                )->nullable();
+
                 $table->string('status', 30)
                     ->default('pending_verification');
 
