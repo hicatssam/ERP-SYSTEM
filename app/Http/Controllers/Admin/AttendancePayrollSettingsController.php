@@ -28,15 +28,16 @@ class AttendancePayrollSettingsController extends Controller
                 'faceAttendance' => [
                     'configured' =>
                         $this->faceAttendance->configured(),
-                    'public_id' =>
-                        $this->faceAttendance->publicId(),
-                    'webhook_required' =>
-                        $this->faceAttendance->requiresWebhook(),
-                    'api_key_configured' =>
-                        $this->faceAttendance->canPurgeProviderProfile(),
-                    'webhook_url' =>
+                    'provider' =>
+                        $this->faceAttendance->provider(),
+                    'base_url' =>
+                        $this->faceAttendance->baseUrl(),
+                    'similarity_threshold' =>
+                        $this->faceAttendance
+                            ->similarityThreshold(),
+                    'connection_test_url' =>
                         route(
-                            'attendance.integrations.faceio.webhook'
+                            'attendance.face.connection-test'
                         ),
                 ],
             ]
