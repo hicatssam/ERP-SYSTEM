@@ -101,9 +101,17 @@ class FaceAttendanceService
     public function recordEnrollment(
         Employee $employee,
         string $facialId,
-        User $actor
+        User $actor,
+        bool $consentConfirmed = false
     ): EmployeeFaceProfile {
         $this->assertConfigured();
+
+        if (! $consentConfirmed) {
+            throw ValidationException::withMessages([
+                'consent' =>
+                    'يجب تأكيد موافقة الموظف قبل تسجيل بيانات الوجه.',
+            ]);
+        }
 
         $facialId = trim($facialId);
 
@@ -191,6 +199,12 @@ class FaceAttendanceService
                     'metadata' => [
                         'enrollment_source' =>
                             'faceio_widget',
+                        'consent_confirmed' =>
+                            true,
+                        'consent_confirmed_by' =>
+                            $actor->id,
+                        'consent_confirmed_at' =>
+                            now()->toIso8601String(),
                     ],
                 ]);
 
@@ -481,7 +495,8 @@ class FaceAttendanceService
     public function punch(
         User $actor,
         Location $location,
-        string $facialId
+        string $facialId,
+        array $context = []
     ): array {
         $this->assertConfigured();
 
@@ -493,7 +508,8 @@ class FaceAttendanceService
             function () use (
                 $actor,
                 $location,
-                $hash
+                $hash,
+                $context
             ): array {
                 $profile =
                     EmployeeFaceProfile::query()
@@ -661,6 +677,17 @@ class FaceAttendanceService
                         $now->toIso8601String(),
                     'location_id' =>
                         $location->id,
+                    'kiosk_ip' =>
+                        $context['ip']
+                            ?? null,
+                    'user_agent' =>
+                        isset($context['user_agent'])
+                            ? mb_substr(
+                                (string) $context['user_agent'],
+                                0,
+                                300
+                            )
+                            : null,
                 ];
 
                 $metadata['face_scans'] =
