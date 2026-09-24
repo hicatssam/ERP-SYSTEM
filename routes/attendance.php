@@ -30,6 +30,14 @@ Route::middleware([
     )->middleware('can:settings.manage')
         ->name('settings.attendance-payroll.update');
 
+    Route::get(
+        '/attendance/face/connection-test',
+        [FaceAttendanceController::class, 'connectionTest']
+    )->middleware([
+        'can:settings.manage',
+        'throttle:20,1',
+    ])->name('attendance.face.connection-test');
+
     Route::prefix('attendance')
         ->name('attendance.')
         ->middleware(EnsureAttendanceEnabled::class)
@@ -96,14 +104,6 @@ Route::middleware([
                     'throttle:30,1',
                 ])
                 ->name('face.punch');
-
-            Route::get('/face/connection-test', [FaceAttendanceController::class, 'connectionTest'])
-                ->middleware([
-                    EnsureBiometricAttendanceEnabled::class,
-                    'can:settings.manage',
-                    'throttle:20,1',
-                ])
-                ->name('face.connection-test');
 
             Route::get('/shifts', [WorkShiftController::class, 'index'])
                 ->middleware('can:attendance.view')
