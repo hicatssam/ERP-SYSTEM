@@ -12,7 +12,9 @@ use App\Services\FaceAttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class FaceAttendanceController extends Controller
@@ -43,14 +45,9 @@ class FaceAttendanceController extends Controller
             [
                 'location' => $location,
                 'locations' => $locations,
-                'faceioPublicId' =>
-                    $this->face->publicId(),
-                'faceioScriptUrl' =>
-                    config(
-                        'attendance-face.faceio.script_url'
-                    ),
-                'webhookRequired' =>
-                    $this->face->requiresWebhook(),
+                'similarityThreshold' =>
+                    $this->face
+                        ->similarityThreshold(),
             ]
         );
     }
@@ -76,16 +73,6 @@ class FaceAttendanceController extends Controller
                 'employee' => $employee,
                 'faceProfile' =>
                     $employee->faceProfile,
-                'faceioPublicId' =>
-                    $this->face->publicId(),
-                'faceioScriptUrl' =>
-                    config(
-                        'attendance-face.faceio.script_url'
-                    ),
-                'webhookRequired' =>
-                    $this->face->requiresWebhook(),
-                'providerPurgeAvailable' =>
-                    $this->face->canPurgeProviderProfile(),
             ]
         );
     }
@@ -102,10 +89,15 @@ class FaceAttendanceController extends Controller
         );
 
         $data = $request->validate([
-            'facial_id' => [
+            'images' => [
+                'required',
+                'array',
+                'min:2',
+                'max:4',
+            ],
+            'images.*' => [
                 'required',
                 'string',
-                'max:255',
             ],
             'consent' => [
                 'accepted',
@@ -115,7 +107,7 @@ class FaceAttendanceController extends Controller
         $profile =
             $this->face->recordEnrollment(
                 $employee,
-                $data['facial_id'],
+                $data['images'],
                 $request->user(),
                 true
             );
@@ -127,14 +119,24 @@ class FaceAttendanceController extends Controller
             recordType: 'employee_face_profiles',
             recordId: $profile->id,
             newValues: [
-                'employee_id' => $employee->id,
-                'provider' => $profile->provider,
-                'status' => $profile->status,
+                'employee_id' =>
+                    $employee->id,
+                'provider' =>
+                    $profile->provider,
+                'status' =>
+                    $profile->status,
             ],
             metadata: [
                 'employee_number' =>
                     $employee->employee_number,
-                'consent_confirmed' => true,
+                'consent_confirmed' =>
+                    true,
+                'examples_count' =>
+                    (int) data_get(
+                        $profile->metadata,
+                        'examples_count',
+                        0
+                    ),
             ],
             ipAddress: $request->ip(),
         );
@@ -142,12 +144,9 @@ class FaceAttendanceController extends Controller
         return response()->json([
             'ok' => true,
             'status' => $profile->status,
-            'active' =>
-                $profile->isActive(),
+            'active' => $profile->isActive(),
             'message' =>
-                $profile->isActive()
-                    ? 'تم تفعيل بصمة الوجه للموظف.'
-                    : 'تم تسجيل الوجه وبانتظار تأكيد FACEIO الآمن.',
+                'تم تسجيل وتفعيل بصمة الوجه محليًا عبر CompreFace.',
         ]);
     }
 
@@ -203,10 +202,14 @@ class FaceAttendanceController extends Controller
             'لا توجد بصمة وجه لهذا الموظف.'
         );
 
-        $revoked = $this->face->revokeProfile(
-            $profile,
-            $request->user()
-        );
+        $beforeStatus =
+            $profile->status;
+
+        $revoked =
+            $this->face->revokeProfile(
+                $profile,
+                $request->user()
+            );
 
         ActivityLogger::log(
             userId: $request->user()->id,
@@ -215,13 +218,15 @@ class FaceAttendanceController extends Controller
             recordType: 'employee_face_profiles',
             recordId: $revoked->id,
             oldValues: [
-                'status' => $profile->status,
+                'status' => $beforeStatus,
             ],
             newValues: [
-                'status' => $revoked->status,
+                'status' =>
+                    $revoked->status,
             ],
             metadata: [
-                'employee_id' => $employee->id,
+                'employee_id' =>
+                    $employee->id,
                 'provider_purge' =>
                     data_get(
                         $revoked->metadata,
@@ -233,8 +238,45 @@ class FaceAttendanceController extends Controller
 
         return back()->with(
             'success',
-            'تم إلغاء بصمة الوجه للموظف.'
+            'تم إلغاء بصمة الوجه وحذف بياناتها من CompreFace.'
         );
+    }
+
+    public function challenge(
+        Request $request
+    ): JsonResponse {
+        $this->assertConfigured();
+
+        $token = (string) Str::uuid();
+
+        $ttlSeconds = max(
+            30,
+            (int) config(
+                'attendance-face.challenge_ttl_seconds',
+                90
+            )
+        );
+
+        $request->session()->put(
+            'face_attendance_challenge',
+            [
+                'token' => $token,
+                'expires_at' =>
+                    now()
+                        ->addSeconds(
+                            $ttlSeconds
+                        )
+                        ->timestamp,
+            ]
+        );
+
+        return response()->json([
+            'ok' => true,
+            'token' => $token,
+            'expires_in' => $ttlSeconds,
+            'instruction' =>
+                'انظر للأمام أولًا، ثم لف رأسك بوضوح إلى أحد الجانبين.',
+        ]);
     }
 
     public function punch(
@@ -243,10 +285,18 @@ class FaceAttendanceController extends Controller
         $this->assertConfigured();
 
         $data = $request->validate([
-            'facial_id' => [
+            'front_image' => [
                 'required',
                 'string',
-                'max:255',
+            ],
+            'turned_image' => [
+                'required',
+                'string',
+            ],
+            'challenge_token' => [
+                'required',
+                'string',
+                'uuid',
             ],
             'location_id' => [
                 'nullable',
@@ -258,6 +308,11 @@ class FaceAttendanceController extends Controller
             ],
         ]);
 
+        $this->consumeChallenge(
+            $request,
+            $data['challenge_token']
+        );
+
         $location =
             $this->resolveLocation(
                 $request,
@@ -265,16 +320,20 @@ class FaceAttendanceController extends Controller
                     ?? null
             );
 
-        $result = $this->face->punch(
-            $request->user(),
-            $location,
-            $data['facial_id'],
-            [
-                'ip' => $request->ip(),
-                'user_agent' =>
-                    $request->userAgent(),
-            ]
-        );
+        $result =
+            $this->face
+                ->punchByImages(
+                    $request->user(),
+                    $location,
+                    $data['front_image'],
+                    $data['turned_image'],
+                    [
+                        'ip' =>
+                            $request->ip(),
+                        'user_agent' =>
+                            $request->userAgent(),
+                    ]
+                );
 
         $record = $result['record'];
         $employee = $result['employee'];
@@ -310,9 +369,21 @@ class FaceAttendanceController extends Controller
                 'verification_provider' =>
                     $record
                         ->verification_provider,
-                'verification_reference' =>
-                    $record
-                        ->verification_reference,
+                'similarity' =>
+                    data_get(
+                        $result,
+                        'verification.similarity'
+                    ),
+                'front_yaw' =>
+                    data_get(
+                        $result,
+                        'verification.front_yaw'
+                    ),
+                'turned_yaw' =>
+                    data_get(
+                        $result,
+                        'verification.turned_yaw'
+                    ),
                 'user_agent' =>
                     $request->userAgent(),
             ],
@@ -347,11 +418,68 @@ class FaceAttendanceController extends Controller
                 'shift' =>
                     $record->shift?->name,
             ],
+            'verification' =>
+                $result['verification'],
             'message' =>
                 $action === 'check_in'
                     ? 'تم تسجيل الحضور بنجاح.'
                     : 'تم تسجيل الانصراف بنجاح.',
         ]);
+    }
+
+    public function connectionTest(
+        Request $request
+    ): JsonResponse {
+        abort_unless(
+            $request->user()
+                ->can('settings.manage'),
+            403
+        );
+
+        return response()->json([
+            'ok' =>
+                $this->face
+                    ->connectionOk(),
+            'configured' =>
+                $this->face
+                    ->configured(),
+            'provider' =>
+                $this->face
+                    ->provider(),
+            'base_url' =>
+                $this->face
+                    ->baseUrl(),
+        ]);
+    }
+
+    private function consumeChallenge(
+        Request $request,
+        string $token
+    ): void {
+        $challenge =
+            $request->session()->pull(
+                'face_attendance_challenge'
+            );
+
+        if (
+            ! is_array($challenge)
+            || ! hash_equals(
+                (string) (
+                    $challenge['token']
+                    ?? ''
+                ),
+                $token
+            )
+            || (int) (
+                $challenge['expires_at']
+                ?? 0
+            ) < now()->timestamp
+        ) {
+            throw ValidationException::withMessages([
+                'challenge_token' =>
+                    'انتهت جلسة التحقق أو تم استخدامها. ابدأ محاولة جديدة.',
+            ]);
+        }
     }
 
     private function resolveLocation(
@@ -446,7 +574,7 @@ class FaceAttendanceController extends Controller
         abort_unless(
             $this->face->configured(),
             503,
-            'بصمة الوجه غير مهيأة بعد في إعدادات البيئة.'
+            'CompreFace غير مهيأ بعد في إعدادات البيئة.'
         );
     }
 }
