@@ -11,6 +11,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\FaceAttendanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
