@@ -266,7 +266,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
-                    facial_id: userInfo.facialId
+                    facial_id: userInfo.facialId,
+                    consent: true
                 })
             });
 
