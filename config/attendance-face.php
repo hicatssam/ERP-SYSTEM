@@ -16,7 +16,9 @@ return [
     'faceio' => [
         'public_id' => env('FACEIO_PUBLIC_ID'),
         'webhook_token' => env('FACEIO_WEBHOOK_TOKEN'),
+        'api_key' => env('FACEIO_API_KEY'),
         'script_url' => 'https://cdn.faceio.net/fio.js',
+        'delete_url' => 'https://api.faceio.net/deletefacialid',
     ],
 
     /*
