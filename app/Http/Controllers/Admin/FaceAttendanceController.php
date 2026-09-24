@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\EmployeeFaceProfile;
 use App\Models\Location;
 use App\Models\User;
+use App\Services\ActivityLogger;
 use App\Services\FaceAttendanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -106,14 +107,37 @@ class FaceAttendanceController extends Controller
                 'string',
                 'max:255',
             ],
+            'consent' => [
+                'accepted',
+            ],
         ]);
 
         $profile =
             $this->face->recordEnrollment(
                 $employee,
                 $data['facial_id'],
-                $request->user()
+                $request->user(),
+                true
             );
+
+        ActivityLogger::log(
+            userId: $request->user()->id,
+            action: 'attendance.face.enrolled',
+            module: 'attendance',
+            recordType: 'employee_face_profiles',
+            recordId: $profile->id,
+            newValues: [
+                'employee_id' => $employee->id,
+                'provider' => $profile->provider,
+                'status' => $profile->status,
+            ],
+            metadata: [
+                'employee_number' =>
+                    $employee->employee_number,
+                'consent_confirmed' => true,
+            ],
+            ipAddress: $request->ip(),
+        );
 
         return response()->json([
             'ok' => true,
@@ -179,9 +203,32 @@ class FaceAttendanceController extends Controller
             'لا توجد بصمة وجه لهذا الموظف.'
         );
 
-        $this->face->revokeProfile(
+        $revoked = $this->face->revokeProfile(
             $profile,
             $request->user()
+        );
+
+        ActivityLogger::log(
+            userId: $request->user()->id,
+            action: 'attendance.face.revoked',
+            module: 'attendance',
+            recordType: 'employee_face_profiles',
+            recordId: $revoked->id,
+            oldValues: [
+                'status' => $profile->status,
+            ],
+            newValues: [
+                'status' => $revoked->status,
+            ],
+            metadata: [
+                'employee_id' => $employee->id,
+                'provider_purge' =>
+                    data_get(
+                        $revoked->metadata,
+                        'provider_purge'
+                    ),
+            ],
+            ipAddress: $request->ip(),
         );
 
         return back()->with(
@@ -221,12 +268,56 @@ class FaceAttendanceController extends Controller
         $result = $this->face->punch(
             $request->user(),
             $location,
-            $data['facial_id']
+            $data['facial_id'],
+            [
+                'ip' => $request->ip(),
+                'user_agent' =>
+                    $request->userAgent(),
+            ]
         );
 
         $record = $result['record'];
         $employee = $result['employee'];
         $action = $result['action'];
+
+        ActivityLogger::log(
+            userId: $request->user()->id,
+            action:
+                'attendance.face.'
+                . $action,
+            module: 'attendance',
+            recordType: 'attendance_records',
+            recordId: $record->id,
+            newValues: [
+                'employee_id' =>
+                    $employee->id,
+                'work_date' =>
+                    $record
+                        ->work_date
+                        ?->toDateString(),
+                'check_in_at' =>
+                    $record
+                        ->check_in_at
+                        ?->toIso8601String(),
+                'check_out_at' =>
+                    $record
+                        ->check_out_at
+                        ?->toIso8601String(),
+            ],
+            metadata: [
+                'location_id' =>
+                    $location->id,
+                'verification_provider' =>
+                    $record
+                        ->verification_provider,
+                'verification_reference' =>
+                    $record
+                        ->verification_reference,
+                'user_agent' =>
+                    $request->userAgent(),
+            ],
+            ipAddress: $request->ip(),
+        );
 
         return response()->json([
             'ok' => true,
