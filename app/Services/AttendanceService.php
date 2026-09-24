@@ -73,6 +73,16 @@ class AttendanceService
                 'status' => $data['status'],
                 ...$metrics,
                 'source' => $data['source'] ?? 'manual',
+                'verification_method' =>
+                    $data['verification_method'] ?? null,
+                'verification_provider' =>
+                    $data['verification_provider'] ?? null,
+                'verification_reference' =>
+                    $data['verification_reference'] ?? null,
+                'verification_location_id' =>
+                    $data['verification_location_id'] ?? null,
+                'verification_metadata' =>
+                    $data['verification_metadata'] ?? null,
                 'notes' => $data['notes'] ?? null,
                 'approved_by' => null,
                 'approved_at' => null,
@@ -136,6 +146,11 @@ class AttendanceService
                             'early_leave_minutes' => 0,
                             'overtime_minutes' => 0,
                             'source' => 'leave',
+                            'verification_method' => null,
+                            'verification_provider' => null,
+                            'verification_reference' => null,
+                            'verification_location_id' => null,
+                            'verification_metadata' => null,
                             'notes' => $leave->leaveType->name,
                             'approved_by' => $actor->id,
                             'approved_at' => now(),
