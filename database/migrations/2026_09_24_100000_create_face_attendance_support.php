@@ -21,18 +21,17 @@ return new class extends Migration
                     ->default('faceio');
 
                 /*
-                 * Never persist the provider Facial ID in clear text.
-                 * We only need deterministic lookup, so SHA-256 is enough.
+                 * SHA-256 is used for deterministic lookup. The provider ID
+                 * itself is stored separately only in encrypted form so the
+                 * backend can request provider-side deletion/re-enrollment.
+                 * It is never exposed in model serialization.
                  */
                 $table->char(
                     'provider_face_id_hash',
                     64
                 );
 
-                /*
-                 * Stored encrypted via Eloquent's encrypted cast. Needed only
-                 * for provider-side deletion/re-enrollment; never exposed.
-                 */
+                /* Encrypted via Eloquent's encrypted cast. */
                 $table->text(
                     'provider_face_id'
                 )->nullable();
