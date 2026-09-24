@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\SystemSetting;
 use App\Services\AttendanceFeatureService;
+use App\Services\FaceAttendanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,8 @@ use Illuminate\View\View;
 class AttendancePayrollSettingsController extends Controller
 {
     public function __construct(
-        private readonly AttendanceFeatureService $features
+        private readonly AttendanceFeatureService $features,
+        private readonly FaceAttendanceService $faceAttendance
     ) {
     }
 
@@ -23,6 +25,18 @@ class AttendancePayrollSettingsController extends Controller
             'admin.settings.attendance-payroll',
             [
                 'settings' => $this->features->settings(),
+                'faceAttendance' => [
+                    'configured' =>
+                        $this->faceAttendance->configured(),
+                    'public_id' =>
+                        $this->faceAttendance->publicId(),
+                    'webhook_required' =>
+                        $this->faceAttendance->requiresWebhook(),
+                    'webhook_url' =>
+                        route(
+                            'attendance.integrations.faceio.webhook'
+                        ),
+                ],
             ]
         );
     }
