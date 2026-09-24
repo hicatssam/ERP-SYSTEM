@@ -14,11 +14,19 @@
 .face-status{display:flex;align-items:center;gap:.45rem;margin-top:1rem;padding:.75rem .9rem;border-radius:12px;border:1px solid var(--border);background:var(--off-white);font-size:.76rem}
 .face-dot{width:9px;height:9px;border-radius:50%;background:var(--text-muted)}
 .face-status.active .face-dot{background:var(--theme-success)}
-.face-status.pending .face-dot{background:var(--theme-warning)}
 .face-status.revoked .face-dot{background:var(--theme-danger)}
-.face-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem}
-.face-panel{padding:1rem;border:1px solid var(--border);border-radius:14px;background:var(--off-white)}
-.face-panel h3{margin:0 0 .35rem;font-size:.9rem}.face-panel p{margin:0;color:var(--text-muted);font-size:.72rem;line-height:1.75}
+.face-camera-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(260px,.75fr);gap:1rem;margin-top:1rem}
+.face-preview{position:relative;overflow:hidden;aspect-ratio:4/3;border-radius:16px;background:#111827;border:1px solid var(--border)}
+.face-preview video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.face-preview-placeholder{position:absolute;inset:0;display:grid;place-items:center;color:#cbd5e1;font-size:.75rem;text-align:center;padding:1rem}
+.face-preview.live .face-preview-placeholder{display:none}
+.face-guide{padding:1rem;border:1px solid var(--border);border-radius:14px;background:var(--off-white)}
+.face-guide h3{margin:0;font-size:.92rem}
+.face-step{margin-top:.8rem;padding:.8rem;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.face-step strong{display:block;font-size:.78rem}.face-step span{display:block;margin-top:.22rem;color:var(--text-muted);font-size:.68rem;line-height:1.6}
+.face-progress{display:flex;gap:.35rem;margin-top:.8rem}
+.face-progress i{display:block;height:6px;flex:1;border-radius:999px;background:var(--border)}
+.face-progress i.done{background:var(--theme-success)}
 .face-consent{display:flex;align-items:flex-start;gap:.55rem;margin-top:1rem;padding:.8rem;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:.72rem;line-height:1.6}
 .face-actions{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:1rem}
 .face-result{display:none;margin-top:1rem;padding:.8rem .9rem;border-radius:12px;font-size:.74rem;line-height:1.7}
@@ -26,39 +34,32 @@
 .face-result.warning{background:color-mix(in srgb,var(--theme-warning) 8%,var(--surface));border:1px solid color-mix(in srgb,var(--theme-warning) 25%,var(--border))}
 .face-result.error{background:color-mix(in srgb,var(--theme-danger) 7%,var(--surface));border:1px solid color-mix(in srgb,var(--theme-danger) 25%,var(--border));color:var(--theme-danger)}
 .face-security{margin-top:1rem;padding:.85rem;border-radius:12px;background:color-mix(in srgb,var(--theme-info) 6%,var(--surface));border:1px solid color-mix(in srgb,var(--theme-info) 18%,var(--border));font-size:.7rem;line-height:1.75;color:var(--text-muted)}
-@media(max-width:760px){.face-head{flex-direction:column}.face-grid{grid-template-columns:1fr}.face-actions .btn{flex:1}}
+@media(max-width:760px){.face-head{flex-direction:column}.face-camera-grid{grid-template-columns:1fr}.face-actions .btn{flex:1}}
 </style>
 
 @php
     $profileStatus = $faceProfile?->status;
     $statusClass = $profileStatus === 'active'
         ? 'active'
-        : ($profileStatus === 'pending_verification'
-            ? 'pending'
-            : ($profileStatus === 'revoked' ? 'revoked' : ''));
+        : ($profileStatus === 'revoked' ? 'revoked' : '');
+
     $statusLabel = match($profileStatus) {
-        'active' => 'بصمة الوجه مفعلة',
-        'pending_verification' => 'بانتظار تأكيد FACEIO',
+        'active' => 'بصمة الوجه مفعلة عبر CompreFace',
         'revoked' => 'بصمة الوجه ملغاة',
         default => 'لم يتم تسجيل الوجه بعد',
     };
 
     $canEnroll = !$faceProfile
         || $profileStatus === 'revoked';
-
-    $enrollLabel = match($profileStatus) {
-        'active' => 'الوجه مسجل بالفعل',
-        'pending_verification' => 'بانتظار تأكيد التسجيل',
-        'revoked' => 'تسجيل وجه جديد',
-        default => 'تسجيل الوجه الآن',
-    };
 @endphp
 
 <div class="face-page">
     <div class="face-head">
         <div>
             <h1 class="page-heading">تسجيل بصمة الوجه</h1>
-            <p class="page-subheading">تسجيل وربط وجه الموظف بالحضور والانصراف دون حفظ صورة الوجه داخل النظام.</p>
+            <p class="page-subheading">
+                تسجيل وجه الموظف محليًا داخل CompreFace دون إرسال البيانات إلى بوابة سحابية مدفوعة.
+            </p>
         </div>
 
         <a class="btn btn-outline" href="{{ route('attendance.index') }}">
@@ -84,223 +85,367 @@
                 </div>
             </div>
 
-            <div class="face-status {{ $statusClass }}" id="faceProfileStatus">
+            <div class="face-status {{ $statusClass }}">
                 <span class="face-dot"></span>
-                <strong id="faceProfileStatusText">{{ $statusLabel }}</strong>
+                <strong>{{ $statusLabel }}</strong>
             </div>
 
-            <div class="face-grid">
-                <div class="face-panel">
-                    <h3>كيف يتم التسجيل؟</h3>
-                    <p>
-                        يفتح FACEIO الكاميرا، يتحقق من الوجه، ثم يعيد معرفًا فريدًا.
-                        النظام لا يخزن صورة الوجه. يتم حفظ Hash للبحث ومعرف FACEIO مشفرًا فقط
-                        حتى يمكن حذفه من المزود عند إلغاء البصمة.
-                    </p>
+            @if($canEnroll)
+                <div class="face-camera-grid">
+                    <div class="face-preview" id="facePreview">
+                        <video
+                            id="faceVideo"
+                            autoplay
+                            muted
+                            playsinline
+                        ></video>
+
+                        <div class="face-preview-placeholder">
+                            افتح الكاميرا ثم التقط ثلاث زوايا واضحة للموظف.
+                        </div>
+                    </div>
+
+                    <div class="face-guide">
+                        <h3>خطوات التسجيل</h3>
+
+                        <div class="face-step">
+                            <strong id="captureTitle">
+                                1. انظر مباشرة إلى الكاميرا
+                            </strong>
+
+                            <span id="captureDescription">
+                                اجعل الوجه كاملًا وواضحًا وفي إضاءة جيدة.
+                            </span>
+                        </div>
+
+                        <div class="face-progress">
+                            <i id="captureProgress1"></i>
+                            <i id="captureProgress2"></i>
+                            <i id="captureProgress3"></i>
+                        </div>
+
+                        <div class="face-actions">
+                            <button
+                                type="button"
+                                class="btn btn-outline"
+                                id="startCameraButton"
+                            >
+                                فتح الكاميرا
+                            </button>
+
+                            <button
+                                type="button"
+                                class="btn btn-gold"
+                                id="captureButton"
+                                disabled
+                            >
+                                التقاط الصورة
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="face-panel">
-                    <h3>الحماية</h3>
-                    <p>
-                        عند تفعيل Webhook الآمن، لا تصبح البصمة فعالة إلا بعد وصول
-                        تأكيد ENROLL من FACEIO إلى الخادم.
-                    </p>
+                <label class="face-consent">
+                    <input type="checkbox" id="faceConsent">
+                    <span>
+                        أؤكد أن الموظف وافق على استخدام بيانات الوجه لغرض الحضور والانصراف
+                        وأن التسجيل يتم بحضوره.
+                    </span>
+                </label>
+
+                <div class="face-actions">
+                    <button
+                        type="button"
+                        class="btn btn-gold"
+                        id="saveFaceButton"
+                        disabled
+                    >
+                        حفظ وتفعيل بصمة الوجه
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-outline"
+                        id="resetCaptureButton"
+                        disabled
+                    >
+                        إعادة التقاط الصور
+                    </button>
                 </div>
-            </div>
+            @else
+                <div class="face-security">
+                    الوجه مسجل ومفعل بالفعل. لإعادة التسجيل، ألغِ البصمة الحالية أولًا
+                    حتى يتم حذف الـSubject وصوره من CompreFace ثم سجّل الوجه من جديد.
+                </div>
+            @endif
 
-            <label class="face-consent">
-                <input type="checkbox" id="faceConsent">
-                <span>
-                    أؤكد أن الموظف وافق على استخدام بيانات الوجه لغرض تسجيل الحضور والانصراف،
-                    وأن عملية التسجيل تتم بحضوره.
-                </span>
-            </label>
-
-            <div class="face-actions">
-                <button
-                    type="button"
-                    class="btn btn-gold"
-                    id="faceEnrollButton"
-                    @disabled(!$canEnroll)
-                >
-                    {{ $enrollLabel }}
-                </button>
-
-                @if($faceProfile && $faceProfile->status !== 'revoked')
+            @if($faceProfile && $profileStatus === 'active')
+                <div class="face-actions">
                     <form
                         method="POST"
                         action="{{ route('attendance.face.revoke', $employee) }}"
-                        onsubmit="return confirm('هل تريد إلغاء بصمة الوجه لهذا الموظف؟')"
+                        onsubmit="return confirm('سيتم حذف بيانات الوجه من CompreFace. هل تريد المتابعة؟')"
                     >
                         @csrf
                         <button class="btn btn-danger" type="submit">
-                            إلغاء البصمة
+                            إلغاء وحذف بصمة الوجه
                         </button>
                     </form>
-                @endif
-            </div>
+                </div>
+            @endif
 
             <div class="face-result" id="faceResult"></div>
 
             <div class="face-security">
-                <strong>مهم:</strong>
-                @if($webhookRequired)
-                    وضع الأمان الكامل مفعل: تسجيل الوجه يحتاج Webhook مؤكد من FACEIO قبل التفعيل.
-                @else
-                    وضع Webhook غير مطلوب في الإعدادات الحالية. هذا مناسب للاختبار فقط، وليس للإنتاج.
-                @endif
-
-                <br>
-
-                @if($providerPurgeAvailable)
-                    حذف FACEIO من الـBackend مهيأ؛ عند إلغاء البصمة يتم حذف المعرف والبيانات البيومترية من المزود أيضًا.
-                @else
-                    FACEIO_API_KEY غير مضاف. يمكن تعطيل البصمة محليًا، لكن الحذف الكامل من FACEIO يحتاج API Key أو حذف يدوي من FACEIO Console.
-                @endif
+                النظام لا يحفظ صور الوجه داخل Laravel. الصور ترسل من المتصفح إلى Laravel
+                ثم إلى CompreFace المحلي، بينما قاعدة النظام تحتفظ فقط بربط الموظف مع
+                Subject مشفر وسجل الموافقة والتدقيق.
             </div>
         </div>
     </div>
 </div>
 
-<div id="faceio-modal"></div>
+<canvas id="faceCanvas" hidden></canvas>
 @endsection
 
 @push('scripts')
-<script src="{{ $faceioScriptUrl }}"></script>
+@if($canEnroll)
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const publicId = @json($faceioPublicId);
-    const button = document.getElementById('faceEnrollButton');
+    const video = document.getElementById('faceVideo');
+    const canvas = document.getElementById('faceCanvas');
+    const preview = document.getElementById('facePreview');
+    const startButton = document.getElementById('startCameraButton');
+    const captureButton = document.getElementById('captureButton');
+    const saveButton = document.getElementById('saveFaceButton');
+    const resetButton = document.getElementById('resetCaptureButton');
     const consent = document.getElementById('faceConsent');
     const result = document.getElementById('faceResult');
-    const statusBox = document.getElementById('faceProfileStatus');
-    const statusText = document.getElementById('faceProfileStatusText');
-    const enrollUrl = @json(route('attendance.face.enroll', $employee));
-    const statusUrl = @json(route('attendance.face.status', $employee));
+    const title = document.getElementById('captureTitle');
+    const description = document.getElementById('captureDescription');
+
     const csrf = @json(csrf_token());
+    const enrollUrl = @json(route('attendance.face.enroll', $employee));
+
+    const steps = [
+        {
+            title: '1. انظر مباشرة إلى الكاميرا',
+            description: 'اجعل الوجه كاملًا وواضحًا وفي إضاءة جيدة.'
+        },
+        {
+            title: '2. لف رأسك قليلًا إلى اليمين',
+            description: 'لا تخرج من إطار الكاميرا وحافظ على وضوح الوجه.'
+        },
+        {
+            title: '3. لف رأسك قليلًا إلى اليسار',
+            description: 'هذه الزاوية الإضافية تحسن دقة التعرف لاحقًا.'
+        }
+    ];
+
+    let stream = null;
+    let images = [];
 
     const showResult = (message, type = 'warning') => {
         result.className = 'face-result show ' + type;
         result.textContent = message;
     };
 
-    const errorMessage = (code) => {
-        const codes = window.fioErrCode || {};
+    const updateGuide = () => {
+        const index = Math.min(images.length, steps.length - 1);
 
-        if (code === codes.PERMISSION_REFUSED) return 'تم رفض إذن الكاميرا.';
-        if (code === codes.TERMS_NOT_ACCEPTED) return 'لم تتم الموافقة على شروط استخدام الكاميرا.';
-        if (code === codes.FACE_DUPLICATION) return 'هذا الوجه مسجل مسبقًا.';
-        if (code === codes.MANY_FACES) return 'ظهر أكثر من وجه أمام الكاميرا.';
-        if (code === codes.PAD_ATTACK) return 'تم رفض المحاولة بسبب اكتشاف صورة/عرض غير حي.';
-        if (code === codes.FACE_MISMATCH) return 'لم تتطابق لقطات الوجه. حاول مرة أخرى.';
-        if (code === codes.NO_FACES_DETECTED) return 'لم يتم اكتشاف وجه واضح.';
-        if (code === codes.ABORTED_BY_USER) return 'تم إلغاء العملية.';
-        if (code === codes.NETWORK_IO) return 'تعذر الاتصال بخدمة التحقق من الوجه.';
+        title.textContent = images.length >= steps.length
+            ? 'اكتملت الصور المطلوبة'
+            : steps[index].title;
 
-        return 'تعذر إكمال تسجيل الوجه. رمز الخطأ: ' + String(code ?? 'غير معروف');
+        description.textContent = images.length >= steps.length
+            ? 'راجع الموافقة ثم احفظ بصمة الوجه.'
+            : steps[index].description;
+
+        for (let i = 1; i <= 3; i++) {
+            document.getElementById('captureProgress' + i)
+                ?.classList.toggle('done', images.length >= i);
+        }
+
+        captureButton.disabled =
+            !stream || images.length >= steps.length;
+
+        saveButton.disabled =
+            images.length < steps.length;
+
+        resetButton.disabled =
+            images.length === 0;
     };
 
-    const pollActivation = async () => {
-        for (let attempt = 0; attempt < 10; attempt++) {
-            await new Promise(resolve => setTimeout(resolve, 900));
+    const stopCamera = () => {
+        if (!stream) return;
 
-            const response = await fetch(statusUrl, {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-
-            if (!response.ok) continue;
-
-            const data = await response.json();
-
-            if (data.active) {
-                statusBox.className = 'face-status active';
-                statusText.textContent = 'بصمة الوجه مفعلة';
-                showResult('تم تأكيد وتفعيل بصمة الوجه بنجاح.', 'success');
-                return true;
-            }
-        }
-
-        showResult(
-            'تم حفظ التسجيل، لكن تأكيد Webhook لم يصل بعد. تأكد من إعداد Webhook العام في FACEIO.',
-            'warning'
-        );
-
-        return false;
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+        preview.classList.remove('live');
+        startButton.disabled = false;
+        startButton.textContent = 'فتح الكاميرا';
+        updateGuide();
     };
 
-    button?.addEventListener('click', async function () {
-        if (!consent?.checked) {
-            showResult('يجب تأكيد موافقة الموظف قبل تسجيل الوجه.', 'error');
+    const startCamera = async () => {
+        if (!window.isSecureContext) {
+            showResult(
+                'تشغيل الكاميرا يحتاج HTTPS، أو افتح النظام على localhost من نفس الجهاز.',
+                'error'
+            );
             return;
         }
-
-        if (!publicId || typeof window.faceIO !== 'function') {
-            showResult('FACEIO غير مهيأ أو لم يتم تحميل المكتبة.', 'error');
-            return;
-        }
-
-        button.disabled = true;
-        showResult('جاري فتح الكاميرا...', 'warning');
 
         try {
-            const faceio = new faceIO(publicId);
-
-            const userInfo = await faceio.enroll({
-                locale: 'auto',
-                userConsent: true,
-                showAbortBtn: true,
-                payload: {
-                    employee_id: {{ (int) $employee->id }}
-                }
-            });
-
-            const response = await fetch(enrollUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrf,
-                    'X-Requested-With': 'XMLHttpRequest'
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'user',
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 }
                 },
-                body: JSON.stringify({
-                    facial_id: userInfo.facialId,
-                    consent: true
-                })
+                audio: false
             });
+
+            video.srcObject = stream;
+            preview.classList.add('live');
+            startButton.disabled = true;
+            startButton.textContent = 'الكاميرا مفتوحة';
+            showResult('الكاميرا جاهزة. اتبع خطوات الالتقاط.', 'success');
+            updateGuide();
+        } catch (error) {
+            showResult(
+                'تعذر فتح الكاميرا. تحقق من إذن الكاميرا في المتصفح.',
+                'error'
+            );
+        }
+    };
+
+    const captureFrame = () => {
+        if (!stream || !video.videoWidth) {
+            showResult('انتظر حتى تظهر صورة الكاميرا بوضوح.', 'error');
+            return;
+        }
+
+        const width = Math.min(720, video.videoWidth);
+        const ratio = width / video.videoWidth;
+        const height = Math.round(video.videoHeight * ratio);
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext('2d');
+
+        context.drawImage(
+            video,
+            0,
+            0,
+            width,
+            height
+        );
+
+        images.push(
+            canvas.toDataURL(
+                'image/jpeg',
+                0.88
+            )
+        );
+
+        showResult(
+            'تم التقاط الصورة ' + images.length + ' من 3.',
+            'success'
+        );
+
+        updateGuide();
+
+        if (images.length >= steps.length) {
+            stopCamera();
+        }
+    };
+
+    const resetCapture = () => {
+        images = [];
+        showResult(
+            'تم مسح اللقطات. افتح الكاميرا وابدأ من جديد.',
+            'warning'
+        );
+        updateGuide();
+    };
+
+    const saveFace = async () => {
+        if (!consent.checked) {
+            showResult(
+                'يجب تأكيد موافقة الموظف قبل حفظ بصمة الوجه.',
+                'error'
+            );
+            return;
+        }
+
+        if (images.length < 3) {
+            showResult(
+                'يجب التقاط الصور الثلاث أولًا.',
+                'error'
+            );
+            return;
+        }
+
+        saveButton.disabled = true;
+        saveButton.textContent = 'جاري التسجيل...';
+
+        try {
+            const response = await fetch(
+                enrollUrl,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrf,
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({
+                        images,
+                        consent: true
+                    })
+                }
+            );
 
             const data = await response.json();
 
             if (!response.ok) {
-                const firstError = data?.errors
+                const errorMessage = data?.errors
                     ? Object.values(data.errors).flat()[0]
                     : data?.message;
 
-                throw new Error(firstError || 'تعذر حفظ بصمة الوجه.');
+                throw new Error(
+                    errorMessage || 'تعذر تسجيل الوجه.'
+                );
             }
 
-            if (data.active) {
-                statusBox.className = 'face-status active';
-                statusText.textContent = 'بصمة الوجه مفعلة';
-                showResult(data.message, 'success');
-            } else {
-                statusBox.className = 'face-status pending';
-                statusText.textContent = 'بانتظار تأكيد FACEIO';
-                showResult(data.message, 'warning');
-                await pollActivation();
-            }
+            showResult(data.message, 'success');
+
+            setTimeout(
+                () => window.location.reload(),
+                1200
+            );
         } catch (error) {
-            if (error instanceof Error) {
-                showResult(error.message, 'error');
-            } else {
-                showResult(errorMessage(error), 'error');
-            }
-        } finally {
-            button.disabled = false;
+            showResult(
+                error.message || 'تعذر تسجيل الوجه.',
+                'error'
+            );
+            saveButton.disabled = false;
+            saveButton.textContent = 'حفظ وتفعيل بصمة الوجه';
         }
-    });
+    };
+
+    startButton.addEventListener('click', startCamera);
+    captureButton.addEventListener('click', captureFrame);
+    resetButton.addEventListener('click', resetCapture);
+    saveButton.addEventListener('click', saveFace);
+
+    window.addEventListener('beforeunload', stopCamera);
+
+    updateGuide();
 });
 </script>
+@endif
 @endpush
