@@ -32,6 +32,8 @@ class AttendancePayrollSettingsController extends Controller
                         $this->faceAttendance->publicId(),
                     'webhook_required' =>
                         $this->faceAttendance->requiresWebhook(),
+                    'api_key_configured' =>
+                        $this->faceAttendance->canPurgeProviderProfile(),
                     'webhook_url' =>
                         route(
                             'attendance.integrations.faceio.webhook'
