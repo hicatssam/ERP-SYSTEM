@@ -26,4 +26,12 @@ class AttendanceRecord extends Model
 
     public function employee(): BelongsTo { return $this->belongsTo(Employee::class); }
     public function shift(): BelongsTo { return $this->belongsTo(WorkShift::class, 'work_shift_id'); }
+
+    public function verificationLocation(): BelongsTo
+    {
+        return $this->belongsTo(
+            Location::class,
+            'verification_location_id'
+        );
+    }
 }
