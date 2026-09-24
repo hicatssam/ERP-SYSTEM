@@ -11,6 +11,7 @@ class EmployeeFaceProfile extends Model
         'employee_id',
         'provider',
         'provider_face_id_hash',
+        'provider_face_id',
         'status',
         'enrolled_by',
         'enrolled_at',
@@ -22,11 +23,13 @@ class EmployeeFaceProfile extends Model
 
     protected $hidden = [
         'provider_face_id_hash',
+        'provider_face_id',
     ];
 
     protected function casts(): array
     {
         return [
+            'provider_face_id' => 'encrypted',
             'enrolled_at' => 'datetime',
             'activated_at' => 'datetime',
             'last_verified_at' => 'datetime',
