@@ -150,6 +150,57 @@
                 <div class="att-setting-head">
                     <div class="att-setting-icon">
                         <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 3H6a3 3 0 0 0-3 3v2M16 3h2a3 3 0 0 1 3 3v2M8 21H6a3 3 0 0 1-3-3v-2M16 21h2a3 3 0 0 0 3-3v-2"/>
+                            <circle cx="9" cy="10" r=".7" fill="currentColor" stroke="none"/>
+                            <circle cx="15" cy="10" r=".7" fill="currentColor" stroke="none"/>
+                            <path d="M9 15c1.5 1.2 4.5 1.2 6 0"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3>بصمة الوجه — FACEIO</h3>
+                        <p>حضور وانصراف بالكاميرا بدون جهاز بصمة مستقل.</p>
+                    </div>
+                </div>
+
+                <div class="att-setting-body">
+                    <div class="att-toggle-row">
+                        <div class="att-toggle-copy">
+                            <strong>حالة الربط</strong>
+                            <small>
+                                @if($faceAttendance['configured'])
+                                    <span style="color:var(--theme-success);font-weight:850">● جاهز</span>
+                                    — Public ID موجود{{ $faceAttendance['webhook_required'] ? ' وWebhook الآمن مطلوب.' : '.' }}
+                                @else
+                                    <span style="color:var(--theme-warning);font-weight:850">● غير مهيأ</span>
+                                    — أضف FACEIO_PUBLIC_ID وFACEIO_WEBHOOK_TOKEN داخل ملف .env.
+                                @endif
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="att-toggle-row">
+                        <div class="att-toggle-copy" style="width:100%">
+                            <strong>Webhook URL</strong>
+                            <small>
+                                أضف هذا الرابط داخل FACEIO Console → Application → Webhooks:
+                            </small>
+                            <code style="display:block;margin-top:.45rem;padding:.55rem .65rem;border-radius:9px;background:var(--off-white);border:1px solid var(--border);overflow-wrap:anywhere;direction:ltr;text-align:left">
+                                {{ $faceAttendance['webhook_url'] }}
+                            </code>
+                        </div>
+                    </div>
+
+                    <div class="att-warning" style="margin-top:.8rem">
+                        تشغيل الكاميرا على أجهزة الشبكة يحتاج HTTPS في المتصفح.
+                        لا تضع Webhook Token أو أي Secret داخل JavaScript؛ يبقى داخل .env فقط.
+                    </div>
+                </div>
+            </div>
+
+            <div class="att-setting-card">
+                <div class="att-setting-head">
+                    <div class="att-setting-icon">
+                        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="3" y="5" width="18" height="14" rx="2"/>
                             <path d="M7 9h10M7 13h4M15 13h2"/>
                         </svg>
