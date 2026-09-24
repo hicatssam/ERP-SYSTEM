@@ -68,6 +68,13 @@ Route::middleware([
                 ])
                 ->name('face.enroll');
 
+            Route::get('/face/employees/{employee}/status', [FaceAttendanceController::class, 'status'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:attendance.manage',
+                ])
+                ->name('face.status');
+
             Route::post('/face/employees/{employee}/revoke', [FaceAttendanceController::class, 'revoke'])
                 ->middleware([
                     EnsureBiometricAttendanceEnabled::class,
