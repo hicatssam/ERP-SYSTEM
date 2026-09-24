@@ -6,7 +6,6 @@ use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\WorkShiftController;
 use App\Http\Controllers\Admin\AttendanceDeviceController;
 use App\Http\Controllers\Admin\FaceAttendanceController;
-use App\Http\Controllers\FaceioWebhookController;
 use App\Http\Controllers\AttendanceDevicePushController;
 use App\Http\Controllers\Admin\AttendancePayrollSettingsController;
 use App\Http\Middleware\EnsureAttendanceEnabled;
@@ -82,6 +81,14 @@ Route::middleware([
                 ])
                 ->name('face.revoke');
 
+            Route::post('/face/challenge', [FaceAttendanceController::class, 'challenge'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:attendance.manage',
+                    'throttle:60,1',
+                ])
+                ->name('face.challenge');
+
             Route::post('/face/punch', [FaceAttendanceController::class, 'punch'])
                 ->middleware([
                     EnsureBiometricAttendanceEnabled::class,
@@ -89,6 +96,14 @@ Route::middleware([
                     'throttle:30,1',
                 ])
                 ->name('face.punch');
+
+            Route::get('/face/connection-test', [FaceAttendanceController::class, 'connectionTest'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:settings.manage',
+                    'throttle:20,1',
+                ])
+                ->name('face.connection-test');
 
             Route::get('/shifts', [WorkShiftController::class, 'index'])
                 ->middleware('can:attendance.view')
@@ -170,17 +185,6 @@ Route::middleware([
     ])->name('payroll.attendance.sync');
 });
 
-
-Route::post(
-    '/attendance/integrations/faceio/webhook',
-    FaceioWebhookController::class
-)->middleware([
-    EnsureAttendanceEnabled::class,
-    EnsureBiometricAttendanceEnabled::class,
-    'throttle:180,1',
-])->withoutMiddleware([
-    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
-])->name('attendance.integrations.faceio.webhook');
 
 Route::prefix('attendance/integrations')
     ->middleware([
