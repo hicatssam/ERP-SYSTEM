@@ -21,7 +21,7 @@ class EnsureBiometricAttendanceEnabled
         abort_unless(
             $this->features->biometricEnabled(),
             403,
-            'تكامل أجهزة البصمة غير مفعّل من إعدادات النظام.'
+            'الحضور البيومتري (البصمة/الوجه) غير مفعّل من إعدادات النظام.'
         );
 
         return $next($request);
