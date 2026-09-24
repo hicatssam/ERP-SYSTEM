@@ -312,6 +312,42 @@
     color:var(--text-muted);
 }
 
+.att-face-profile{
+    display:inline-flex;
+    align-items:center;
+    gap:.3rem;
+    margin-top:.28rem;
+    padding:.2rem .42rem;
+    border-radius:999px;
+    font-size:.58rem;
+    font-weight:850;
+    background:color-mix(in srgb,var(--border) 38%,transparent);
+    color:var(--text-muted);
+}
+
+.att-face-profile::before{
+    content:'';
+    width:5px;
+    height:5px;
+    border-radius:999px;
+    background:currentColor;
+}
+
+.att-face-profile.active{
+    color:var(--theme-success);
+    background:color-mix(in srgb,var(--theme-success) 9%,transparent);
+}
+
+.att-face-profile.pending_verification{
+    color:var(--theme-warning);
+    background:color-mix(in srgb,var(--theme-warning) 9%,transparent);
+}
+
+.att-face-profile.revoked{
+    color:var(--theme-danger);
+    background:color-mix(in srgb,var(--theme-danger) 8%,transparent);
+}
+
 /* Status */
 .att-badge{
     display:inline-flex;
@@ -687,6 +723,17 @@
                     </a>
                 @endcan
 
+                @if($faceAttendanceConfigured)
+                    @can('attendance.manage')
+                        <a
+                            class="btn btn-gold"
+                            href="{{ route('attendance.face.kiosk') }}"
+                        >
+                            كشك بصمة الوجه
+                        </a>
+                    @endcan
+                @endif
+
             @endif
 
             <a
@@ -705,6 +752,21 @@
 
         </div>
     </div>
+
+    @if($biometricAttendanceEnabled && !$faceAttendanceConfigured)
+        @can('attendance.manage')
+            <div
+                class="card"
+                style="margin-bottom:1rem;padding:.8rem 1rem;border-color:color-mix(in srgb,var(--theme-warning) 30%,var(--border));background:color-mix(in srgb,var(--theme-warning) 6%,var(--surface));font-size:.72rem;line-height:1.7;"
+            >
+                بصمة الوجه مفعلة من إعدادات الحضور، لكنها تحتاج
+                <strong>FACEIO_PUBLIC_ID</strong>
+                و
+                <strong>FACEIO_WEBHOOK_TOKEN</strong>
+                قبل تشغيل التسجيل والكشك.
+            </div>
+        @endcan
+    @endif
 
 
     {{-- =====================================================
@@ -975,6 +1037,22 @@
                                             {{ $employee->job_title ?: 'بدون مسمى وظيفي' }}
                                         </small>
 
+                                        @if($biometricAttendanceEnabled)
+                                            @php
+                                                $faceStatus = $employee->faceProfile?->status;
+                                                $faceLabel = match($faceStatus) {
+                                                    'active' => 'الوجه مفعل',
+                                                    'pending_verification' => 'بانتظار تأكيد الوجه',
+                                                    'revoked' => 'الوجه ملغى',
+                                                    default => 'الوجه غير مسجل',
+                                                };
+                                            @endphp
+
+                                            <span class="att-face-profile {{ $faceStatus ?: '' }}">
+                                                {{ $faceLabel }}
+                                            </span>
+                                        @endif
+
                                     </div>
 
                                 </div>
@@ -1183,6 +1261,25 @@
                                         </button>
 
                                     @endcan
+
+                                    @if(
+                                        $biometricAttendanceEnabled
+                                        && $faceAttendanceConfigured
+                                    )
+                                        @can('attendance.manage')
+                                            <a
+                                                class="btn btn-sm btn-outline"
+                                                href="{{ route(
+                                                    'attendance.face.enroll-page',
+                                                    $employee
+                                                ) }}"
+                                            >
+                                                {{ $employee->faceProfile?->status === 'active'
+                                                    ? 'إدارة الوجه'
+                                                    : 'تسجيل الوجه' }}
+                                            </a>
+                                        @endcan
+                                    @endif
 
 
                                     @can('attendance.approve')
