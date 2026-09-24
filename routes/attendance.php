@@ -5,6 +5,8 @@ use App\Http\Controllers\Admin\AttendancePayrollController;
 use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\WorkShiftController;
 use App\Http\Controllers\Admin\AttendanceDeviceController;
+use App\Http\Controllers\Admin\FaceAttendanceController;
+use App\Http\Controllers\FaceioWebhookController;
 use App\Http\Controllers\AttendanceDevicePushController;
 use App\Http\Controllers\Admin\AttendancePayrollSettingsController;
 use App\Http\Middleware\EnsureAttendanceEnabled;
@@ -44,6 +46,42 @@ Route::middleware([
             Route::post('/records/{record}/approve', [AttendanceController::class, 'approve'])
                 ->middleware('can:attendance.approve')
                 ->name('approve');
+
+            Route::get('/face/kiosk', [FaceAttendanceController::class, 'kiosk'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:attendance.manage',
+                ])
+                ->name('face.kiosk');
+
+            Route::get('/face/employees/{employee}', [FaceAttendanceController::class, 'enrollPage'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:attendance.manage',
+                ])
+                ->name('face.enroll-page');
+
+            Route::post('/face/employees/{employee}/enroll', [FaceAttendanceController::class, 'enroll'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:attendance.manage',
+                ])
+                ->name('face.enroll');
+
+            Route::post('/face/employees/{employee}/revoke', [FaceAttendanceController::class, 'revoke'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:attendance.manage',
+                ])
+                ->name('face.revoke');
+
+            Route::post('/face/punch', [FaceAttendanceController::class, 'punch'])
+                ->middleware([
+                    EnsureBiometricAttendanceEnabled::class,
+                    'can:attendance.manage',
+                    'throttle:30,1',
+                ])
+                ->name('face.punch');
 
             Route::get('/shifts', [WorkShiftController::class, 'index'])
                 ->middleware('can:attendance.view')
@@ -125,6 +163,17 @@ Route::middleware([
     ])->name('payroll.attendance.sync');
 });
 
+
+Route::post(
+    '/attendance/integrations/faceio/webhook',
+    FaceioWebhookController::class
+)->middleware([
+    EnsureAttendanceEnabled::class,
+    EnsureBiometricAttendanceEnabled::class,
+    'throttle:180,1',
+])->withoutMiddleware([
+    \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+])->name('attendance.integrations.faceio.webhook');
 
 Route::prefix('attendance/integrations')
     ->middleware([
