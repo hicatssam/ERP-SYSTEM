@@ -156,7 +156,9 @@ class CompreFaceClient
             : null;
 
         $query = [
-            'limit' => 1,
+            // 0 means no limit: return every detected face so Laravel can
+            // reject frames containing more than one person.
+            'limit' => 0,
             'prediction_count' => 1,
             'det_prob_threshold' =>
                 $this->detectorThreshold(),
