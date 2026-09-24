@@ -66,18 +66,6 @@ class FaceAttendanceFlowTest extends TestCase
     public function employee_face_enrollment_is_saved_locally_after_compreface_accepts_examples(): void
     {
         Http::fake([
-            'http://compreface.test/api/v1/recognition/recognize*' =>
-                Http::response([
-                    'result' => [
-                        [
-                            'box' => [
-                                'probability' => 0.99,
-                            ],
-                            'subjects' => [],
-                        ],
-                    ],
-                ], 200),
-
             'http://compreface.test/api/v1/recognition/faces*' =>
                 Http::sequence()
                     ->push([
@@ -162,7 +150,7 @@ class FaceAttendanceFlowTest extends TestCase
             )
         );
 
-        Http::assertSentCount(4);
+        Http::assertSentCount(3);
     }
 
     #[Test]
