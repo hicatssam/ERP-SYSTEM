@@ -125,6 +125,36 @@ class FaceAttendanceController extends Controller
         ]);
     }
 
+    public function status(
+        Request $request,
+        Employee $employee
+    ): JsonResponse {
+        $this->assertEmployeeAccessible(
+            $request->user(),
+            $employee
+        );
+
+        $profile =
+            $employee
+                ->faceProfile()
+                ->first();
+
+        return response()->json([
+            'ok' => true,
+            'registered' =>
+                (bool) $profile,
+            'status' =>
+                $profile?->status,
+            'active' =>
+                $profile?->isActive()
+                ?? false,
+            'activated_at' =>
+                $profile
+                    ?->activated_at
+                    ?->toIso8601String(),
+        ]);
+    }
+
     public function revoke(
         Request $request,
         Employee $employee
