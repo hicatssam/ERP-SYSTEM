@@ -432,6 +432,202 @@ class FaceAttendanceFlowTest extends TestCase
             ]);
     }
 
+
+    #[Test]
+    public function manual_attendance_edit_clears_face_verification_stamp(): void
+    {
+        $branch = $this->makeLocation('A');
+        $manager = $this->makeManager($branch);
+        $employee = $this->makeEmployee(
+            $branch,
+            'Manual Override Employee'
+        );
+
+        $record = AttendanceRecord::query()->create([
+            'employee_id' => $employee->id,
+            'work_date' => now()->toDateString(),
+            'check_in_at' => now()->subHours(2),
+            'status' => 'present',
+            'source' => 'face',
+            'verification_method' => 'face',
+            'verification_provider' => 'faceio',
+            'verification_reference' => 'faceio:event:1',
+            'verification_location_id' => $branch->id,
+            'verification_metadata' => [
+                'face_scans' => [
+                    'check_in' => [
+                        'event_id' => 1,
+                    ],
+                ],
+            ],
+            'created_by' => $manager->id,
+        ]);
+
+        $this->actingAs($manager)
+            ->post(
+                route(
+                    'attendance.store',
+                    $employee
+                ),
+                [
+                    'work_date' =>
+                        now()->toDateString(),
+                    'status' => 'present',
+                    'check_in_at' =>
+                        now()
+                            ->subHours(2)
+                            ->format('Y-m-d H:i:s'),
+                    'check_out_at' =>
+                        now()
+                            ->format('Y-m-d H:i:s'),
+                    'notes' =>
+                        'تعديل يدوي بعد تحقق الوجه',
+                ]
+            )
+            ->assertRedirect();
+
+        $record->refresh();
+
+        $this->assertSame(
+            'manual',
+            $record->source
+        );
+
+        $this->assertNull(
+            $record->verification_method
+        );
+
+        $this->assertNull(
+            $record->verification_provider
+        );
+
+        $this->assertNull(
+            $record->verification_reference
+        );
+
+        $this->assertNull(
+            $record->verification_location_id
+        );
+
+        $this->assertNull(
+            $record->verification_metadata
+        );
+    }
+
+    #[Test]
+    public function revoking_face_profile_purges_faceio_when_api_key_is_configured(): void
+    {
+        Http::fake([
+            'https://api.faceio.net/deletefacialid*' =>
+                Http::response([
+                    'status' => 200,
+                    'payload' => true,
+                ], 200),
+        ]);
+
+        config([
+            'attendance-face.faceio.api_key' =>
+                'faceio-api-key-test',
+        ]);
+
+        $branch = $this->makeLocation('A');
+        $manager = $this->makeManager($branch);
+        $employee = $this->makeEmployee(
+            $branch,
+            'Revoked Employee'
+        );
+
+        $profile = EmployeeFaceProfile::query()
+            ->create([
+                'employee_id' => $employee->id,
+                'provider' => 'faceio',
+                'provider_face_id_hash' =>
+                    app(
+                        FaceAttendanceService::class
+                    )->hashFaceId(
+                        'face-delete-001'
+                    ),
+                'provider_face_id' =>
+                    'face-delete-001',
+                'status' => 'active',
+                'enrolled_at' => now(),
+                'activated_at' => now(),
+            ]);
+
+        $this->actingAs($manager)
+            ->post(
+                route(
+                    'attendance.face.revoke',
+                    $employee
+                )
+            )
+            ->assertRedirect();
+
+        $profile->refresh();
+
+        $this->assertSame(
+            'revoked',
+            $profile->status
+        );
+
+        $this->assertNull(
+            $profile->provider_face_id
+        );
+
+        $this->assertSame(
+            'deleted',
+            data_get(
+                $profile->metadata,
+                'provider_purge'
+            )
+        );
+
+        Http::assertSent(
+            function ($request): bool {
+                return str_starts_with(
+                    $request->url(),
+                    'https://api.faceio.net/deletefacialid'
+                )
+                    && $request->hasHeader(
+                        'WWW-Authenticate',
+                        'Bearer faceio-api-key-test'
+                    )
+                    && str_contains(
+                        $request->url(),
+                        'fid=face-delete-001'
+                    );
+            }
+        );
+    }
+
+    #[Test]
+    public function wrong_faceio_application_id_is_rejected(): void
+    {
+        $this
+            ->withHeader(
+                'WWW-Authenticate',
+                'Bearer faceio-webhook-secret'
+            )
+            ->postJson(
+                route(
+                    'attendance.integrations.faceio.webhook'
+                ),
+                [
+                    'eventName' => 'AUTH',
+                    'facialId' =>
+                        'face-wrong-app',
+                    'appId' =>
+                        'another-faceio-app',
+                ]
+            )
+            ->assertUnauthorized();
+
+        $this->assertDatabaseCount(
+            'face_verification_events',
+            0
+        );
+    }
+
     private function faceioWebhook(
         string $eventName,
         string $facialId,
