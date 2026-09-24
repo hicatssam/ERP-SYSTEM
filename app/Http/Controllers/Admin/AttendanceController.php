@@ -141,8 +141,6 @@ class AttendanceController extends Controller
                 $this->features->biometricEnabled(),
             'faceAttendanceConfigured' =>
                 $this->faceAttendance->configured(),
-            'faceAttendanceWebhookRequired' =>
-                $this->faceAttendance->requiresWebhook(),
         ]);
     }
 
