@@ -179,6 +179,21 @@
                     </div>
 
                     <div class="att-toggle-row">
+                        <div class="att-toggle-copy">
+                            <strong>حذف البيانات من FACEIO</strong>
+                            <small>
+                                @if($faceAttendance['api_key_configured'])
+                                    <span style="color:var(--theme-success);font-weight:850">● API Key جاهز</span>
+                                    — إلغاء البصمة من النظام يحذف Facial ID والبيانات المرتبطة من FACEIO أيضًا.
+                                @else
+                                    <span style="color:var(--theme-warning);font-weight:850">● API Key غير مضاف</span>
+                                    — أضف FACEIO_API_KEY لتفعيل الحذف الكامل وإعادة التسجيل بشكل نظيف.
+                                @endif
+                            </small>
+                        </div>
+                    </div>
+
+                    <div class="att-toggle-row">
                         <div class="att-toggle-copy" style="width:100%">
                             <strong>Webhook URL</strong>
                             <small>
