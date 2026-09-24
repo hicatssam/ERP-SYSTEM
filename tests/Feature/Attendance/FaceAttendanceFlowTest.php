@@ -93,6 +93,28 @@ class FaceAttendanceFlowTest extends TestCase
             $profile->status
         );
 
+        $this->assertTrue(
+            (bool) data_get(
+                $profile->metadata,
+                'consent_confirmed'
+            )
+        );
+
+        $this->assertSame(
+            $manager->id,
+            (int) data_get(
+                $profile->metadata,
+                'consent_confirmed_by'
+            )
+        );
+
+        $this->assertNotEmpty(
+            data_get(
+                $profile->metadata,
+                'consent_confirmed_at'
+            )
+        );
+
         $this->faceioWebhook(
             'ENROLL',
             'face-enroll-001'
