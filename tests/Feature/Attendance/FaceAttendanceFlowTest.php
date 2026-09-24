@@ -66,6 +66,18 @@ class FaceAttendanceFlowTest extends TestCase
     public function employee_face_enrollment_is_saved_locally_after_compreface_accepts_examples(): void
     {
         Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' =>
+                Http::response([
+                    'result' => [
+                        [
+                            'box' => [
+                                'probability' => 0.99,
+                            ],
+                            'subjects' => [],
+                        ],
+                    ],
+                ], 200),
+
             'http://compreface.test/api/v1/recognition/faces*' =>
                 Http::sequence()
                     ->push([
@@ -150,7 +162,68 @@ class FaceAttendanceFlowTest extends TestCase
             )
         );
 
-        Http::assertSentCount(3);
+        Http::assertSentCount(4);
+    }
+
+    #[Test]
+    public function duplicate_face_cannot_be_enrolled_for_another_employee(): void
+    {
+        $subject = 'emp-existing-face';
+
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' =>
+                Http::response(
+                    $this->recognition(
+                        $subject,
+                        0.96,
+                        0
+                    ),
+                    200
+                ),
+        ]);
+
+        $branch = $this->makeLocation('A');
+        $manager = $this->makeManager($branch);
+
+        $employeeA = $this->makeEmployee(
+            $branch,
+            'Existing Face Employee'
+        );
+
+        $employeeB = $this->makeEmployee(
+            $branch,
+            'Duplicate Face Employee'
+        );
+
+        $this->makeActiveProfile(
+            $employeeA,
+            $subject
+        );
+
+        $this->actingAs($manager)
+            ->postJson(
+                route(
+                    'attendance.face.enroll',
+                    $employeeB
+                ),
+                [
+                    'images' => [
+                        $this->image('front'),
+                        $this->image('right'),
+                        $this->image('left'),
+                    ],
+                    'consent' => true,
+                ]
+            )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'face',
+            ]);
+
+        $this->assertDatabaseCount(
+            'employee_face_profiles',
+            1
+        );
     }
 
     #[Test]
