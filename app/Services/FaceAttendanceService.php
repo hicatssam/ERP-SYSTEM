@@ -262,15 +262,32 @@ class FaceAttendanceService
         $hash =
             $this->hashFaceId($facialId);
 
-        $fingerprint = hash(
-            'sha256',
+        /*
+         * FACEIO does not document a unique webhook event ID. The AUTH body
+         * can therefore be identical for the same employee on two different
+         * punches. Deduplicate only inside a short retry window instead of
+         * making the raw body globally unique forever.
+         */
+        $rawFingerprintSource =
             $rawBody !== ''
                 ? $rawBody
                 : json_encode(
                     $data,
                     JSON_UNESCAPED_UNICODE
                     | JSON_UNESCAPED_SLASHES
-                )
+                );
+
+        $retryWindow = 30;
+        $timeBucket = (int) floor(
+            now()->timestamp
+            / $retryWindow
+        );
+
+        $fingerprint = hash(
+            'sha256',
+            $rawFingerprintSource
+            . '|'
+            . $timeBucket
         );
 
         return DB::transaction(
@@ -553,31 +570,6 @@ class FaceAttendanceService
                     $action = 'check_out';
                 }
 
-                $saved =
-                    $this->attendance->saveRecord(
-                        $employee,
-                        [
-                            'work_date' =>
-                                $workDate,
-                            'work_shift_id' =>
-                                $record?->work_shift_id,
-                            'status' =>
-                                'present',
-                            'check_in_at' =>
-                                $record?->check_in_at
-                                    ?? $now,
-                            'check_out_at' =>
-                                $action === 'check_out'
-                                    ? $now
-                                    : null,
-                            'source' =>
-                                'face',
-                            'notes' =>
-                                $record?->notes,
-                        ],
-                        $actor
-                    );
-
                 $metadata =
                     $record?->verification_metadata
                     ?? [];
@@ -598,22 +590,43 @@ class FaceAttendanceService
                 $metadata['face_scans'] =
                     $faceScans;
 
-                $saved->update([
-                    'source' => 'face',
-                    'verification_method' =>
-                        'face',
-                    'verification_provider' =>
-                        $this->provider(),
-                    'verification_reference' =>
-                        $verificationEvent
-                            ? 'faceio:event:'
-                                . $verificationEvent->id
-                            : 'faceio:client-confirmed',
-                    'verification_location_id' =>
-                        $location->id,
-                    'verification_metadata' =>
-                        $metadata,
-                ]);
+                $saved =
+                    $this->attendance->saveRecord(
+                        $employee,
+                        [
+                            'work_date' =>
+                                $workDate,
+                            'work_shift_id' =>
+                                $record?->work_shift_id,
+                            'status' =>
+                                'present',
+                            'check_in_at' =>
+                                $record?->check_in_at
+                                    ?? $now,
+                            'check_out_at' =>
+                                $action === 'check_out'
+                                    ? $now
+                                    : null,
+                            'source' =>
+                                'face',
+                            'verification_method' =>
+                                'face',
+                            'verification_provider' =>
+                                $this->provider(),
+                            'verification_reference' =>
+                                $verificationEvent
+                                    ? 'faceio:event:'
+                                        . $verificationEvent->id
+                                    : 'faceio:client-confirmed',
+                            'verification_location_id' =>
+                                $location->id,
+                            'verification_metadata' =>
+                                $metadata,
+                            'notes' =>
+                                $record?->notes,
+                        ],
+                        $actor
+                    );
 
                 if ($verificationEvent) {
                     $verificationEvent->update([
