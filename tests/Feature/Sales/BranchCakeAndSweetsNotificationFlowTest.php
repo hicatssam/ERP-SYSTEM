@@ -177,6 +177,14 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
                 ]
             );
 
+        $branchRecipient =
+            $this->makeUser(
+                $this->branch,
+                [
+                    'showroom_cake_requests.view',
+                ]
+            );
+
         $wrongBranch =
             $this->makeUser(
                 $this->otherBranch,
@@ -216,6 +224,11 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
         );
 
         Notification::assertSentTo(
+            $branchRecipient,
+            ShowroomCakeRequestNotification::class
+        );
+
+        Notification::assertSentTo(
             $admin,
             ShowroomCakeRequestNotification::class
         );
@@ -250,6 +263,14 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
                 ]
             );
 
+        $branchRecipient =
+            $this->makeUser(
+                $this->branch,
+                [
+                    'showroom_sweets_requests.view',
+                ]
+            );
+
         $wrongBranch =
             $this->makeUser(
                 $this->otherBranch,
@@ -276,6 +297,11 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
 
         Notification::assertSentTo(
             $factoryRecipient,
+            ShowroomSweetsRequestNotification::class
+        );
+
+        Notification::assertSentTo(
+            $branchRecipient,
             ShowroomSweetsRequestNotification::class
         );
 
