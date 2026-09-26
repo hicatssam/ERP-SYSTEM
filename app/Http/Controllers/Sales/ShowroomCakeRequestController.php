@@ -227,12 +227,37 @@ class ShowroomCakeRequestController extends Controller
                 'integer',
                 'min:1',
             ],
+            'items.*.reserved_quantity' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'items.*.reservation_notes' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
             'items.*.notes' => [
                 'nullable',
                 'string',
                 'max:500',
             ],
         ]);
+
+        foreach ($validated['items'] as $index => $item) {
+            $reserved =
+                (int) ($item['reserved_quantity'] ?? 0);
+
+            $quantity =
+                (int) $item['quantity'];
+
+            if ($reserved > $quantity) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "items.{$index}.reserved_quantity" =>
+                        'الكمية المحجوزة للعملاء لا يمكن أن تتجاوز الكمية المطلوبة.',
+                ]);
+            }
+        }
 
         $branch = $canChooseBranch
             ? Location::query()
@@ -316,6 +341,14 @@ class ShowroomCakeRequestController extends Controller
                                     ?? null,
                                 'quantity' =>
                                     $item['quantity'],
+                                'reserved_quantity' =>
+                                    (int) (
+                                        $item['reserved_quantity']
+                                        ?? 0
+                                    ),
+                                'reservation_notes' =>
+                                    $item['reservation_notes']
+                                    ?? null,
                                 'notes' =>
                                     $item['notes']
                                     ?? null,
