@@ -12,6 +12,8 @@ class ShowroomSweetsRequestItem extends Model
         'product_id',
         'product_name_snapshot',
         'quantity',
+        'reserved_quantity',
+        'reservation_notes',
         'requested_unit',
         'notes',
     ];
@@ -20,7 +22,17 @@ class ShowroomSweetsRequestItem extends Model
     {
         return [
             'quantity' => 'decimal:3',
+            'reserved_quantity' => 'decimal:3',
         ];
+    }
+
+    public function availableQuantity(): float
+    {
+        return max(
+            0,
+            (float) $this->quantity
+                - (float) $this->reserved_quantity
+        );
     }
 
     public function request(): BelongsTo
