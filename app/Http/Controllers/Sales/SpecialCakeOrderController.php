@@ -31,7 +31,7 @@ class SpecialCakeOrderController extends Controller
     {
         $user = Auth::user();
 
-        $query = SpecialCakeOrder::query()
+        $baseQuery = SpecialCakeOrder::query()
             ->with([
                 'customer',
                 'originBranch',
@@ -46,7 +46,7 @@ class SpecialCakeOrderController extends Controller
                 ->map(fn ($id) => (int) $id)
                 ->all() ?? [];
 
-            $query->where(function ($query) use ($locationIds): void {
+            $baseQuery->where(function ($query) use ($locationIds): void {
                 $query->whereIn('origin_branch_id', $locationIds)
                     ->orWhereIn('factory_location_id', $locationIds);
             });
@@ -66,57 +66,203 @@ class SpecialCakeOrderController extends Controller
             ->values()
             ->all();
 
-        $summaryQuery = clone $query;
+        /*
+         * Daily operations overview. These figures intentionally ignore the
+         * search/status filters below so the team always sees the real workload.
+         */
         $summary = [
-            'total' => (clone $summaryQuery)->count(),
-            'overdue' => (clone $summaryQuery)
+            'total' => (clone $baseQuery)->count(),
+
+            'overdue' => (clone $baseQuery)
                 ->whereIn('status', $activeStatuses)
                 ->whereDate('required_date', '<', today())
                 ->count(),
-            'due_today' => (clone $summaryQuery)
+
+            'due_today' => (clone $baseQuery)
                 ->whereIn('status', $activeStatuses)
                 ->whereDate('required_date', today())
                 ->count(),
-            'due_soon' => (clone $summaryQuery)
+
+            'due_tomorrow' => (clone $baseQuery)
                 ->whereIn('status', $activeStatuses)
-                ->whereDate('required_date', '>=', today()->addDay())
-                ->whereDate('required_date', '<=', today()->addDays(3))
+                ->whereDate(
+                    'required_date',
+                    today()->addDay()
+                )
+                ->count(),
+
+            'due_soon' => (clone $baseQuery)
+                ->whereIn('status', $activeStatuses)
+                ->whereDate(
+                    'required_date',
+                    '>=',
+                    today()->addDay()
+                )
+                ->whereDate(
+                    'required_date',
+                    '<=',
+                    today()->addDays(3)
+                )
                 ->count(),
         ];
 
+        /*
+         * Priority board for TODAY only. Terminal orders are intentionally
+         * excluded. Orders sharing the same required_time are grouped together
+         * in the view so they appear next to each other.
+         */
+        $todayPriorityOrders = (clone $baseQuery)
+            ->whereIn('status', $activeStatuses)
+            ->whereDate('required_date', today())
+            ->orderByRaw('required_time IS NULL')
+            ->orderBy('required_time')
+            ->orderBy('id')
+            ->get();
+
+        $priorityGroups = $todayPriorityOrders
+            ->groupBy(function (SpecialCakeOrder $order): string {
+                if (! $order->required_time) {
+                    return 'unscheduled';
+                }
+
+                return substr(
+                    (string) $order->required_time,
+                    0,
+                    5
+                );
+            });
+
+        /*
+         * Seven-day planning strip. Counts use active orders only so the cards
+         * reflect work still requiring operational attention.
+         */
+        $dailyCountRows = (clone $baseQuery)
+            ->whereIn('status', $activeStatuses)
+            ->whereDate(
+                'required_date',
+                '>=',
+                today()
+            )
+            ->whereDate(
+                'required_date',
+                '<=',
+                today()->addDays(6)
+            )
+            ->selectRaw(
+                'DATE(required_date) as due_date, COUNT(*) as total'
+            )
+            ->groupBy('due_date')
+            ->pluck(
+                'total',
+                'due_date'
+            );
+
+        $dailyPlan = collect(
+            range(0, 6)
+        )->map(function (int $offset) use ($dailyCountRows): array {
+            $date = today()->addDays($offset);
+            $key = $date->toDateString();
+
+            return [
+                'date' => $key,
+                'day_name' => $offset === 0
+                    ? 'اليوم'
+                    : (
+                        $offset === 1
+                            ? 'بكرة'
+                            : $date->translatedFormat('l')
+                    ),
+                'date_label' => $date->format('d/m'),
+                'count' => (int) ($dailyCountRows[$key] ?? 0),
+                'is_today' => $offset === 0,
+                'is_tomorrow' => $offset === 1,
+            ];
+        });
+
+        $query = clone $baseQuery;
+
         if ($request->filled('q')) {
-            $search = trim($request->string('q')->toString());
+            $search = trim(
+                $request
+                    ->string('q')
+                    ->toString()
+            );
 
             $query->where(function ($query) use ($search): void {
-                $query->where('order_number', 'like', "%{$search}%")
-                    ->orWhereHas('customer', function ($customerQuery) use ($search): void {
-                        $customerQuery->where('name', 'like', "%{$search}%")
-                            ->orWhere('phone', 'like', "%{$search}%");
-                    });
+                $query->where(
+                    'order_number',
+                    'like',
+                    "%{$search}%"
+                )
+                    ->orWhereHas(
+                        'customer',
+                        function ($customerQuery) use ($search): void {
+                            $customerQuery
+                                ->where(
+                                    'name',
+                                    'like',
+                                    "%{$search}%"
+                                )
+                                ->orWhere(
+                                    'phone',
+                                    'like',
+                                    "%{$search}%"
+                                );
+                        }
+                    );
             });
         }
 
         if ($request->filled('status')) {
-            $query->where('status', $request->string('status')->toString());
+            $query->where(
+                'status',
+                $request
+                    ->string('status')
+                    ->toString()
+            );
         }
 
         if ($request->filled('date_from')) {
-            $query->whereDate('required_date', '>=', $request->date('date_from'));
+            $query->whereDate(
+                'required_date',
+                '>=',
+                $request->date('date_from')
+            );
         }
 
         if ($request->filled('date_to')) {
-            $query->whereDate('required_date', '<=', $request->date('date_to'));
+            $query->whereDate(
+                'required_date',
+                '<=',
+                $request->date('date_to')
+            );
         }
 
+        /*
+         * Operational statuses always come before completed/cancelled records.
+         * Inside the active group the nearest delivery date/time wins.
+         */
         $orders = $query
+            ->orderByRaw(
+                "CASE WHEN status IN ('pending','in_progress','ready') THEN 0 ELSE 1 END"
+            )
             ->orderByRaw('required_date IS NULL')
             ->orderBy('required_date')
+            ->orderByRaw('required_time IS NULL')
             ->orderBy('required_time')
             ->latest('id')
             ->paginate(20)
             ->withQueryString();
 
-        return view('sales.cake-orders.index', compact('orders', 'summary'));
+        return view(
+            'sales.cake-orders.index',
+            compact(
+                'orders',
+                'summary',
+                'priorityGroups',
+                'dailyPlan'
+            )
+        );
     }
 
     public function create()
@@ -250,7 +396,7 @@ class SpecialCakeOrderController extends Controller
     'required_date' => [
         'required',
         'date',
-        'after:today',
+        'after_or_equal:today',
     ],
 
     'required_time' => [
