@@ -50,7 +50,7 @@
             . ($reportPrintTheme['currency_symbol'] ?? '₪');
     };
 
-    $formattedRows = $reportRows
+    $mappedRows = $reportRows
         ->map(function ($row) use (
             $type,
             $enumValue,
@@ -239,6 +239,10 @@
         })
         ->values();
 
+    $formattedRows = isset($formattedRows)
+        ? collect($formattedRows)->values()
+        : $mappedRows;
+
     $columnCount = count($columns ?? []);
 
     if ($columnCount > 0) {
@@ -264,7 +268,8 @@
 
 @extends('layouts.print')
 
-@section('pdf_mode', '1')
+@section('pdf_mode', ($pdfMode ?? false) ? '1' : '0')
+@section('paper_orientation', 'landscape')
 
 @section('document_title', $title ?? 'تقرير')
 @section('document_number', '')
@@ -280,7 +285,7 @@
     'عدد السجلات: ' . number_format($recordCount)
 )
 
-@section('signature_right', 'التوقيع المعتمد')
+@section('signature_right', 'إعداد التقرير')
 @section('signature_left', 'اعتماد الإدارة')
 
 @push('print_styles')
@@ -397,7 +402,7 @@
     @if($truncated ?? false)
         <div class="report-warning">
             <strong>تنبيه:</strong>
-            يعرض ملف PDF أول
+            يعرض التقرير أول
             {{ number_format((int) ($cap ?? 0)) }}
             سجل فقط من أصل
             {{ number_format((int) ($total ?? 0)) }}
