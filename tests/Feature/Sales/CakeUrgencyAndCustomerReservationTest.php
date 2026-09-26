@@ -122,14 +122,58 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
                 'required_date'
             );
 
-        $this->assertDatabaseMissing(
-            'special_cake_orders',
-            [
-                'customer_id' =>
-                    $this->customer->id,
-                'required_date' =>
-                    today()->toDateString(),
-            ]
+        $this->assertSame(
+            0,
+            SpecialCakeOrder::query()
+                ->where(
+                    'customer_id',
+                    $this->customer->id
+                )
+                ->count()
+        );
+    }
+
+    #[Test]
+    public function normal_special_cake_can_be_created_for_tomorrow(): void
+    {
+        $paymentMethod =
+            $this->makeCashPaymentMethod();
+
+        $response =
+            $this->actingAs($this->admin)
+                ->post(
+                    route(
+                        'cake-orders.store'
+                    ),
+                    $this->specialCakeStorePayload(
+                        $paymentMethod
+                    )
+                );
+
+        $order = SpecialCakeOrder::query()
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($order);
+
+        $response->assertRedirect(
+            route(
+                'cake-orders.show',
+                $order
+            )
+        );
+
+        $this->assertFalse(
+            (bool) $order->is_urgent
+        );
+
+        $this->assertSame(
+            today()
+                ->addDay()
+                ->toDateString(),
+            $order
+                ->required_date
+                ->toDateString()
         );
     }
 
