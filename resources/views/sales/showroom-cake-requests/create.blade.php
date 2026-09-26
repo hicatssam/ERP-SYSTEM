@@ -169,12 +169,39 @@
             </select>
         </div>
         <div class="form-group">
-            <label class="form-label">الكمية *</label>
-            <input type="number" name="items[__IDX__][quantity]" class="form-input" min="1" value="1" required>
+            <label class="form-label">الكمية المطلوبة *</label>
+            <input
+                type="number"
+                name="items[__IDX__][quantity]"
+                class="form-input quantity-input"
+                min="1"
+                value="1"
+                required
+            >
+        </div>
+        <div class="form-group">
+            <label class="form-label">محجوز للعملاء</label>
+            <input
+                type="number"
+                name="items[__IDX__][reserved_quantity]"
+                class="form-input reserved-input"
+                min="0"
+                value="0"
+            >
+            <small class="form-help">من إجمالي الكمية المطلوبة.</small>
+        </div>
+        <div class="form-group">
+            <label class="form-label">تفاصيل الحجوزات</label>
+            <input
+                type="text"
+                name="items[__IDX__][reservation_notes]"
+                class="form-input reservation-notes-input"
+                placeholder="مثال: 3 لمحمد، 2 لسارة..."
+            >
         </div>
         <div class="form-group">
             <label class="form-label">ملاحظة</label>
-            <input type="text" name="items[__IDX__][notes]" class="form-input" placeholder="ملاحظة إضافية...">
+            <input type="text" name="items[__IDX__][notes]" class="form-input notes-input" placeholder="ملاحظة إضافية...">
         </div>
         <div class="form-group scr-remove-col">
             <label class="form-label" style="opacity:0">حذف</label>
@@ -186,7 +213,7 @@
 <style>
 .scr-grid{display:grid;gap:1rem}
 .scr-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
-.scr-grid-item{grid-template-columns:repeat(3,minmax(0,1fr)) repeat(3,minmax(0,1fr)) auto;align-items:start}
+.scr-grid-item{grid-template-columns:repeat(4,minmax(0,1fr)) auto;align-items:start}
 .scr-remove-col{display:flex;flex-direction:column}
 .scr-item-row{padding:.75rem;background:var(--off-white);border-radius:var(--radius);margin-bottom:.75rem}
 .scr-errors{max-width:1000px;margin-bottom:1.25rem;padding:1rem 1.25rem;border:1px solid #dc3545;border-radius:12px;background:rgba(220,53,69,.12);color:#dc3545}
@@ -202,13 +229,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const noMsg     = document.getElementById('noItemsMsg');
     const tpl       = document.getElementById('itemTemplate');
 
-    function addItem() {
+    const oldItems = @json(old('items', []));
+
+    function addItem(data = {}) {
         const html = tpl.innerHTML.replaceAll('__IDX__', idx++);
         const div  = document.createElement('div');
         div.innerHTML = html;
-        container.appendChild(div.firstElementChild);
+        const row = div.firstElementChild;
+
+        const field = (selector) => row.querySelector(selector);
+
+        if (data.cake_type) {
+            field('[name$="[cake_type]"]').value = data.cake_type;
+        }
+
+        if (data.cake_size) {
+            field('[name$="[cake_size]"]').value = data.cake_size;
+        }
+
+        field('[name$="[flavor]"]').value = data.flavor ?? '';
+        field('[name$="[shape]"]').value = data.shape ?? '';
+        field('.quantity-input').value = data.quantity ?? 1;
+        field('.reserved-input').value = data.reserved_quantity ?? 0;
+        field('.reservation-notes-input').value = data.reservation_notes ?? '';
+        field('.notes-input').value = data.notes ?? '';
+
+        field('.remove-item-btn').addEventListener('click', removeItem);
+
+        container.appendChild(row);
         noMsg.style.display = 'none';
-        div.firstElementChild.querySelector('.remove-item-btn').addEventListener('click', removeItem);
     }
 
     function removeItem(e) {
@@ -225,8 +274,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Add first item automatically
-    addItem();
+    const initialItems =
+        Array.isArray(oldItems) && oldItems.length
+            ? oldItems
+            : [{}];
+
+    initialItems.forEach(addItem);
 });
 </script>
 @endsection
