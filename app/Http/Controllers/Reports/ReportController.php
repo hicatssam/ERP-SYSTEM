@@ -895,7 +895,15 @@ class ReportController extends Controller
                 'required_date',
                 [$dateFrom, $dateTo]
             )
-            ->where('status', '!=', 'cancelled')
+            ->whereIn(
+                'status',
+                [
+                    'pending',
+                    'in_progress',
+                    'ready',
+                    'completed',
+                ]
+            )
             ->whereNull('deleted_at');
 
         $showroom = DB::table(
@@ -926,9 +934,13 @@ class ReportController extends Controller
                 'COALESCE(requests.needed_by, DATE(requests.created_at)) BETWEEN ? AND ?',
                 [$dateFrom, $dateTo]
             )
-            ->whereNotIn(
+            ->whereIn(
                 'requests.status',
-                ['cancelled', 'rejected']
+                [
+                    'submitted',
+                    'in_progress',
+                    'fulfilled',
+                ]
             )
             ->whereNull('requests.deleted_at');
 
