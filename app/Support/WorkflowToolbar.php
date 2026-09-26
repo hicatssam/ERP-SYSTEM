@@ -67,7 +67,7 @@ class WorkflowToolbar
     public static function subtitle(string $type): string
     {
         return match ($type) {
-            'special_cake' => 'من إنشاء الطلب حتى الإنتاج والتزيين والجودة والتوصيل والاستلام',
+            'special_cake' => 'أربع مراحل واضحة من المراجعة حتى اكتمال الطلب',
             'showroom_sweets' => 'من إرسال الفرع حتى تجهيز المصنع والتوصيل واستلام الفرع',
             'showroom_cake' => 'إرسال الفرع، مراجعة المصنع، التجهيز، التوصيل ثم تأكيد استلام الفرع',
             'order' => 'متابعة حالة الطلب من الإنشاء حتى الإكمال',
@@ -79,17 +79,9 @@ class WorkflowToolbar
     {
         return match ($type) {
             'special_cake' => [
-                ['status'=>'draft','label'=>'إنشاء الطلب','icon'=>'file-plus','role'=>'الفرع / الكاشير','kind'=>'normal'],
-                ['status'=>'pending_factory_review','label'=>'مراجعة المصنع','icon'=>'factory','role'=>'مدير المصنع','kind'=>'normal'],
-                ['status'=>'accepted','label'=>'قبول الطلب','icon'=>'check-circle','role'=>'مدير المصنع','kind'=>'normal'],
-                ['status'=>'scheduled','label'=>'جدولة الإنتاج','icon'=>'calendar','role'=>'مدير المصنع','kind'=>'normal'],
-                ['status'=>'in_preparation','label'=>'التحضير','icon'=>'chef','role'=>'موظف الإنتاج','kind'=>'normal'],
-                ['status'=>'decorating','label'=>'تزيين الكيك','icon'=>'cake','role'=>'مصمم الكيك','kind'=>'normal'],
-                ['status'=>'quality_check','label'=>'فحص الجودة','icon'=>'search-check','role'=>'مراقب الجودة','kind'=>'normal'],
-                ['status'=>'ready','label'=>'جاهز للتوصيل','icon'=>'package-check','role'=>'بانتظار موظف التوصيل','kind'=>'delivery'],
-                ['status'=>'sent_to_branch','label'=>'خرج للتوصيل','icon'=>'truck','role'=>'موظف التوصيل','kind'=>'delivery'],
-                ['status'=>'received_by_branch','label'=>'استلمه الفرع','icon'=>'store-check','role'=>'مدير / موظف الفرع','kind'=>'delivery'],
-                ['status'=>'ready_for_customer','label'=>'جاهز للعميل','icon'=>'user-check','role'=>'الفرع','kind'=>'normal'],
+                ['status'=>'pending','label'=>'قيد المراجعة','icon'=>'search-check','role'=>'الفرع / المصنع','kind'=>'normal'],
+                ['status'=>'in_progress','label'=>'قيد التنفيذ','icon'=>'chef','role'=>'فريق الإنتاج','kind'=>'normal'],
+                ['status'=>'ready','label'=>'جاهز للاستلام','icon'=>'package-check','role'=>'الفرع / التسليم','kind'=>'normal'],
                 ['status'=>'completed','label'=>'مكتمل','icon'=>'flag','role'=>'الفرع','kind'=>'normal'],
             ],
             'showroom_sweets' => [
@@ -122,11 +114,34 @@ class WorkflowToolbar
     {
         return match ($type) {
             'special_cake' => match ($status) {
-                'in_decoration' => 'decorating',
-                'dispatched_to_branch' => 'sent_to_branch',
-                'received_at_branch' => 'received_by_branch',
-                'ready_for_pickup' => 'ready_for_customer',
+                'draft',
+                'pending_deposit',
+                'deposit_paid',
+                'pending_factory_review',
+                'modification_requested' => 'pending',
+
+                'accepted',
+                'scheduled',
+                'in_preparation',
+                'decorating',
+                'in_decoration',
+                'quality_check',
+                'delayed',
+                'issue_open' => 'in_progress',
+
+                'ready',
+                'sent_to_branch',
+                'dispatched_to_branch',
+                'received_by_branch',
+                'received_at_branch',
+                'ready_for_customer',
+                'ready_for_pickup' => 'ready',
+
                 'delivered' => 'completed',
+
+                'rejected',
+                'canceled' => 'cancelled',
+
                 default => $status,
             },
             'showroom_cake' => match ($status) {
@@ -197,9 +212,16 @@ class WorkflowToolbar
     private static function specialCakeMeta(Model $record, string $status): array
     {
         return match ($status) {
-            'draft' => [self::relationUserName($record, 'creator'), self::dateValue($record->created_at), null],
-            'scheduled' => [null, self::dateValue($record->scheduled_at ?? null), null],
-            'completed' => [null, self::dateValue($record->completed_at ?? null), null],
+            'pending' => [
+                self::relationUserName($record, 'creator'),
+                self::dateValue($record->created_at),
+                null,
+            ],
+            'completed' => [
+                null,
+                self::dateValue($record->completed_at ?? null),
+                null,
+            ],
             default => [null, null, null],
         };
     }
