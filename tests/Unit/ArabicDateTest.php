@@ -73,6 +73,30 @@ class ArabicDateTest extends TestCase
         );
     }
 
+    public function test_date_only_uses_today_tomorrow_and_yesterday_labels(): void
+    {
+        $this->assertSame(
+            'اليوم، السبت، 26 سبتمبر 2026',
+            ArabicDate::date(
+                '2026-09-26'
+            )
+        );
+
+        $this->assertSame(
+            'غدًا، الأحد، 27 سبتمبر 2026',
+            ArabicDate::date(
+                '2026-09-27'
+            )
+        );
+
+        $this->assertSame(
+            'أمس، الجمعة، 25 سبتمبر 2026',
+            ArabicDate::date(
+                '2026-09-25'
+            )
+        );
+    }
+
     public function test_separate_delivery_date_and_time_are_combined_consistently(): void
     {
         $this->assertSame(
