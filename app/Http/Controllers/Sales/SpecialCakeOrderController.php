@@ -387,7 +387,7 @@ class SpecialCakeOrderController extends Controller
             ]);
         }
 
-      $request->validate([
+      $validated = $request->validate([
     'customer_id' => [
         'required',
         'exists:customers,id',
@@ -396,12 +396,25 @@ class SpecialCakeOrderController extends Controller
     'required_date' => [
         'required',
         'date',
-        'after_or_equal:today',
     ],
 
     'required_time' => [
         'nullable',
         'date_format:H:i',
+    ],
+
+    'is_urgent' => [
+        'nullable',
+        'boolean',
+    ],
+
+    'urgent_reason' => [
+        Rule::requiredIf(
+            fn () => $request->boolean('is_urgent')
+        ),
+        'nullable',
+        'string',
+        'max:500',
     ],
 
     'cake_type' => [
@@ -495,6 +508,11 @@ class SpecialCakeOrderController extends Controller
     'max:10240',
 ],
 ]);
+
+        $validated = $this->enforceDeliveryTiming(
+            $request,
+            $validated
+        );
 
         $branch = Auth::user()->primaryLocation();
 
@@ -711,8 +729,18 @@ if (
         }
 
         $validated = $request->validate([
-            'required_date' => ['required', 'date', 'after_or_equal:today'],
+            'required_date' => ['required', 'date'],
             'required_time' => ['nullable', 'date_format:H:i'],
+            'is_urgent' => ['nullable', 'boolean'],
+            'urgent_reason' => [
+                Rule::requiredIf(
+                    fn () =>
+                        $request->boolean('is_urgent')
+                ),
+                'nullable',
+                'string',
+                'max:500',
+            ],
             'cake_type' => ['nullable', 'string', 'max:100'],
             'cake_size' => ['nullable', 'string', 'max:50'],
             'cake_weight' => ['nullable', 'numeric', 'min:0', 'max:1000'],
@@ -726,6 +754,11 @@ if (
             'special_instructions' => ['nullable', 'string', 'max:5000'],
             'total_price' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
         ]);
+
+        $validated = $this->enforceDeliveryTiming(
+            $request,
+            $validated
+        );
 
         $cakeOrder->update($validated);
 
@@ -805,6 +838,92 @@ if (
         );
 
         return back()->with('success', 'تم إضافة الملاحظة.');
+    }
+
+    /**
+     * Normal cake bookings start tomorrow at the earliest.
+     * Same-day delivery is only allowed when explicitly marked urgent,
+     * requires a reason and a future delivery time.
+     *
+     * @param array<string, mixed> $validated
+     * @return array<string, mixed>
+     */
+    private function enforceDeliveryTiming(
+        Request $request,
+        array $validated
+    ): array {
+        $isUrgent =
+            $request->boolean('is_urgent');
+
+        $deliveryDate =
+            \Carbon\Carbon::parse(
+                $validated['required_date']
+            )->startOfDay();
+
+        if ($deliveryDate->lt(today())) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'required_date' =>
+                    'لا يمكن اختيار تاريخ تسليم سابق لليوم.',
+            ]);
+        }
+
+        if (
+            ! $isUrgent
+            && $deliveryDate->isSameDay(today())
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'required_date' =>
+                    'الطلب العادي يجب أن يكون موعد تسليمه من الغد فما بعد. لتسليم اليوم فعّل خيار طلب طارئ.',
+            ]);
+        }
+
+        if (
+            $isUrgent
+            && $deliveryDate->isSameDay(today())
+        ) {
+            if (empty($validated['required_time'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'required_time' =>
+                        'الطلب الطارئ لنفس اليوم يحتاج وقت تسليم محدد.',
+                ]);
+            }
+
+            $dueAt =
+                \Carbon\Carbon::parse(
+                    $deliveryDate->toDateString()
+                    . ' '
+                    . $validated['required_time']
+                );
+
+            if ($dueAt->lte(now())) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'required_time' =>
+                        'وقت تسليم الطلب الطارئ يجب أن يكون لاحقًا للوقت الحالي.',
+                ]);
+            }
+        }
+
+        $validated['is_urgent'] =
+            $isUrgent;
+
+        $validated['urgent_reason'] =
+            $isUrgent
+                ? trim(
+                    (string) (
+                        $validated['urgent_reason']
+                        ?? ''
+                    )
+                )
+                : null;
+
+        $request->merge([
+            'is_urgent' =>
+                $isUrgent ? 1 : 0,
+            'urgent_reason' =>
+                $validated['urgent_reason'],
+        ]);
+
+        return $validated;
     }
 
     public function addAttachment(Request $request, SpecialCakeOrder $cakeOrder)
