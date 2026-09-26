@@ -891,9 +891,15 @@ class ReportController extends Controller
             )
             ->selectRaw('1 as quantity')
             ->whereIn('origin_branch_id', $ids)
-            ->whereBetween(
+            ->whereDate(
                 'required_date',
-                [$dateFrom, $dateTo]
+                '>=',
+                $dateFrom
+            )
+            ->whereDate(
+                'required_date',
+                '<=',
+                $dateTo
             )
             ->whereIn(
                 'status',
@@ -931,7 +937,7 @@ class ReportController extends Controller
                 $ids
             )
             ->whereRaw(
-                'COALESCE(requests.needed_by, DATE(requests.created_at)) BETWEEN ? AND ?',
+                'DATE(COALESCE(requests.needed_by, requests.created_at)) BETWEEN ? AND ?',
                 [$dateFrom, $dateTo]
             )
             ->whereIn(
