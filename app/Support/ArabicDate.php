@@ -332,9 +332,11 @@ class ArabicDate
 
             $target = $date->startOfDay();
 
-            $dayDiff = $today->diffInDays(
-                $target,
-                false
+            $dayDiff = (int) round(
+                $today->diffInDays(
+                    $target,
+                    false
+                )
             );
 
             if ($dayDiff === 0) {
