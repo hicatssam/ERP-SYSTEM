@@ -18,11 +18,13 @@ class ShowroomCakeRequestNotifier
     ): void {
         $users = self::recipients(
             locationIds: [
+                (int) $request->requesting_location_id,
                 (int) $request->factory_location_id,
             ],
             permissions: [
-                'showroom_cake_requests.update_status',
                 'showroom_cake_requests.view',
+                'showroom_cake_requests.create',
+                'showroom_cake_requests.update_status',
             ],
         );
 
