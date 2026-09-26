@@ -587,11 +587,12 @@ class ShowroomSweetsRequestController extends Controller
 
         abort_unless(
             $user->isAdmin()
-            ||
-            (
+            || $user->can(
+                'showroom_sweets_requests.update_status'
+            )
+            || (
                 $permission
-                &&
-                $user->can(
+                && $user->can(
                     $permission
                 )
             ),
@@ -818,17 +819,17 @@ class ShowroomSweetsRequestController extends Controller
 
                     return (
                         $user->isAdmin()
-                        ||
-                        (
+                        || $user->can(
+                            'showroom_sweets_requests.update_status'
+                        )
+                        || (
                             $permission
-                            &&
-                            $user->can(
+                            && $user->can(
                                 $permission
                             )
                         )
                     )
-                    &&
-                    $this->transitionLocationAllowed(
+                    && $this->transitionLocationAllowed(
                         $user,
                         $request,
                         $status
