@@ -177,6 +177,7 @@ class PrintThemeService
             ]),
 
             'signature_src' => $this->imageSource([
+                SystemSetting::get('print_signature'),
                 SystemSetting::get('brand_signature'),
             ]),
 
