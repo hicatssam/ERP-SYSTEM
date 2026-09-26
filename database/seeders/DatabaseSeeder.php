@@ -742,6 +742,7 @@ SVG;
                 'brand_tagline_ar' => ['', 'string', 'الشعار النصي بالعربية'],
                 'brand_tagline_en' => ['', 'string', 'الشعار النصي بالإنجليزية'],
                 'brand_footer_text' => ['حلويات دهب - Dahab Sweets', 'string', 'نص الفوتر'],
+                'special_cake_auto_approval' => ['1', 'boolean', 'الموافقة التلقائية على طلب الكيك الخاص'],
                 'brand_logo' => ['', 'image', 'الشعار الرئيسي'],
                 'brand_logo_small' => ['', 'image', 'الشعار المصغّر'],
                 'brand_favicon' => ['', 'image', 'أيقونة المتصفح'],
