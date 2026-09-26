@@ -13,8 +13,19 @@ class ShowroomCakeRequestItem extends Model
         'flavor',
         'shape',
         'quantity',
+        'reserved_quantity',
+        'reservation_notes',
         'notes',
     ];
+
+    public function availableQuantity(): int
+    {
+        return max(
+            0,
+            (int) $this->quantity
+                - (int) $this->reserved_quantity
+        );
+    }
 
     public function request(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
