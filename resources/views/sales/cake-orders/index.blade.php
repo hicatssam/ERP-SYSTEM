@@ -601,10 +601,10 @@
                         <div>
                             <small>{{ $deadlineLabel }}</small>
                             <strong>
-                                {{ $order->required_date?->format('Y-m-d') ?? '—' }}
-                                @if($order->required_time)
-                                    <span>· {{ substr((string) $order->required_time, 0, 5) }}</span>
-                                @endif
+                                {{ \App\Support\ArabicDate::dateWithOptionalTime(
+                                    $order->required_date,
+                                    $order->required_time
+                                ) }}
                             </strong>
                         </div>
                         <span class="delivery-icon" aria-hidden="true">◷</span>
