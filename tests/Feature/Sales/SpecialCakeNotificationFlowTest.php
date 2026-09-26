@@ -1062,6 +1062,95 @@ class SpecialCakeNotificationFlowTest extends TestCase
     }
 
     #[Test]
+    public function admin_notification_is_persisted_unread_and_visible_in_notification_bell_endpoint(): void
+    {
+        $admin = $this->makeAdmin(
+            $this->otherBranch
+        );
+
+        $this->dispatchTransition(
+            'pending',
+            'in_progress',
+            'اختبار ظهور الإشعار للإدارة'
+        );
+
+        $admin->refresh();
+
+        $this->assertSame(
+            1,
+            $admin
+                ->notifications()
+                ->count()
+        );
+
+        $this->assertSame(
+            1,
+            $admin
+                ->unreadNotifications()
+                ->count()
+        );
+
+        $stored =
+            $admin
+                ->unreadNotifications()
+                ->first();
+
+        $this->assertSame(
+            SpecialCakeOrderTransitionedNotification::class,
+            $stored->type
+        );
+
+        $this->assertSame(
+            'cake_order_transitioned',
+            data_get(
+                $stored->data,
+                'type'
+            )
+        );
+
+        $this->assertSame(
+            $this->order->id,
+            data_get(
+                $stored->data,
+                'order_id'
+            )
+        );
+
+        $this->actingAs($admin)
+            ->getJson(
+                route(
+                    'notifications.recent'
+                )
+            )
+            ->assertOk()
+            ->assertJsonCount(
+                1,
+                'items'
+            )
+            ->assertJsonPath(
+                'items.0.type',
+                'cake_order_transitioned'
+            )
+            ->assertJsonPath(
+                'items.0.url',
+                '/cake-orders/'
+                    . $this->order->id
+            );
+
+        $this->actingAs($admin)
+            ->getJson(
+                route(
+                    'notifications.count'
+                )
+            )
+            ->assertOk()
+            ->assertJsonPath(
+                'count',
+                1
+            );
+    }
+
+    #[Test]
     public function admin_receives_cake_transition_even_when_admin_performs_the_action(): void
     {
         Notification::fake();
