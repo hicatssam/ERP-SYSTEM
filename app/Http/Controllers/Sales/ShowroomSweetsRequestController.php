@@ -84,7 +84,7 @@ class ShowroomSweetsRequestController extends Controller
             : collect();
 
         $statusEnum =
-            ShowroomSweetsRequestStatus::cases();
+            ShowroomSweetsRequestStatus::workflowCases();
 
         return view(
             'sales.showroom-sweets-requests.index',
@@ -377,7 +377,7 @@ class ShowroomSweetsRequestController extends Controller
                                 ],
 
                             'status' =>
-                                ShowroomSweetsRequestStatus::Submitted,
+                                ShowroomSweetsRequestStatus::Pending,
 
                             'needed_by' =>
                                 $validated[
@@ -461,7 +461,8 @@ class ShowroomSweetsRequestController extends Controller
                 'requestingLocation',
                 'factoryLocation',
                 'items.product',
-            ])
+            ]),
+            $user
         );
 
         return redirect()
@@ -471,7 +472,7 @@ class ShowroomSweetsRequestController extends Controller
             )
             ->with(
                 'success',
-                'تم إرسال طلب الحلويات إلى المصنع بنجاح.'
+                'تم إنشاء طلب الحلويات ووضعه قيد المراجعة.'
             );
     }
 
@@ -639,36 +640,15 @@ class ShowroomSweetsRequestController extends Controller
 
         if (
             $newStatus ===
-            ShowroomSweetsRequestStatus::OutForDelivery
+            ShowroomSweetsRequestStatus::Completed
         ) {
-            $data[
-                'dispatched_by'
-            ] =
+            $data['received_by'] =
                 $user->id;
 
-            $data[
-                'dispatched_at'
-            ] =
-                now();
-        }
-
-        if (
-            $newStatus ===
-            ShowroomSweetsRequestStatus::ReceivedAtBranch
-        ) {
-            $data[
-                'received_by'
-            ] =
-                $user->id;
-
-            $data[
-                'received_at'
-            ] =
+            $data['received_at'] =
                 now();
 
-            $data[
-                'fulfilled_at'
-            ] =
+            $data['fulfilled_at'] =
                 now();
         }
 
@@ -860,31 +840,22 @@ class ShowroomSweetsRequestController extends Controller
     }
 
     private function permissionForTransition(
-        ShowroomSweetsRequestStatus
-        $status
+        ShowroomSweetsRequestStatus $status
     ): ?string {
         return match ($status) {
-
             ShowroomSweetsRequestStatus::InProgress =>
                 'showroom_sweets_requests.start',
 
-            ShowroomSweetsRequestStatus::ReadyForDispatch =>
+            ShowroomSweetsRequestStatus::Ready =>
                 'showroom_sweets_requests.ready',
 
-            ShowroomSweetsRequestStatus::OutForDelivery =>
-                'showroom_sweets_requests.dispatch',
-
-            ShowroomSweetsRequestStatus::ReceivedAtBranch =>
+            ShowroomSweetsRequestStatus::Completed =>
                 'showroom_sweets_requests.receive',
-
-            ShowroomSweetsRequestStatus::Rejected =>
-                'showroom_sweets_requests.reject',
 
             ShowroomSweetsRequestStatus::Cancelled =>
                 'showroom_sweets_requests.cancel',
 
-            default =>
-                null,
+            default => null,
         };
     }
 
@@ -893,11 +864,9 @@ class ShowroomSweetsRequestController extends Controller
         ShowroomSweetsRequest $request,
         ShowroomSweetsRequestStatus $status
     ): bool {
-
         if (
             $user->isAdmin()
-            ||
-            $user->can(
+            || $user->can(
                 'showroom_sweets_requests.view_all'
             )
         ) {
@@ -909,26 +878,39 @@ class ShowroomSweetsRequestController extends Controller
                 $user
             );
 
-        $requiredLocation =
-            in_array(
-                $status,
-                [
-                    ShowroomSweetsRequestStatus::ReceivedAtBranch,
+        if (
+            $status ===
+            ShowroomSweetsRequestStatus::Completed
+        ) {
+            return in_array(
+                (int) $request
+                    ->requesting_location_id,
+                $locationIds,
+                true
+            );
+        }
 
-                    ShowroomSweetsRequestStatus::Cancelled,
-                ],
+        if (
+            $status ===
+            ShowroomSweetsRequestStatus::Cancelled
+        ) {
+            return in_array(
+                (int) $request
+                    ->requesting_location_id,
+                $locationIds,
                 true
             )
-                ? (int)
-                    $request
-                        ->requesting_location_id
-
-                : (int)
-                    $request
-                        ->factory_location_id;
+            || in_array(
+                (int) $request
+                    ->factory_location_id,
+                $locationIds,
+                true
+            );
+        }
 
         return in_array(
-            $requiredLocation,
+            (int) $request
+                ->factory_location_id,
             $locationIds,
             true
         );
