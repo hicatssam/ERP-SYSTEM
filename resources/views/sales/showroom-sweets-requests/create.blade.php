@@ -175,6 +175,25 @@
                    required>
         </div>
 
+        <div class="form-group">
+            <label class="form-label">محجوز للعملاء</label>
+            <input type="number"
+                   name="items[__IDX__][reserved_quantity]"
+                   class="form-input reserved-input"
+                   min="0"
+                   step="0.001"
+                   value="0">
+            <small class="form-help">مثال: من 150 صدر، 5 محجوزة.</small>
+        </div>
+
+        <div class="form-group ssr-notes-col">
+            <label class="form-label">تفاصيل الحجوزات</label>
+            <input type="text"
+                   name="items[__IDX__][reservation_notes]"
+                   class="form-input reservation-notes-input"
+                   placeholder="مثال: 3 لمحمد، 2 لسارة...">
+        </div>
+
         <div class="form-group ssr-notes-col">
             <label class="form-label">ملاحظة للصنف</label>
             <input type="text"
@@ -195,7 +214,7 @@
 .ssr-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .ssr-item-row{
     display:grid;
-    grid-template-columns:minmax(260px,2fr) minmax(110px,.7fr) minmax(130px,.8fr) minmax(220px,1.5fr) auto;
+    grid-template-columns:minmax(240px,1.8fr) repeat(3,minmax(110px,.65fr)) minmax(190px,1.2fr) minmax(190px,1.2fr) auto;
     gap:.85rem;
     align-items:start;
     padding:1rem;
@@ -234,11 +253,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const product = row.querySelector('.product-select');
         const quantity = row.querySelector('.quantity-input');
         const unit = row.querySelector('.unit-input');
+        const reserved = row.querySelector('.reserved-input');
+        const reservationNotes = row.querySelector('.reservation-notes-input');
         const notes = row.querySelector('.notes-input');
 
         if (data.product_id) product.value = String(data.product_id);
         quantity.value = data.quantity ?? 1;
         unit.value = data.requested_unit ?? 'صدر';
+        reserved.value = data.reserved_quantity ?? 0;
+        reservationNotes.value = data.reservation_notes ?? '';
         notes.value = data.notes ?? '';
 
         row.querySelector('.remove-item-btn').addEventListener('click', () => {
