@@ -32,7 +32,7 @@
                 @endforeach
             </select>
         </div>
-        @if(auth()->user()->isAdmin())
+        @if($canViewAll)
         <div class="filter-group">
             <label class="filter-label">المعرض / الفرع</label>
             <select name="location_id" class="form-select">
