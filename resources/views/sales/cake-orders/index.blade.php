@@ -24,29 +24,33 @@
 
     $statusClasses = [
         'draft' => 'neutral',
+        'pending' => 'warning',
+        'in_progress' => 'progress',
+        'ready' => 'ready',
+        'completed' => 'success',
+        'cancelled' => 'danger',
+
+        // Legacy display tones until every environment runs the migration.
         'pending_deposit' => 'warning',
-        'deposit_paid' => 'info',
+        'deposit_paid' => 'warning',
         'pending_factory_review' => 'warning',
         'modification_requested' => 'warning',
-        'accepted' => 'info',
-        'scheduled' => 'purple',
+        'accepted' => 'progress',
+        'scheduled' => 'progress',
         'in_preparation' => 'progress',
-        'decorating' => 'pink',
-        'in_decoration' => 'pink',
-        'quality_check' => 'quality',
-        'ready' => 'ready',
-        'sent_to_branch' => 'delivery',
-        'dispatched_to_branch' => 'delivery',
-        'received_by_branch' => 'received',
-        'received_at_branch' => 'received',
+        'decorating' => 'progress',
+        'in_decoration' => 'progress',
+        'quality_check' => 'progress',
+        'sent_to_branch' => 'ready',
+        'dispatched_to_branch' => 'ready',
+        'received_by_branch' => 'ready',
+        'received_at_branch' => 'ready',
         'ready_for_customer' => 'ready',
         'ready_for_pickup' => 'ready',
-        'completed' => 'success',
         'delivered' => 'success',
-        'delayed' => 'danger',
-        'issue_open' => 'danger',
+        'delayed' => 'progress',
+        'issue_open' => 'progress',
         'rejected' => 'danger',
-        'cancelled' => 'danger',
         'canceled' => 'danger',
     ];
 
@@ -179,7 +183,7 @@
                 <span>الحالة</span>
                 <select name="status" class="form-select">
                     <option value="">جميع الحالات</option>
-                    @foreach(\App\Enums\CakeOrderStatus::cases() as $status)
+                    @foreach(\App\Enums\CakeOrderStatus::workflowCases() as $status)
                         <option value="{{ $status->value }}" @selected(request('status') === $status->value)>
                             {{ $status->label() }}
                         </option>
