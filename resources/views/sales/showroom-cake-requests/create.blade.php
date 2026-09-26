@@ -29,10 +29,61 @@
             <div class="card-header"><span class="card-title">بيانات الطلب</span></div>
             <div class="card-body scr-grid scr-grid-2">
                 <div class="form-group">
-                    <label class="form-label">المعرض / الفرع</label>
-                    <input type="text" class="form-input" value="{{ $branch?->name ?? 'غير محدد' }}" disabled>
-                    <small class="form-help">سيتم إرسال الطلب باسم فرعك الحالي</small>
+                    <label class="form-label">المعرض / الفرع *</label>
+
+                    @if($canChooseBranch)
+                        <select
+                            name="requesting_location_id"
+                            class="form-select @error('requesting_location_id') is-invalid @enderror"
+                            required
+                        >
+                            <option value="">اختر الفرع الطالب</option>
+                            @foreach($branches as $branchOption)
+                                <option
+                                    value="{{ $branchOption->id }}"
+                                    @selected(old('requesting_location_id') == $branchOption->id)
+                                >
+                                    {{ $branchOption->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @else
+                        <input
+                            type="text"
+                            class="form-input"
+                            value="{{ $branch?->name ?? 'غير محدد' }}"
+                            disabled
+                        >
+                        <small class="form-help">سيتم إنشاء الطلب باسم فرعك الحالي.</small>
+                    @endif
+
+                    @error('requesting_location_id')
+                        <span class="form-error">{{ $message }}</span>
+                    @enderror
                 </div>
+
+                <div class="form-group">
+                    <label class="form-label">المصنع *</label>
+                    <select
+                        name="factory_location_id"
+                        class="form-select @error('factory_location_id') is-invalid @enderror"
+                        required
+                    >
+                        <option value="">اختر المصنع</option>
+                        @foreach($factories as $factory)
+                            <option
+                                value="{{ $factory->id }}"
+                                @selected(old('factory_location_id') == $factory->id)
+                            >
+                                {{ $factory->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                    @error('factory_location_id')
+                        <span class="form-error">{{ $message }}</span>
+                    @enderror
+                </div>
+
                 <div class="form-group">
                     <label class="form-label">تاريخ الحاجة (اختياري)</label>
                     <input type="date"
