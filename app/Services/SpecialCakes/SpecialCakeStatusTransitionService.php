@@ -20,58 +20,19 @@ class SpecialCakeStatusTransitionService
      */
     private array $transitionPermissions = [
         'draft' => [
-            'pending_factory_review' => 'cake_orders.create',
+            'pending' => 'cake_orders.create',
             'cancelled' => 'cake_orders.cancel',
         ],
-        'pending_factory_review' => [
-            'accepted' => 'cake_orders.accept',
-            'rejected' => 'cake_orders.reject',
-            'modification_requested' => 'cake_orders.request_modification',
+        'pending' => [
+            'in_progress' => 'cake_orders.accept',
             'cancelled' => 'cake_orders.cancel',
         ],
-        'modification_requested' => [
-            'pending_factory_review' => 'cake_orders.edit',
-            'cancelled' => 'cake_orders.cancel',
-        ],
-        'accepted' => [
-            'scheduled' => 'cake_orders.schedule',
-            'cancelled' => 'cake_orders.cancel',
-        ],
-        'scheduled' => [
-            'in_preparation' => 'cake_orders.prepare',
-            'delayed' => 'cake_orders.schedule',
-            'cancelled' => 'cake_orders.cancel',
-        ],
-        'in_preparation' => [
-            'decorating' => 'cake_orders.decorate',
-            'delayed' => 'cake_orders.prepare',
-        ],
-        'decorating' => [
-            'quality_check' => 'cake_orders.quality_check',
-        ],
-        'quality_check' => [
+        'in_progress' => [
             'ready' => 'cake_orders.quality_check',
-            'decorating' => 'cake_orders.quality_check',
-            'in_preparation' => 'cake_orders.quality_check',
+            'cancelled' => 'cake_orders.cancel',
         ],
         'ready' => [
-            'sent_to_branch' => 'cake_orders.dispatch',
-        ],
-        'sent_to_branch' => [
-            'received_by_branch' => 'cake_orders.receive',
-        ],
-        'received_by_branch' => [
-            'ready_for_customer' => 'cake_orders.receive',
-            'issue_open' => 'cake_orders.receive',
-        ],
-        'issue_open' => [
-            'ready_for_customer' => 'cake_orders.receive',
-        ],
-        'ready_for_customer' => [
             'completed' => 'cake_orders.complete',
-        ],
-        'delayed' => [
-            'in_preparation' => 'cake_orders.prepare',
             'cancelled' => 'cake_orders.cancel',
         ],
     ];
@@ -104,10 +65,6 @@ class SpecialCakeStatusTransitionService
         $update = [
             'status' => CakeOrderStatus::from($toStatus),
         ];
-
-        if ($toStatus === CakeOrderStatus::Scheduled->value) {
-            $update['scheduled_at'] = now();
-        }
 
         if ($toStatus === CakeOrderStatus::Completed->value) {
             $update['completed_at'] = now();
@@ -160,7 +117,14 @@ class SpecialCakeStatusTransitionService
      */
     public function allowedTransitions(string $fromStatus): array
     {
-        return SpecialCakeOrder::allowedTransitions()[$fromStatus] ?? [];
+        $canonical =
+            SpecialCakeOrder::normalizeLegacyWorkflowStatus(
+                $fromStatus
+            );
+
+        return SpecialCakeOrder::allowedTransitions()[
+            $canonical
+        ] ?? [];
     }
 
     /**
@@ -201,16 +165,27 @@ class SpecialCakeStatusTransitionService
             return true;
         }
 
-        $permission = $this->requiredPermission($fromStatus, $toStatus);
+        $permission = $this->requiredPermission(
+            $fromStatus,
+            $toStatus
+        );
 
-        return $permission !== null && $user->can($permission);
+        return $permission !== null
+            && $user->can($permission);
     }
 
     public function requiredPermission(
         string $fromStatus,
         string $toStatus
     ): ?string {
-        return $this->transitionPermissions[$fromStatus][$toStatus] ?? null;
+        $canonical =
+            SpecialCakeOrder::normalizeLegacyWorkflowStatus(
+                $fromStatus
+            );
+
+        return $this->transitionPermissions[
+            $canonical
+        ][$toStatus] ?? null;
     }
 
     private function statusValue(SpecialCakeOrder $order): string
