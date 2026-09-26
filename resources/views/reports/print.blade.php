@@ -205,6 +205,15 @@
                     $dateValue($row->created_at ?? null),
                 ],
 
+                'cake-production' => [
+                    $row->cake_type ?? 'غير محدد',
+                    $row->cake_size ?? 'غير محدد',
+                    $row->shape ?? 'غير محدد',
+                    (int) ($row->special_quantity ?? 0),
+                    (int) ($row->showroom_quantity ?? 0),
+                    (int) ($row->total_quantity ?? 0),
+                ],
+
                 'inventory' => [
                     $row->product?->name_ar ?? $row->product?->name ?? '—',
                     $row->location?->name ?? '—',
