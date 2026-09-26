@@ -73,6 +73,43 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
     }
 
     #[Test]
+    public function branch_sweets_detail_uses_status_popup_and_highlights_overdue_requests(): void
+    {
+        $viewer = $this->makeUser(
+            $this->factory,
+            [
+                'showroom_sweets_requests.view',
+                'showroom_sweets_requests.update_status',
+            ]
+        );
+
+        $request = $this->makeSweetsRequest(
+            'in_progress'
+        );
+
+        $request->update([
+            'needed_by' =>
+                today()
+                    ->subDay()
+                    ->toDateString(),
+        ]);
+
+        $this->actingAs($viewer)
+            ->get(
+                route(
+                    'showroom-sweets-requests.show',
+                    $request
+                )
+            )
+            ->assertOk()
+            ->assertSee('متأخر 1 يوم')
+            ->assertSee('تحديث الحالة')
+            ->assertSee('showroomSweetsStatusModal', false)
+            ->assertSee('الانتقال إلى')
+            ->assertSee('إجمالي الكمية');
+    }
+
+    #[Test]
     public function both_branch_request_types_expose_the_same_four_stage_workflow(): void
     {
         $expected = [
