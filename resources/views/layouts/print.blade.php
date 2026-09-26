@@ -58,15 +58,29 @@
 
     $paperSize = $printTheme['paper_size'] ?? 'A4';
 
-    $paperWidth = match ($paperSize) {
-        'A5' => '148mm',
-        '80mm' => '80mm',
+    $paperWidth = match (true) {
+        $paperSize === 'A5'
+            && $paperOrientation === 'landscape' => '210mm',
+
+        $paperSize === 'A5' => '148mm',
+
+        $paperSize === '80mm' => '80mm',
+
+        $paperOrientation === 'landscape' => '297mm',
+
         default => '210mm',
     };
 
-    $paperMinHeight = match ($paperSize) {
-        'A5' => '210mm',
-        '80mm' => '120mm',
+    $paperMinHeight = match (true) {
+        $paperSize === 'A5'
+            && $paperOrientation === 'landscape' => '148mm',
+
+        $paperSize === 'A5' => '210mm',
+
+        $paperSize === '80mm' => '120mm',
+
+        $paperOrientation === 'landscape' => '210mm',
+
         default => '297mm',
     };
 
@@ -100,7 +114,7 @@
     <style>
         @page {
             @if($paperSize === 'A5')
-                size: A5 portrait;
+                size: A5 {{ $paperOrientation }};
             @elseif($paperSize === '80mm')
                 size: 80mm auto;
             @else
@@ -571,7 +585,7 @@
     <style>
         @page {
             @if($paperSize === 'A5')
-                size: A5 portrait;
+                size: A5 {{ $paperOrientation }};
             @elseif($paperSize === '80mm')
                 size: 80mm auto;
             @else
