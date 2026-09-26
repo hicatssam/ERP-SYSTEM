@@ -1491,7 +1491,7 @@
             <div class="card-header">
 
                 <span class="card-title">
-                    خط إنتاج طلبات الكيك
+                    مراحل طلبات الكيك
                 </span>
 
                 @can('cake_orders.view')
