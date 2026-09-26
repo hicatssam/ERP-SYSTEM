@@ -59,8 +59,16 @@ class SpecialCakeNotificationFlowTest extends TestCase
             'factory'
         );
 
-        $this->actor = $this->makeAdmin(
-            $this->branch
+        $this->actor = $this->makeUser(
+            $this->branch,
+            [
+                'cake_orders.view',
+                'cake_orders.create',
+                'cake_orders.accept',
+                'cake_orders.quality_check',
+                'cake_orders.complete',
+                'cake_orders.cancel',
+            ]
         );
 
         $this->order = $this->makeOrder(
@@ -818,6 +826,10 @@ class SpecialCakeNotificationFlowTest extends TestCase
             false
         );
 
+        $adminRecipient = $this->makeAdmin(
+            $this->otherBranch
+        );
+
         $this->actingAs($commenter)
             ->post(
                 route(
@@ -847,6 +859,7 @@ class SpecialCakeNotificationFlowTest extends TestCase
             $branchRecipient,
             $factoryRecipient,
             $globalRecipient,
+            $adminRecipient,
         ] as $recipient) {
             Notification::assertSentTo(
                 $recipient,
@@ -920,6 +933,10 @@ class SpecialCakeNotificationFlowTest extends TestCase
             ['cake_orders.manage']
         );
 
+        $adminRecipient = $this->makeAdmin(
+            $this->otherBranch
+        );
+
         $file = UploadedFile::fake()
             ->create(
                 'final-cake.jpg',
@@ -971,6 +988,11 @@ class SpecialCakeNotificationFlowTest extends TestCase
             SpecialCakeOrderActivityNotification::class
         );
 
+        Notification::assertSentTo(
+            $adminRecipient,
+            SpecialCakeOrderActivityNotification::class
+        );
+
         Notification::assertNotSentTo(
             $uploader,
             SpecialCakeOrderActivityNotification::class
@@ -1004,6 +1026,174 @@ class SpecialCakeNotificationFlowTest extends TestCase
                     ) === '/cake-orders/'
                         . $this->order->id;
             }
+        );
+    }
+
+    #[Test]
+    public function admin_receives_every_visible_cake_transition_even_from_another_location(): void
+    {
+        Notification::fake();
+
+        $admin = $this->makeAdmin(
+            $this->otherBranch
+        );
+
+        foreach ([
+            ['draft', 'pending'],
+            ['pending', 'in_progress'],
+            ['in_progress', 'ready'],
+            ['ready', 'completed'],
+            ['in_progress', 'cancelled'],
+        ] as [$from, $to]) {
+            $this->dispatchTransition(
+                $from,
+                $to,
+                'Admin global feed'
+            );
+        }
+
+        $this->assertSame(
+            5,
+            Notification::sent(
+                $admin,
+                SpecialCakeOrderTransitionedNotification::class
+            )->count()
+        );
+    }
+
+    #[Test]
+    public function admin_receives_cake_transition_even_when_admin_performs_the_action(): void
+    {
+        Notification::fake();
+
+        $admin = $this->makeAdmin(
+            $this->otherBranch
+        );
+
+        $order = $this->makeOrder(
+            CakeOrderStatus::Pending->value,
+            'CK-ADMIN-SELF'
+        );
+
+        SpecialCakeOrderTransitioned::dispatch(
+            $order->fresh(),
+            'pending',
+            'in_progress',
+            $admin,
+            'نفذها مدير النظام'
+        );
+
+        Notification::assertSentTo(
+            $admin,
+            SpecialCakeOrderTransitionedNotification::class
+        );
+
+        Notification::assertSentTo(
+            $admin,
+            SpecialCakeOrderTransitionedNotification::class,
+            function (
+                SpecialCakeOrderTransitionedNotification $notification
+            ) use ($admin, $order): bool {
+                $data =
+                    $notification->toDatabase(
+                        $admin
+                    );
+
+                return data_get(
+                    $data,
+                    'order_id'
+                ) === $order->id
+                    && data_get(
+                        $data,
+                        'from_status'
+                    ) === 'pending'
+                    && data_get(
+                        $data,
+                        'to_status'
+                    ) === 'in_progress'
+                    && data_get(
+                        $data,
+                        'note'
+                    ) === 'نفذها مدير النظام';
+            }
+        );
+    }
+
+    #[Test]
+    public function admin_receives_own_comment_and_attachment_activity_notifications(): void
+    {
+        Notification::fake();
+
+        $admin = $this->makeAdmin(
+            $this->branch
+        );
+
+        $this->actingAs($admin)
+            ->post(
+                route(
+                    'cake-orders.comment',
+                    $this->order
+                ),
+                [
+                    'comment' =>
+                        'ملاحظة مدير النظام',
+                ]
+            )
+            ->assertRedirect();
+
+        Notification::assertSentTo(
+            $admin,
+            SpecialCakeOrderActivityNotification::class,
+            function (
+                SpecialCakeOrderActivityNotification $notification
+            ) use ($admin): bool {
+                return data_get(
+                    $notification->toDatabase($admin),
+                    'activity'
+                ) === 'comment';
+            }
+        );
+
+        $this->actingAs($admin)
+            ->post(
+                route(
+                    'cake-orders.attachment',
+                    $this->order
+                ),
+                [
+                    'attachment_type' =>
+                        'other',
+                    'file' =>
+                        UploadedFile::fake()->create(
+                            'admin-note.pdf',
+                            12,
+                            'application/pdf'
+                        ),
+                ]
+            )
+            ->assertRedirect();
+
+        $activities = Notification::sent(
+            $admin,
+            SpecialCakeOrderActivityNotification::class
+        );
+
+        $this->assertSame(
+            2,
+            $activities->count()
+        );
+
+        $this->assertTrue(
+            $activities->contains(
+                function (
+                    SpecialCakeOrderActivityNotification $notification
+                ) use ($admin): bool {
+                    return data_get(
+                        $notification->toDatabase($admin),
+                        'activity'
+                    ) === 'attachment';
+                }
+            )
         );
     }
 
