@@ -536,6 +536,41 @@
         line-height:1.55;
     }
 
+    .reservation-editor {
+        margin-top:.45rem;
+    }
+
+    .reservation-editor summary {
+        color:var(--request-accent);
+        font-size:.64rem;
+        font-weight:900;
+        cursor:pointer;
+    }
+
+    .reservation-editor form {
+        display:grid;
+        gap:.45rem;
+        margin-top:.45rem;
+        padding:.55rem;
+        border:1px solid var(--request-border);
+        border-radius:10px;
+        background:var(--request-soft);
+    }
+
+    .reservation-editor label {
+        display:grid;
+        gap:.22rem;
+        color:var(--text-muted);
+        font-size:.62rem;
+        font-weight:700;
+    }
+
+    .reservation-editor .form-input {
+        min-height:34px;
+        padding:.4rem .5rem;
+        font-size:.68rem;
+    }
+
     .product-sku {
         margin-top: .25rem;
 
@@ -1549,30 +1584,86 @@
 
                                     </div>
 
-                                    @if((float) ($item->reserved_quantity ?? 0) > 0)
-                                        <div class="reservation-breakdown">
-                                            <span class="reserved">
-                                                محجوز للعملاء:
-                                                <strong>
-                                                    {{ $reservedQuantity }}
-                                                    {{ $item->requested_unit }}
-                                                </strong>
-                                            </span>
+                                    <div class="reservation-breakdown">
+                                        <span class="reserved">
+                                            محجوز للعملاء:
+                                            <strong>
+                                                {{ $reservedQuantity }}
+                                                {{ $item->requested_unit }}
+                                            </strong>
+                                        </span>
 
-                                            <span class="available">
-                                                متاح للعرض:
-                                                <strong>
-                                                    {{ $availableQuantity }}
-                                                    {{ $item->requested_unit }}
-                                                </strong>
-                                            </span>
+                                        <span class="available">
+                                            متاح للعرض:
+                                            <strong>
+                                                {{ $availableQuantity }}
+                                                {{ $item->requested_unit }}
+                                            </strong>
+                                        </span>
+                                    </div>
+
+                                    @if($item->reservation_notes)
+                                        <div class="reservation-note">
+                                            {{ $item->reservation_notes }}
                                         </div>
+                                    @endif
 
-                                        @if($item->reservation_notes)
-                                            <div class="reservation-note">
-                                                {{ $item->reservation_notes }}
-                                            </div>
-                                        @endif
+                                    @if(
+                                        $canManageReservations
+                                        && ! $showroomSweetsRequest->status->isTerminal()
+                                    )
+                                        <details class="reservation-editor">
+                                            <summary>
+                                                تعديل حجز العملاء
+                                            </summary>
+
+                                            <form
+                                                method="POST"
+                                                action="{{ route(
+                                                    'showroom-sweets-requests.items.reservation',
+                                                    [
+                                                        $showroomSweetsRequest,
+                                                        $item,
+                                                    ]
+                                                ) }}"
+                                            >
+                                                @csrf
+                                                @method('PATCH')
+
+                                                <label>
+                                                    محجوز من {{ $quantity }} {{ $item->requested_unit }}
+                                                    <input
+                                                        type="number"
+                                                        name="reserved_quantity"
+                                                        min="0"
+                                                        max="{{ (float) $item->quantity }}"
+                                                        step="0.001"
+                                                        value="{{ $item->reserved_quantity ?? 0 }}"
+                                                        class="form-input"
+                                                        required
+                                                    >
+                                                </label>
+
+                                                <label>
+                                                    تفاصيل الحجوزات
+                                                    <input
+                                                        type="text"
+                                                        name="reservation_notes"
+                                                        maxlength="1000"
+                                                        value="{{ $item->reservation_notes }}"
+                                                        class="form-input"
+                                                        placeholder="مثال: 3 لمحمد، 2 لسارة"
+                                                    >
+                                                </label>
+
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-gold btn-sm"
+                                                >
+                                                    حفظ الحجز
+                                                </button>
+                                            </form>
+                                        </details>
                                     @endif
 
 
