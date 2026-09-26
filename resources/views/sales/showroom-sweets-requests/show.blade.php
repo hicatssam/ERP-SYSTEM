@@ -1149,17 +1149,15 @@
                 {{ $statusLabel }}
             </span>
 
-            @can('showroom_sweets_requests.update_status')
-                @if(count($allowedTransitions) > 0)
-                    <button
-                        type="button"
-                        class="btn btn-gold btn-sm"
-                        onclick="openShowroomSweetsStatusModal()"
-                    >
-                        تحديث الحالة
-                    </button>
-                @endif
-            @endcan
+            @if(count($allowedTransitions) > 0)
+                <button
+                    type="button"
+                    class="btn btn-gold btn-sm"
+                    onclick="openShowroomSweetsStatusModal()"
+                >
+                    تحديث الحالة
+                </button>
+            @endif
 
 
             @if($canCancel)
@@ -1739,8 +1737,7 @@
      Popup تحديث حالة الطلب
 ========================================================= --}}
 
-@can('showroom_sweets_requests.update_status')
-    @if(count($allowedTransitions) > 0)
+@if(count($allowedTransitions) > 0)
         <div
             id="showroomSweetsStatusModal"
             class="status-modal"
@@ -1860,13 +1857,10 @@
                 </form>
             </div>
         </div>
-    @endif
-@endcan
+@endif
 
 
-
-@can('showroom_sweets_requests.update_status')
-    @if(count($allowedTransitions) > 0)
+@if(count($allowedTransitions) > 0)
         <script>
             function openShowroomSweetsStatusModal() {
                 const modal = document.getElementById(
@@ -1904,6 +1898,5 @@
                 }
             });
         </script>
-    @endif
-@endcan
+@endif
 @endsection
