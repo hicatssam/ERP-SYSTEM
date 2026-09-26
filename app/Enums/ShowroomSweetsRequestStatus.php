@@ -4,260 +4,136 @@ namespace App\Enums;
 
 enum ShowroomSweetsRequestStatus: string
 {
-    /*
-    |--------------------------------------------------------------------------
-    | حالات طلب حلويات الفروع
-    |--------------------------------------------------------------------------
-    */
-
-    case Submitted = 'submitted';
-
+    // Simplified visible workflow.
+    case Pending = 'pending';
     case InProgress = 'in_progress';
-
-    case ReadyForDispatch = 'ready_for_dispatch';
-
-    case OutForDelivery = 'out_for_delivery';
-
-    case ReceivedAtBranch = 'received_at_branch';
-
-    /*
-     * نبقيها لدعم الطلبات القديمة الموجودة في قاعدة البيانات.
-     */
-    case Fulfilled = 'fulfilled';
-
-    case Rejected = 'rejected';
-
+    case Ready = 'ready';
+    case Completed = 'completed';
     case Cancelled = 'cancelled';
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | الاسم العربي
-    |--------------------------------------------------------------------------
-    */
+    // Legacy values kept for historical compatibility.
+    case Submitted = 'submitted';
+    case ReadyForDispatch = 'ready_for_dispatch';
+    case OutForDelivery = 'out_for_delivery';
+    case ReceivedAtBranch = 'received_at_branch';
+    case Fulfilled = 'fulfilled';
+    case Rejected = 'rejected';
 
     public function label(): string
     {
-        return match ($this) {
-
-            self::Submitted =>
-                'مُرسل للمصنع',
-
-            self::InProgress =>
-                'قيد التجهيز',
-
-            self::ReadyForDispatch =>
-                'جاهز للتوصيل',
-
-            self::OutForDelivery =>
-                'في الطريق إلى الفرع',
-
-            self::ReceivedAtBranch =>
-                'تم الاستلام في الفرع',
-
-            self::Fulfilled =>
-                'تم التنفيذ',
-
-            self::Rejected =>
-                'مرفوض',
-
-            self::Cancelled =>
-                'ملغى',
+        return match ($this->workflowValue()) {
+            'pending' => 'قيد المراجعة',
+            'in_progress' => 'قيد التنفيذ',
+            'ready' => 'جاهز للاستلام',
+            'completed' => 'مكتمل',
+            'cancelled' => 'ملغي',
+            default => 'غير محدد',
         };
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | تنسيق الحالة
-    |--------------------------------------------------------------------------
-    */
 
     public function badgeClass(): string
     {
-        return match ($this) {
-
-            self::Submitted =>
-                'badge-pending',
-
-            self::InProgress =>
-                'badge-warning',
-
-            self::ReadyForDispatch =>
-                'badge-info',
-
-            self::OutForDelivery =>
-                'badge-warning',
-
-            self::ReceivedAtBranch,
-            self::Fulfilled =>
-                'badge-active',
-
-            self::Rejected =>
-                'badge-inactive',
-
-            self::Cancelled =>
-                'badge-inactive',
+        return match ($this->workflowValue()) {
+            'pending' => 'badge-pending',
+            'in_progress' => 'badge-warning',
+            'ready' => 'badge-info',
+            'completed' => 'badge-success',
+            'cancelled' => 'badge-inactive',
+            default => 'badge-secondary',
         };
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | الانتقالات المسموحة
-    |--------------------------------------------------------------------------
-    |
-    | دورة العملية:
-    |
-    | مُرسل للمصنع
-    |       ↓
-    | قيد التجهيز
-    |       ↓
-    | جاهز للتوصيل
-    |       ↓
-    | في الطريق إلى الفرع
-    |       ↓
-    | تم الاستلام في الفرع
-    |
-    */
-
+    /**
+     * @return array<int, self>
+     */
     public function allowedTransitions(): array
     {
-        return match ($this) {
-
-            /*
-             * الطلب وصل حديثًا للمصنع.
-             *
-             * المصنع يستطيع:
-             * - بدء التجهيز
-             * - رفض الطلب
-             *
-             * الفرع يستطيع الإلغاء قبل بدء التجهيز.
-             */
-            self::Submitted => [
+        return match ($this->workflowValue()) {
+            'pending' => [
                 self::InProgress,
-                self::Rejected,
                 self::Cancelled,
             ],
-
-
-            /*
-             * المصنع بدأ التجهيز.
-             */
-            self::InProgress => [
-                self::ReadyForDispatch,
-                self::Rejected,
+            'in_progress' => [
+                self::Ready,
+                self::Cancelled,
             ],
-
-
-            /*
-             * المنتج جاهز ويحتاج موظف التوصيل.
-             */
-            self::ReadyForDispatch => [
-                self::OutForDelivery,
+            'ready' => [
+                self::Completed,
+                self::Cancelled,
             ],
-
-
-            /*
-             * الطلب خرج من المصنع
-             * وينتظر تأكيد الفرع للاستلام.
-             */
-            self::OutForDelivery => [
-                self::ReceivedAtBranch,
-            ],
-
-
-            /*
-             * حالات نهائية.
-             */
-            self::ReceivedAtBranch,
-            self::Fulfilled,
-            self::Rejected,
-            self::Cancelled => [],
+            default => [],
         };
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | هل يستطيع الفرع إلغاء الطلب؟
-    |--------------------------------------------------------------------------
-    */
 
     public function canBeCancelledByBranch(): bool
     {
-        return $this === self::Submitted;
+        return in_array(
+            $this->workflowValue(),
+            ['pending', 'in_progress', 'ready'],
+            true
+        );
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | هل الحالة نهائية؟
-    |--------------------------------------------------------------------------
-    */
 
     public function isTerminal(): bool
     {
         return in_array(
-            $this,
-            [
-                self::ReceivedAtBranch,
-                self::Fulfilled,
-                self::Rejected,
-                self::Cancelled,
-            ],
+            $this->workflowValue(),
+            ['completed', 'cancelled'],
             true
         );
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | هل الطلب داخل المصنع؟
-    |--------------------------------------------------------------------------
-    */
 
     public function isFactoryStage(): bool
     {
         return in_array(
-            $this,
-            [
-                self::Submitted,
-                self::InProgress,
-                self::ReadyForDispatch,
-            ],
+            $this->workflowValue(),
+            ['pending', 'in_progress', 'ready'],
             true
         );
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | هل الطلب في مرحلة التوصيل؟
-    |--------------------------------------------------------------------------
-    */
 
     public function isDeliveryStage(): bool
     {
-        return $this === self::OutForDelivery;
+        return $this->workflowValue() === 'ready';
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | هل تم استلام الطلب؟
-    |--------------------------------------------------------------------------
-    */
 
     public function isReceived(): bool
     {
-        return in_array(
-            $this,
-            [
-                self::ReceivedAtBranch,
-                self::Fulfilled,
-            ],
-            true
-        );
+        return $this->workflowValue() === 'completed';
+    }
+
+    public function workflowValue(): string
+    {
+        return match ($this) {
+            self::Submitted,
+            self::Pending => 'pending',
+
+            self::InProgress => 'in_progress',
+
+            self::Ready,
+            self::ReadyForDispatch,
+            self::OutForDelivery => 'ready',
+
+            self::ReceivedAtBranch,
+            self::Fulfilled,
+            self::Completed => 'completed',
+
+            self::Rejected,
+            self::Cancelled => 'cancelled',
+        };
+    }
+
+    /**
+     * @return array<int, self>
+     */
+    public static function workflowCases(): array
+    {
+        return [
+            self::Pending,
+            self::InProgress,
+            self::Ready,
+            self::Completed,
+            self::Cancelled,
+        ];
     }
 }
