@@ -125,7 +125,7 @@ class ShowroomSweetsRequestNotification
 
 
             $message .=
-                '، وهو بانتظار بدء التجهيز أو اتخاذ القرار.';
+                '، وهو الآن قيد المراجعة.';
 
 
             return [
@@ -141,7 +141,7 @@ class ShowroomSweetsRequestNotification
 
 
                 'title' =>
-                    'طلب حلويات جديد بانتظار إجراء المصنع',
+                    'طلب حلويات فرع جديد قيد المراجعة',
 
 
                 'message' =>
@@ -223,89 +223,28 @@ class ShowroomSweetsRequestNotification
         ] = match (
             $this->toStatus
         ) {
-
-
-            /*
-             * بدأ التجهيز
-             */
-
             'in_progress' => [
-
-                'طلب حلويات قيد التجهيز',
-
-                "تم بدء تجهيز الطلب {$request->request_number}، وهو الآن بانتظار اعتماد الجاهزية.",
+                'طلب حلويات فرع قيد التنفيذ',
+                "بدأ تنفيذ الطلب {$request->request_number} الخاص بـ {$branchName}.",
             ],
 
-
-            /*
-             * جاهز للتوصيل
-             */
-
-            'ready_for_dispatch' => [
-
-                'طلب حلويات جاهز للتوصيل',
-
-                "الطلب {$request->request_number} أصبح جاهزًا وبانتظار موظف التوصيل لإرساله إلى {$branchName}.",
+            'ready' => [
+                'طلب حلويات فرع جاهز للاستلام',
+                "الطلب {$request->request_number} أصبح جاهزًا لاستلام {$branchName}.",
             ],
 
-
-            /*
-             * خرج للتوصيل
-             */
-
-            'out_for_delivery' => [
-
-                'طلب حلويات في الطريق إلى الفرع',
-
-                "تم إرسال الطلب {$request->request_number} من {$factoryName} وهو بانتظار استلام {$branchName}.",
+            'completed' => [
+                'اكتمل طلب حلويات الفرع',
+                "تم استلام وإكمال الطلب {$request->request_number} الخاص بـ {$branchName}.",
             ],
-
-
-            /*
-             * استلمه الفرع
-             */
-
-            'received_at_branch',
-            'fulfilled' => [
-
-                'تم استلام طلب الحلويات في الفرع',
-
-                "أكد {$branchName} استلام الطلب {$request->request_number} بنجاح.",
-            ],
-
-
-            /*
-             * رفض
-             */
-
-            'rejected' => [
-
-                'تم رفض طلب حلويات الفرع',
-
-                "تم رفض الطلب {$request->request_number} الخاص بـ {$branchName}.",
-            ],
-
-
-            /*
-             * إلغاء
-             */
 
             'cancelled' => [
-
                 'تم إلغاء طلب حلويات الفرع',
-
                 "تم إلغاء الطلب {$request->request_number} الخاص بـ {$branchName}.",
             ],
 
-
-            /*
-             * أي حالة أخرى
-             */
-
             default => [
-
                 'تحديث حالة طلب حلويات فرع',
-
                 "تغيرت حالة الطلب {$request->request_number} من [{$fromLabel}] إلى [{$toLabel}].",
             ],
         };
@@ -373,7 +312,6 @@ class ShowroomSweetsRequestNotification
                 in_array(
                     $this->toStatus,
                     [
-                        'rejected',
                         'cancelled',
                     ],
                     true
