@@ -68,8 +68,8 @@ class WorkflowToolbar
     {
         return match ($type) {
             'special_cake' => 'أربع مراحل واضحة من المراجعة حتى اكتمال الطلب',
-            'showroom_sweets' => 'من إرسال الفرع حتى تجهيز المصنع والتوصيل واستلام الفرع',
-            'showroom_cake' => 'إرسال الفرع، مراجعة المصنع، التجهيز، التوصيل ثم تأكيد استلام الفرع',
+            'showroom_sweets' => 'أربع مراحل واضحة من المراجعة حتى استلام الفرع',
+            'showroom_cake' => 'أربع مراحل واضحة من المراجعة حتى استلام الفرع',
             'order' => 'متابعة حالة الطلب من الإنشاء حتى الإكمال',
             default => 'متابعة حالة العملية خطوة بخطوة',
         };
@@ -85,20 +85,15 @@ class WorkflowToolbar
                 ['status'=>'completed','label'=>'مكتمل','icon'=>'flag','role'=>'الفرع','kind'=>'normal'],
             ],
             'showroom_sweets' => [
-                ['status'=>'submitted','label'=>'إرسال الطلب','icon'=>'send','role'=>'الفرع','kind'=>'normal'],
-                ['status'=>'in_progress','label'=>'قيد التجهيز','icon'=>'chef','role'=>'المصنع / الإنتاج','kind'=>'normal'],
-                ['status'=>'ready_for_dispatch','label'=>'جاهز للتوصيل','icon'=>'package-check','role'=>'بانتظار موظف التوصيل','kind'=>'delivery'],
-                ['status'=>'out_for_delivery','label'=>'خرج للتوصيل','icon'=>'truck','role'=>'موظف التوصيل','kind'=>'delivery'],
-                ['status'=>'received_at_branch','label'=>'استلمه الفرع','icon'=>'store-check','role'=>'مدير / موظف الفرع','kind'=>'delivery'],
+                ['status'=>'pending','label'=>'قيد المراجعة','icon'=>'search-check','role'=>'الفرع / المصنع','kind'=>'normal'],
+                ['status'=>'in_progress','label'=>'قيد التنفيذ','icon'=>'chef','role'=>'المصنع / الإنتاج','kind'=>'normal'],
+                ['status'=>'ready','label'=>'جاهز للاستلام','icon'=>'package-check','role'=>'الفرع / التسليم','kind'=>'normal'],
+                ['status'=>'completed','label'=>'مكتمل','icon'=>'flag','role'=>'الفرع','kind'=>'normal'],
             ],
             'showroom_cake' => [
-                ['status'=>'submitted','label'=>'إرسال الطلب','icon'=>'send','role'=>'مدير / موظف الفرع','kind'=>'normal'],
-                ['status'=>'pending_factory_review','label'=>'مراجعة المصنع','icon'=>'factory','role'=>'مدير المصنع','kind'=>'normal'],
-                ['status'=>'accepted','label'=>'قبول الطلب','icon'=>'check-circle','role'=>'مدير المصنع','kind'=>'normal'],
-                ['status'=>'in_preparation','label'=>'قيد التجهيز','icon'=>'chef','role'=>'موظف الإنتاج','kind'=>'normal'],
-                ['status'=>'ready','label'=>'جاهز للتوصيل','icon'=>'package-check','role'=>'بانتظار موظف التوصيل','kind'=>'delivery'],
-                ['status'=>'sent_to_branch','label'=>'خرج للتوصيل','icon'=>'truck','role'=>'موظف التوصيل','kind'=>'delivery'],
-                ['status'=>'received_by_branch','label'=>'استلمه الفرع','icon'=>'store-check','role'=>'مدير / موظف الفرع','kind'=>'delivery'],
+                ['status'=>'pending','label'=>'قيد المراجعة','icon'=>'search-check','role'=>'الفرع / المصنع','kind'=>'normal'],
+                ['status'=>'in_progress','label'=>'قيد التنفيذ','icon'=>'chef','role'=>'المصنع / الإنتاج','kind'=>'normal'],
+                ['status'=>'ready','label'=>'جاهز للاستلام','icon'=>'package-check','role'=>'الفرع / التسليم','kind'=>'normal'],
                 ['status'=>'completed','label'=>'مكتمل','icon'=>'flag','role'=>'الفرع','kind'=>'normal'],
             ],
             'order' => [
@@ -145,18 +140,41 @@ class WorkflowToolbar
                 default => $status,
             },
             'showroom_cake' => match ($status) {
-                'in_progress' => 'in_preparation',
-                'ready_for_dispatch' => 'ready',
-                'out_for_delivery' => 'sent_to_branch',
-                'dispatched_to_branch' => 'sent_to_branch',
-                'received_at_branch' => 'received_by_branch',
-                'fulfilled' => 'completed',
+                'draft',
+                'submitted',
+                'pending_factory_review',
+                'modification_requested' => 'pending',
+
+                'accepted',
+                'scheduled',
+                'in_preparation',
+                'decorating',
+                'quality_check' => 'in_progress',
+
+                'ready_for_dispatch',
+                'out_for_delivery',
+                'sent_to_branch',
+                'dispatched_to_branch',
+                'received_by_branch',
+                'received_at_branch',
+                'ready_for_customer',
+                'ready_for_pickup' => 'ready',
+
+                'fulfilled',
                 'delivered' => 'completed',
+
+                'rejected',
                 'canceled' => 'cancelled',
+
                 default => $status,
             },
             'showroom_sweets' => match ($status) {
-                'fulfilled' => 'received_at_branch',
+                'submitted' => 'pending',
+                'ready_for_dispatch',
+                'out_for_delivery' => 'ready',
+                'received_at_branch',
+                'fulfilled' => 'completed',
+                'rejected',
                 'canceled' => 'cancelled',
                 default => $status,
             },
@@ -229,33 +247,59 @@ class WorkflowToolbar
     private static function showroomSweetsMeta(Model $record, string $status): array
     {
         return match ($status) {
-            'submitted' => [self::relationUserName($record, 'creator'), self::dateValue($record->submitted_at ?? $record->created_at), null],
-            'in_progress' => [self::relationUserName($record, 'handledBy'), null, $record->factory_notes ?? null],
-            'ready_for_dispatch' => [null, self::statusValue($record->getAttribute('status')) === 'ready_for_dispatch' ? self::dateValue($record->updated_at) : null, $record->factory_notes ?? null],
-            'out_for_delivery' => [self::relationUserName($record, 'dispatchedBy'), self::dateValue($record->dispatched_at ?? null), null],
-            'received_at_branch' => [self::relationUserName($record, 'receivedBy'), self::dateValue($record->received_at ?? $record->fulfilled_at ?? null), null],
+            'pending' => [
+                self::relationUserName($record, 'creator'),
+                self::dateValue($record->submitted_at ?? $record->created_at),
+                null,
+            ],
+            'in_progress' => [
+                self::relationUserName($record, 'handledBy'),
+                null,
+                $record->factory_notes ?? null,
+            ],
+            'ready' => [
+                null,
+                self::statusValue($record->getAttribute('status')) === 'ready'
+                    ? self::dateValue($record->updated_at)
+                    : null,
+                $record->factory_notes ?? null,
+            ],
+            'completed' => [
+                self::relationUserName($record, 'receivedBy'),
+                self::dateValue($record->received_at ?? $record->fulfilled_at ?? null),
+                null,
+            ],
             default => [null, null, null],
         };
     }
 
     private static function showroomCakeMeta(Model $record, string $status): array
     {
-        $relation = match ($status) {
-            'submitted' => 'creator',
-            'sent_to_branch' => 'dispatchedBy',
-            'received_by_branch' => 'receivedBy',
-            default => null,
+        return match ($status) {
+            'pending' => [
+                self::relationUserName($record, 'creator'),
+                self::dateValue($record->submitted_at ?? $record->created_at),
+                null,
+            ],
+            'in_progress' => [
+                self::relationUserName($record, 'handledBy'),
+                null,
+                $record->factory_notes ?? null,
+            ],
+            'ready' => [
+                null,
+                self::statusValue($record->getAttribute('status')) === 'ready'
+                    ? self::dateValue($record->updated_at)
+                    : null,
+                $record->factory_notes ?? null,
+            ],
+            'completed' => [
+                self::relationUserName($record, 'handledBy'),
+                self::dateValue($record->fulfilled_at ?? null),
+                null,
+            ],
+            default => [null, null, null],
         };
-
-        $date = match ($status) {
-            'submitted' => $record->submitted_at ?? $record->created_at,
-            'sent_to_branch' => $record->dispatched_at ?? null,
-            'received_by_branch' => $record->received_at ?? null,
-            'completed' => $record->completed_at ?? null,
-            default => null,
-        };
-
-        return [$relation ? self::relationUserName($record, $relation) : null, self::dateValue($date), null];
     }
 
     private static function orderMeta(Model $record, string $status): array
