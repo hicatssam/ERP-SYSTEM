@@ -129,7 +129,7 @@
                 </div>
 
                 <div class="pb-card">
-                    <div class="pb-card-head"><h3>الشعار والختم</h3><p>رفع الصور وحفظها ضمن هوية الطباعة.</p></div>
+                    <div class="pb-card-head"><h3>الشعار والختم والتوقيع</h3><p>مصدر مركزي واحد لكل التقارير والمستندات المطبوعة.</p></div>
                     <div class="pb-card-body">
                         <div class="pb-grid">
                             <div class="form-group pb-full">
@@ -173,6 +173,21 @@
                                         <div class="pb-file-meta">
                                             <span>يفضل PNG بخلفية شفافة</span>
                                             <label><input type="checkbox" name="remove_print_stamp" value="1"> إزالة ختم الطباعة</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group pb-full">
+                                <label class="form-label">التوقيع المعتمد</label>
+                                <div class="pb-file">
+                                    <div class="pb-file-preview" id="signaturePreviewBox">
+                                        @if(!empty($printTheme['signature_src']))<img src="{{ $printTheme['signature_src'] }}" id="signaturePreviewImage" alt="Signature">@else SIGN @endif
+                                    </div>
+                                    <div>
+                                        <input class="form-input" type="file" name="print_signature_file" id="signatureFile" accept=".jpg,.jpeg,.png,.webp">
+                                        <div class="pb-file-meta">
+                                            <span>يفضل PNG بخلفية شفافة للتوقيع</span>
+                                            <label><input type="checkbox" name="remove_print_signature" value="1"> إزالة التوقيع</label>
                                         </div>
                                     </div>
                                 </div>
@@ -233,7 +248,7 @@
                         <div class="pb-person"><strong>تامر سلامة</strong><div class="pb-info">EMP-006 · كاشير</div></div>
                         <div class="pb-kpis"><div class="pb-kpi"><small>الرصيد الافتتاحي</small><strong>0.00</strong></div><div class="pb-kpi"><small>إجمالي مدين</small><strong>500.00</strong></div><div class="pb-kpi"><small>الرصيد الختامي</small><strong>-500.00</strong></div></div>
                         <table class="pb-table"><thead><tr><th>التاريخ</th><th>البيان</th><th>دائن</th><th>مدين</th><th>الرصيد</th></tr></thead><tbody><tr><td>{{ now()->format('Y-m-d') }}</td><td>سلفة موظف</td><td>—</td><td>500.00</td><td>-500.00</td></tr></tbody></table>
-                        <div class="pb-signatures" id="signatures"><div class="pb-sign">توقيع الموظف</div><div class="pb-sign">اعتماد الإدارة</div></div>
+                        <div class="pb-signatures" id="signatures"><div class="pb-sign">توقيع المستلم</div><div class="pb-sign"><div id="signatureLive">@if(!empty($printTheme['signature_src']))<img src="{{ $printTheme['signature_src'] }}" id="signatureLiveImage" alt="Signature" style="display:block;max-width:80px;max-height:34px;margin:0 auto 4px">@endif</div>اعتماد الإدارة</div></div>
                         <div class="pb-stamp" id="stamp" @if($printTheme['show_stamp'] && !empty($printTheme['stamp_src'])) style="display:block" @endif>@if(!empty($printTheme['stamp_src']))<img src="{{ $printTheme['stamp_src'] }}" id="stampImage" alt="Stamp">@endif</div>
                         <div class="pb-footer" id="footer"><span id="footerText">{{ $printTheme['footer_text'] ?: 'نص التذييل يظهر هنا' }}</span></div>
                     </div>
@@ -301,6 +316,15 @@ document.addEventListener('DOMContentLoaded', function () {
     }
     document.getElementById('logoFile').addEventListener('change', e => filePreview(e.currentTarget,'logoPreviewBox','logoPreviewImage','docLogo','docLogoImage'));
     document.getElementById('stampFile').addEventListener('change', e => { filePreview(e.currentTarget,'stampPreviewBox','stampPreviewImage','stamp','stampImage'); const on=document.querySelector('.js-toggle[data-target="stamp"]')?.checked; if (on) document.getElementById('stamp').style.display='block'; });
+    document.getElementById('signatureFile').addEventListener('change', e => {
+        filePreview(
+            e.currentTarget,
+            'signaturePreviewBox',
+            'signaturePreviewImage',
+            'signatureLive',
+            'signatureLiveImage'
+        );
+    });
 
     function applyToggle(el) {
         const on = el.checked;
