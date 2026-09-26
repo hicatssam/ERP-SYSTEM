@@ -13,9 +13,36 @@
     $documentDate = trim(
         $__env->yieldContent(
             'document_date',
-            now()->format('Y-m-d')
+            \App\Support\ArabicDate::dateTime(
+                now(),
+                false
+            )
         )
     );
+
+    /*
+     * Child print views may still pass an ISO date. Keep the common print
+     * header human-readable even before the browser-side formatter runs.
+     */
+    if (
+        preg_match(
+            '/^\d{4}-\d{2}-\d{2}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?$/',
+            $documentDate
+        )
+    ) {
+        $documentDate = str_contains(
+            $documentDate,
+            ':'
+        )
+            ? \App\Support\ArabicDate::dateTime(
+                $documentDate,
+                false
+            )
+            : \App\Support\ArabicDate::date(
+                $documentDate,
+                false
+            );
+    }
 
     $documentSubtitle = trim(
         $__env->yieldContent('document_subtitle', '')
@@ -688,5 +715,19 @@
     </main>
 
     @stack('print_scripts')
+    @if(! $pdfMode)
+        @php
+            $dateFormatAssetVersion = @filemtime(
+                public_path(
+                    'assets/js/date-format.js'
+                )
+            ) ?: 1;
+        @endphp
+
+        <script
+            src="{{ asset('assets/js/date-format.js') }}?v={{ $dateFormatAssetVersion }}"
+        ></script>
+    @endif
+
 </body>
 </html>
