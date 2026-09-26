@@ -85,8 +85,8 @@ class ReportController extends Controller
 
         $user       = Auth::user();
         $title      = $this->reportTypes[$type];
-        $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo     = $request->input('date_to',   now()->toDateString());
+        $dateFrom   = $request->input('date_from', $this->defaultDateFrom($type));
+        $dateTo     = $request->input('date_to',   $this->defaultDateTo($type));
         $locationId = $request->input('location_id');
 
         $locationIds = $this->resolveLocationIds(
@@ -140,8 +140,8 @@ class ReportController extends Controller
         }
 
         $user       = Auth::user();
-        $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo     = $request->input('date_to',   now()->toDateString());
+        $dateFrom   = $request->input('date_from', $this->defaultDateFrom($type));
+        $dateTo     = $request->input('date_to',   $this->defaultDateTo($type));
         $locationId = $request->input('location_id');
 
         $locationIds = $this->resolveLocationIds($user, $locationId, $type);
@@ -166,8 +166,8 @@ class ReportController extends Controller
         }
 
         $user       = Auth::user();
-        $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo     = $request->input('date_to',   now()->toDateString());
+        $dateFrom   = $request->input('date_from', $this->defaultDateFrom($type));
+        $dateTo     = $request->input('date_to',   $this->defaultDateTo($type));
         $locationId = $request->input('location_id');
         $title      = $this->reportTypes[$type];
 
@@ -202,8 +202,8 @@ class ReportController extends Controller
         }
 
         $user       = Auth::user();
-        $dateFrom   = $request->input('date_from', now()->startOfMonth()->toDateString());
-        $dateTo     = $request->input('date_to',   now()->toDateString());
+        $dateFrom   = $request->input('date_from', $this->defaultDateFrom($type));
+        $dateTo     = $request->input('date_to',   $this->defaultDateTo($type));
         $locationId = $request->input('location_id');
         $title      = $this->reportTypes[$type];
 
@@ -319,11 +319,11 @@ class ReportController extends Controller
         $user       = Auth::user();
         $dateFrom   = $request->input(
             'date_from',
-            now()->startOfMonth()->toDateString()
+            $this->defaultDateFrom($type)
         );
         $dateTo     = $request->input(
             'date_to',
-            now()->toDateString()
+            $this->defaultDateTo($type)
         );
         $locationId = $request->input('location_id');
         $title      = $this->reportTypes[$type];
@@ -375,6 +375,26 @@ class ReportController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     //  Helpers
     // ─────────────────────────────────────────────────────────────────────────
+
+    private function defaultDateFrom(
+        string $type
+    ): string {
+        return $type === 'cake-production'
+            ? today()->toDateString()
+            : now()
+                ->startOfMonth()
+                ->toDateString();
+    }
+
+    private function defaultDateTo(
+        string $type
+    ): string {
+        return $type === 'cake-production'
+            ? today()
+                ->addDays(7)
+                ->toDateString()
+            : now()->toDateString();
+    }
 
     private function resolveLocationIds(
         $user,
