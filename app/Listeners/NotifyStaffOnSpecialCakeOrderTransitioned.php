@@ -81,7 +81,18 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
             ->values();
 
         foreach ($users as $user) {
-            if ($event->changedBy && $user->id === $event->changedBy->id) {
+            /*
+             * Normal users do not need a notification for an action they
+             * performed themselves. System administrators are different:
+             * their notification feed is the global audit/operations feed,
+             * so an Admin / super-admin must receive every cake event even
+             * when that admin triggered it.
+             */
+            if (
+                $event->changedBy
+                && $user->id === $event->changedBy->id
+                && ! $user->isAdmin()
+            ) {
                 continue;
             }
 
