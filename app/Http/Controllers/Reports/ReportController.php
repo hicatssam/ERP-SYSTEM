@@ -943,9 +943,10 @@ class ReportController extends Controller
             ->whereIn(
                 'requests.status',
                 [
-                    'submitted',
+                    'pending',
                     'in_progress',
-                    'fulfilled',
+                    'ready',
+                    'completed',
                 ]
             )
             ->whereNull('requests.deleted_at');
