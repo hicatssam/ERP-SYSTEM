@@ -101,11 +101,46 @@ class ChunkedQueryReportExport implements FromGenerator, WithMapping, WithHeadin
 
     public function styles(Worksheet $sheet): array
     {
+        $theme = app(
+            \App\Services\PrintThemeService::class
+        )->settings();
+
+        $primary = $this->toArgb(
+            $theme['primary_color'] ?? '#D6A925'
+        );
+
+        $secondary = $this->toArgb(
+            $theme['secondary_color'] ?? '#111827'
+        );
+
         return [
             1 => [
-                'font'      => ['bold' => true, 'color' => ['argb' => 'FF8C6818']],
-                'fill'      => ['fillType' => 'solid', 'startColor' => ['argb' => 'FFF5EDD8']],
-                'alignment' => ['horizontal' => 'center'],
+                'font' => [
+                    'bold' => true,
+                    'color' => [
+                        'argb' => 'FFFFFFFF',
+                    ],
+                ],
+                'fill' => [
+                    'fillType' => Fill::FILL_SOLID,
+                    'startColor' => [
+                        'argb' => $secondary,
+                    ],
+                ],
+                'alignment' => [
+                    'horizontal' =>
+                        Alignment::HORIZONTAL_CENTER,
+                    'vertical' =>
+                        Alignment::VERTICAL_CENTER,
+                ],
+                'borders' => [
+                    'bottom' => [
+                        'borderStyle' => 'medium',
+                        'color' => [
+                            'argb' => $primary,
+                        ],
+                    ],
+                ],
             ],
         ];
     }
@@ -115,21 +150,49 @@ class ChunkedQueryReportExport implements FromGenerator, WithMapping, WithHeadin
 
     public function registerEvents(): array
     {
-        if (! $this->truncated) {
-            return [];
-        }
-
         $cap = $this->cap;
 
         return [
-            AfterSheet::class => function (AfterSheet $event) use ($cap) {
-                $sheet    = $event->sheet->getDelegate();
-                $lastRow  = $sheet->getHighestRow() + 1;
-                $colCount = max(1, count($this->headings));
-                $lastCol  = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($colCount);
+            AfterSheet::class => function (
+                AfterSheet $event
+            ) use ($cap): void {
+                $sheet =
+                    $event->sheet->getDelegate();
+
+                $sheet
+                    ->setRightToLeft(true);
+
+                $sheet->freezePane('A2');
+
+                $colCount = max(
+                    1,
+                    count($this->headings)
+                );
+
+                $lastCol =
+                    \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(
+                        $colCount
+                    );
+
+                if (
+                    $sheet->getHighestRow() >= 1
+                ) {
+                    $sheet->setAutoFilter(
+                        "A1:{$lastCol}1"
+                    );
+                }
+
+                if (! $this->truncated) {
+                    return;
+                }
+
+                $lastRow =
+                    $sheet->getHighestRow() + 1;
 
                 if ($colCount > 1) {
-                    $sheet->mergeCells("A{$lastRow}:{$lastCol}{$lastRow}");
+                    $sheet->mergeCells(
+                        "A{$lastRow}:{$lastCol}{$lastRow}"
+                    );
                 }
 
                 $sheet->setCellValue(
@@ -137,21 +200,50 @@ class ChunkedQueryReportExport implements FromGenerator, WithMapping, WithHeadin
                     "⚠️  تنبيه: تم عرض أول {$cap} صف فقط. قلّص نطاق التاريخ للحصول على بيانات كاملة."
                 );
 
-                $sheet->getStyle("A{$lastRow}:{$lastCol}{$lastRow}")->applyFromArray([
-                    'font' => [
-                        'bold'  => true,
-                        'color' => ['argb' => 'FF92400E'],
-                        'size'  => 10,
-                    ],
-                    'fill' => [
-                        'fillType'   => Fill::FILL_SOLID,
-                        'startColor' => ['argb' => 'FFFEF3C7'],
-                    ],
-                    'alignment' => [
-                        'horizontal' => Alignment::HORIZONTAL_CENTER,
-                    ],
-                ]);
+                $sheet
+                    ->getStyle(
+                        "A{$lastRow}:{$lastCol}{$lastRow}"
+                    )
+                    ->applyFromArray([
+                        'font' => [
+                            'bold' => true,
+                            'color' => [
+                                'argb' => 'FF92400E',
+                            ],
+                            'size' => 10,
+                        ],
+                        'fill' => [
+                            'fillType' =>
+                                Fill::FILL_SOLID,
+                            'startColor' => [
+                                'argb' => 'FFFEF3C7',
+                            ],
+                        ],
+                        'alignment' => [
+                            'horizontal' =>
+                                Alignment::HORIZONTAL_CENTER,
+                        ],
+                    ]);
             },
         ];
+    }
+
+    private function toArgb(
+        string $hex
+    ): string {
+        $hex = strtoupper(
+            ltrim($hex, '#')
+        );
+
+        if (
+            ! preg_match(
+                '/^[0-9A-F]{6}$/',
+                $hex
+            )
+        ) {
+            $hex = '111827';
+        }
+
+        return 'FF' . $hex;
     }
 }
