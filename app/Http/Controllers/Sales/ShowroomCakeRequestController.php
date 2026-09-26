@@ -21,6 +21,12 @@ class ShowroomCakeRequestController extends Controller
         /** @var User $user */
         $user = Auth::user();
 
+        $canViewAll =
+            $user->isAdmin()
+            || $user->can(
+                'showroom_cake_requests.view_all'
+            );
+
         $query = ShowroomCakeRequest::query()
             ->with([
                 'requestingLocation',
@@ -29,7 +35,7 @@ class ShowroomCakeRequestController extends Controller
                 'items',
             ]);
 
-        if (! $user->isAdmin()) {
+        if (! $canViewAll) {
             $locationIds =
                 $this->userLocationIds($user);
 
@@ -63,7 +69,7 @@ class ShowroomCakeRequestController extends Controller
 
         if (
             $request->filled('location_id')
-            && $user->isAdmin()
+            && $canViewAll
         ) {
             $query->where(
                 'requesting_location_id',
@@ -76,7 +82,7 @@ class ShowroomCakeRequestController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $locations = $user->isAdmin()
+        $locations = $canViewAll
             ? Location::query()
                 ->where('type', 'branch')
                 ->where('is_active', true)
@@ -92,7 +98,8 @@ class ShowroomCakeRequestController extends Controller
             compact(
                 'requests',
                 'locations',
-                'statusEnum'
+                'statusEnum',
+                'canViewAll'
             )
         );
     }
