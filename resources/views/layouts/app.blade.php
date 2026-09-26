@@ -122,6 +122,11 @@ $brandName =
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
+    <meta
+        name="app-timezone"
+        content="{{ \App\Support\ArabicDate::timezone() }}"
+    >
+
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
 
     <meta name="theme-color" content="{{ $pwaThemePrimary }}">
