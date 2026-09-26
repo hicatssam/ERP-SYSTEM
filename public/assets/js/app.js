@@ -1,3 +1,50 @@
+/* Load the shared date formatter for any secondary layout that only includes app.js. */
+(() => {
+    if (
+        window.DahabDateFormatter
+        || document.querySelector(
+            'script[data-dahab-date-loader]'
+        )
+    ) {
+        return;
+    }
+
+    const appScript = Array.from(
+        document.scripts
+    ).find(script =>
+        script.src.includes(
+            '/assets/js/app.js'
+        )
+    );
+
+    const version = (() => {
+        try {
+            return appScript
+                ? new URL(appScript.src)
+                    .searchParams
+                    .get('v')
+                : null;
+        } catch (_) {
+            return null;
+        }
+    })();
+
+    const script =
+        document.createElement('script');
+
+    script.dataset.dahabDateLoader = '1';
+    script.src =
+        '/assets/js/date-format.js'
+        + (
+            version
+                ? '?v='
+                    + encodeURIComponent(version)
+                : ''
+        );
+
+    document.head.appendChild(script);
+})();
+
 /* ═══════════════════════════════════════════════
    DAHAB SWEETS — App JavaScript v2
    ═══════════════════════════════════════════════ */
