@@ -557,12 +557,27 @@ class ShowroomSweetsRequestController extends Controller
                 $showroomSweetsRequest
             );
 
+        $canManageReservations =
+            $user->isAdmin()
+            || (
+                $user->can(
+                    'showroom_sweets_requests.create'
+                )
+                && in_array(
+                    (int) $showroomSweetsRequest
+                        ->requesting_location_id,
+                    $this->userLocationIds($user),
+                    true
+                )
+            );
+
         return view(
             'sales.showroom-sweets-requests.show',
             compact(
                 'showroomSweetsRequest',
                 'allowedTransitions',
-                'canCancel'
+                'canCancel',
+                'canManageReservations'
             )
         );
     }
