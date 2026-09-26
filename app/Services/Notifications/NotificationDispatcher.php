@@ -553,276 +553,106 @@ class NotificationDispatcher
                 ? (int) $order->factory_location_id
                 : null;
 
-        /*
-        |--------------------------------------------------------------------------
-        | 1. Waiting For Factory Review
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'pending_factory_review') {
+        if ($toStatus === 'pending') {
             if (! $factoryLocationId) {
                 return;
             }
 
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.review',
-                    'cake_orders.accept',
-                    'cake_orders.reject',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: [
-                    $factoryLocationId,
-                ],
-            );
-
             self::send(
-                $users,
+                self::recipients(
+                    permissions: [
+                        'cake_orders.view',
+                        'cake_orders.review',
+                        'cake_orders.accept',
+                        'cake_orders.manage',
+                    ],
+                    locationIds: [
+                        $factoryLocationId,
+                    ],
+                ),
                 $notification
             );
 
             return;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 2. Accepted
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'accepted') {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.schedule',
-                    'cake_orders.prepare',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
+        if ($toStatus === 'in_progress') {
             self::send(
-                $users,
+                self::recipients(
+                    permissions: [
+                        'cake_orders.view',
+                        'cake_orders.prepare',
+                        'cake_orders.decorate',
+                        'cake_orders.quality_check',
+                        'cake_orders.manage',
+                    ],
+                    locationIds: array_filter([
+                        $originBranchId,
+                        $factoryLocationId,
+                    ]),
+                ),
                 $notification
             );
 
             return;
         }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 3. Scheduled
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'scheduled') {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.schedule',
-                    'cake_orders.prepare',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 4. Preparation
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'in_preparation') {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.prepare',
-                    'cake_orders.decorate',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 5. Decorating
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'decorating') {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.decorate',
-                    'cake_orders.quality_check',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 6. Quality Check
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'quality_check') {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.quality_check',
-                    'cake_orders.dispatch',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 7. Ready At Factory
-        |--------------------------------------------------------------------------
-        */
 
         if ($toStatus === 'ready') {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.dispatch',
-                    'cake_orders.receive',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
             self::send(
-                $users,
+                self::recipients(
+                    permissions: [
+                        'cake_orders.view',
+                        'cake_orders.dispatch',
+                        'cake_orders.receive',
+                        'cake_orders.manage',
+                    ],
+                    locationIds: array_filter([
+                        $originBranchId,
+                        $factoryLocationId,
+                    ]),
+                ),
                 $notification
             );
 
             return;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | 8. Sent To Branch
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            in_array(
-                $toStatus,
-                [
-                    'sent_to_branch',
-                    'dispatched_to_branch',
-                ],
-                true
-            )
-        ) {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.dispatch',
-                    'cake_orders.receive',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 9. Received By Branch
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'received_by_branch') {
+        if ($toStatus === 'completed') {
             if (! $originBranchId) {
                 return;
             }
 
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.receive',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: [
-                    $originBranchId,
-                ],
+            self::send(
+                self::recipients(
+                    permissions: [
+                        'cake_orders.view',
+                        'cake_orders.complete',
+                        'cake_orders.manage',
+                    ],
+                    locationIds: [
+                        $originBranchId,
+                    ],
+                ),
+                $notification
             );
 
+            return;
+        }
+
+        if ($toStatus === 'cancelled') {
             self::send(
-                $users,
+                self::recipients(
+                    permissions: [
+                        'cake_orders.view',
+                        'cake_orders.cancel',
+                        'cake_orders.manage',
+                        'cake_orders.review',
+                    ],
+                    locationIds: array_filter([
+                        $originBranchId,
+                        $factoryLocationId,
+                    ]),
+                ),
                 $notification
             );
 
@@ -830,139 +660,22 @@ class NotificationDispatcher
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | 10. Ready For Customer
-        |--------------------------------------------------------------------------
-        */
-
-        if ($toStatus === 'ready_for_customer') {
-            if (! $originBranchId) {
-                return;
-            }
-
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.receive',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: [
-                    $originBranchId,
-                ],
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 11. Delivered / Completed
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            in_array(
-                $toStatus,
-                [
-                    'delivered',
-                    'completed',
-                ],
-                true
-            )
-        ) {
-            if (! $originBranchId) {
-                return;
-            }
-
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.manage',
-                ],
-
-                locationIds: [
-                    $originBranchId,
-                ],
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 12. Rejected / Cancelled / Delayed / Issue
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            in_array(
-                $toStatus,
-                [
-                    'rejected',
-                    'cancelled',
-                    'delayed',
-                    'issue_open',
-                ],
-                true
-            )
-        ) {
-            $users = self::recipients(
-                permissions: [
-                    'cake_orders.view',
-                    'cake_orders.manage',
-                    'cake_orders.review',
-                ],
-
-                locationIds: array_filter([
-                    $originBranchId,
-                    $factoryLocationId,
-                ]),
-            );
-
-            self::send(
-                $users,
-                $notification
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Fallback
-        |--------------------------------------------------------------------------
-        |
-        | إذا أضفنا Status جديد مستقبلًا وما ضفناه هنا،
-        | لن يضيع الإشعار.
-        |
-        */
-
-        $users = self::recipients(
-            permissions: [
-                'cake_orders.view',
-                'cake_orders.manage',
-            ],
-
-            locationIds: array_filter([
-                $originBranchId,
-                $factoryLocationId,
-            ]),
-        );
-
+         * Fallback for historical/unknown values: keep operational users
+         * informed instead of silently dropping the notification.
+         */
         self::send(
-            $users,
+            self::recipients(
+                permissions: [
+                    'cake_orders.view',
+                    'cake_orders.manage',
+                ],
+                locationIds: array_filter([
+                    $originBranchId,
+                    $factoryLocationId,
+                ]),
+            ),
             $notification
         );
     }
+
 }
