@@ -483,14 +483,14 @@ if (
          */
         $this->transitionService->transition(
             $order,
-            CakeOrderStatus::PendingFactoryReview->value,
+            CakeOrderStatus::Pending->value,
             Auth::user(),
-            'تم إنشاء الطلب وإرساله إلى المصنع للمراجعة.'
+            'تم إنشاء الطلب ووضعه قيد المراجعة.'
         );
 
         return redirect()
             ->route('cake-orders.show', $order)
-            ->with('success', 'تم إنشاء طلب الكيك وإرساله إلى المصنع للمراجعة.');
+            ->with('success', 'تم إنشاء طلب الكيك ووضعه قيد المراجعة.');
     }
 
     public function show(SpecialCakeOrder $cakeOrder)
@@ -515,8 +515,18 @@ if (
     public function edit(SpecialCakeOrder $cakeOrder)
     {
         $this->authorize('update', $cakeOrder);
-        if ($cakeOrder->status !== CakeOrderStatus::Draft) {
-            return back()->with('error', 'يمكن تعديل الطلبات في حالة المسودة فقط.');
+        if (! in_array(
+            $cakeOrder->status,
+            [
+                CakeOrderStatus::Draft,
+                CakeOrderStatus::Pending,
+            ],
+            true
+        )) {
+            return back()->with(
+                'error',
+                'يمكن تعديل الطلب ما دام قيد المراجعة فقط.'
+            );
         }
         return view('sales.cake-orders.edit', compact('cakeOrder'));
     }
@@ -524,8 +534,18 @@ if (
     public function update(Request $request, SpecialCakeOrder $cakeOrder)
     {
         $this->authorize('update', $cakeOrder);
-        if ($cakeOrder->status !== CakeOrderStatus::Draft) {
-            return back()->with('error', 'يمكن تعديل الطلبات في حالة المسودة فقط.');
+        if (! in_array(
+            $cakeOrder->status,
+            [
+                CakeOrderStatus::Draft,
+                CakeOrderStatus::Pending,
+            ],
+            true
+        )) {
+            return back()->with(
+                'error',
+                'يمكن تعديل الطلب ما دام قيد المراجعة فقط.'
+            );
         }
 
         $validated = $request->validate([
