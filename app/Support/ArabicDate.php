@@ -252,17 +252,32 @@ class ArabicDate
                 )
             );
 
-            if ($timezone !== '') {
+            if (
+                $timezone !== ''
+                && in_array(
+                    $timezone,
+                    timezone_identifiers_list(),
+                    true
+                )
+            ) {
                 return $timezone;
             }
         } catch (\Throwable) {
             // The settings table may not exist during early migrations/tests.
         }
 
-        return (string) config(
+        $fallback = (string) config(
             'app.timezone',
             'Asia/Jerusalem'
         );
+
+        return in_array(
+            $fallback,
+            timezone_identifiers_list(),
+            true
+        )
+            ? $fallback
+            : 'Asia/Jerusalem';
     }
 
     private static function parse(
