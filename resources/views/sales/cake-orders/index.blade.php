@@ -553,7 +553,13 @@
                             <a href="{{ route('cake-orders.show', $order) }}" class="order-number">
                                 {{ $order->order_number ?? 'طلب رقم ' . $order->id }}
                             </a>
-                            <span class="created-time">{{ $order->created_at?->diffForHumans() }}</span>
+                            <span class="created-time">
+                                {{ $order->created_at
+                                    ? \App\Support\ArabicDate::compactDateTime(
+                                        $order->created_at
+                                    )
+                                    : '—' }}
+                            </span>
                         </div>
 
                         <span class="status-pill {{ $statusTone }}">{{ $statusLabel }}</span>
