@@ -525,6 +525,149 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
     }
 
     #[Test]
+    public function branch_sweets_reservation_cannot_exceed_requested_quantity(): void
+    {
+        $branchUser = $this->makeUser(
+            $this->branch,
+            [
+                'showroom_sweets_requests.view',
+                'showroom_sweets_requests.create',
+            ]
+        );
+
+        $request = $this->makeSweetsRequest();
+
+        $category = Category::query()
+            ->create([
+                'name' => 'Sweets Limit',
+                'name_ar' => 'حلويات حد',
+                'slug' => 'sweets-limit-test',
+                'is_active' => true,
+            ]);
+
+        $product = Product::query()
+            ->create([
+                'category_id' =>
+                    $category->id,
+                'name' => 'Baklava',
+                'name_ar' => 'بقلاوة',
+                'sku' => 'BAK-LIMIT',
+                'unit' => 'صدر',
+                'base_selling_price' => 0,
+                'product_type' => 'standard',
+                'is_active' => true,
+                'tracks_batch' => false,
+                'tracks_expiry' => false,
+            ]);
+
+        $item = ShowroomSweetsRequestItem::query()
+            ->create([
+                'showroom_sweets_request_id' =>
+                    $request->id,
+                'product_id' =>
+                    $product->id,
+                'product_name_snapshot' =>
+                    'بقلاوة',
+                'quantity' => 150,
+                'reserved_quantity' => 5,
+                'requested_unit' =>
+                    'صدر',
+            ]);
+
+        $this->actingAs($branchUser)
+            ->patch(
+                route(
+                    'showroom-sweets-requests.items.reservation',
+                    [
+                        $request,
+                        $item,
+                    ]
+                ),
+                [
+                    'reserved_quantity' => 151,
+                ]
+            )
+            ->assertSessionHasErrors(
+                'reserved_quantity'
+            );
+
+        $this->assertSame(
+            5.0,
+            (float) $item
+                ->fresh()
+                ->reserved_quantity
+        );
+    }
+
+    #[Test]
+    public function reservations_cannot_be_changed_after_branch_request_is_completed(): void
+    {
+        $branchUser = $this->makeUser(
+            $this->branch,
+            [
+                'showroom_cake_requests.view',
+                'showroom_cake_requests.create',
+            ]
+        );
+
+        $request = ShowroomCakeRequest::query()
+            ->create([
+                'request_number' =>
+                    'SCR-DONE-'
+                    . Str::upper(
+                        Str::random(7)
+                    ),
+                'requesting_location_id' =>
+                    $this->branch->id,
+                'factory_location_id' =>
+                    $this->factory->id,
+                'status' =>
+                    ShowroomCakeRequestStatus::Completed,
+                'needed_by' =>
+                    today()->toDateString(),
+                'created_by' =>
+                    $this->admin->id,
+                'submitted_at' =>
+                    now()->subDay(),
+                'fulfilled_at' =>
+                    now(),
+            ]);
+
+        $item = ShowroomCakeRequestItem::query()
+            ->create([
+                'showroom_cake_request_id' =>
+                    $request->id,
+                'cake_type' => 'chocolate',
+                'quantity' => 20,
+                'reserved_quantity' => 2,
+            ]);
+
+        $this->actingAs($branchUser)
+            ->patch(
+                route(
+                    'showroom-cake-requests.items.reservation',
+                    [
+                        $request,
+                        $item,
+                    ]
+                ),
+                [
+                    'reserved_quantity' => 8,
+                ]
+            )
+            ->assertSessionHas(
+                'error'
+            );
+
+        $this->assertSame(
+            2,
+            (int) $item
+                ->fresh()
+                ->reserved_quantity
+        );
+    }
+
+    #[Test]
     public function another_branch_cannot_modify_customer_reservations(): void
     {
         $wrongBranchUser = $this->makeUser(
