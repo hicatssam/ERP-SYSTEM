@@ -1364,7 +1364,7 @@ SVG;
                 'factory_location_id' => $factory->id,
                 'created_by'          => $cashierB1->id,
                 'assigned_to'         => $designer?->id,
-                'status'              => 'in_preparation',
+                'status'              => 'in_progress',
                 'payment_status'      => 'partially_paid',
                 'payment_arrangement' => 'deposit',
                 'required_date'       => now()->addDays(3)->toDateString(),
@@ -1391,7 +1391,7 @@ SVG;
                 'factory_location_id' => $factory->id,
                 'created_by'          => $cashierB1->id,
                 'assigned_to'         => null,
-                'status'              => 'pending_factory_review',
+                'status'              => 'pending',
                 'payment_status'      => 'partially_paid',
                 'payment_arrangement' => 'deposit',
                 'required_date'       => now()->addDays(7)->toDateString(),
@@ -1701,8 +1701,8 @@ SVG;
             ['user_id' => $cashierB1?->id, 'action' => 'print',           'module' => 'invoices',  'record_type' => 'Invoice',       'record_id' => 1,               'metadata' => json_encode(['format' => 'pdf']),  'created_at' => now()->subDays(5)->addMinutes(4)],
             // Cake order events
             ['user_id' => $cashierB1?->id, 'action' => 'create',          'module' => 'cake_orders','record_type' => 'SpecialCakeOrder','record_id' => 1,             'metadata' => json_encode(['order_number' => 'CKO-2026-0001', 'total' => 350.00]), 'created_at' => now()->subDays(7)],
-            ['user_id' => $facMgr?->id,    'action' => 'status_changed',  'module' => 'cake_orders','record_type' => 'SpecialCakeOrder','record_id' => 1,             'old_values' => json_encode(['status' => 'pending_factory_review']), 'new_values' => json_encode(['status' => 'accepted']), 'created_at' => now()->subDays(7)->addHours(2)],
-            ['user_id' => $facMgr?->id,    'action' => 'status_changed',  'module' => 'cake_orders','record_type' => 'SpecialCakeOrder','record_id' => 1,             'old_values' => json_encode(['status' => 'in_preparation']), 'new_values' => json_encode(['status' => 'completed']), 'created_at' => now()->subDays(5)->addHours(3)],
+            ['user_id' => $facMgr?->id,    'action' => 'status_changed',  'module' => 'cake_orders','record_type' => 'SpecialCakeOrder','record_id' => 1,             'old_values' => json_encode(['status' => 'pending']), 'new_values' => json_encode(['status' => 'in_progress']), 'created_at' => now()->subDays(7)->addHours(2)],
+            ['user_id' => $facMgr?->id,    'action' => 'status_changed',  'module' => 'cake_orders','record_type' => 'SpecialCakeOrder','record_id' => 1,             'old_values' => json_encode(['status' => 'in_progress']), 'new_values' => json_encode(['status' => 'completed']), 'created_at' => now()->subDays(5)->addHours(3)],
             // Stock events
             ['user_id' => $branchMgr?->id, 'action' => 'create',          'module' => 'stock',     'record_type' => 'StockRequest',  'record_id' => 1,               'metadata' => json_encode(['request_number' => 'SR-2026-0001']),  'created_at' => now()->subDays(6)],
             ['user_id' => $facMgr?->id,    'action' => 'review',          'module' => 'stock',     'record_type' => 'StockRequest',  'record_id' => 1,               'new_values' => json_encode(['status' => 'approved']),           'created_at' => now()->subDays(5)->subHours(12)],
@@ -1880,14 +1880,14 @@ SVG;
         if ($ck1) {
             // accepted by factory
             $data = [
-                'fingerprint'  => 'cake_order_transitioned_' . $ck1->id . '_accepted',
+                'fingerprint'  => 'cake_order_transitioned_' . $ck1->id . '_in_progress',
                 'type'         => 'special_cake_order_transitioned',
                 'title'        => 'تحديث طلب الكيك',
-                'message'      => "طلب الكيك رقم {$ck1->order_number} قبله المصنع وجدولة الإنتاج",
+                'message'      => "طلب الكيك رقم {$ck1->order_number} انتقل إلى قيد التنفيذ",
                 'order_id'     => $ck1->id,
                 'order_number' => $ck1->order_number,
-                'old_status'   => 'pending_factory_review',
-                'new_status'   => 'accepted',
+                'old_status'   => 'pending',
+                'new_status'   => 'in_progress',
                 'url'          => '/cake-orders/' . $ck1->id,
                 'priority'     => 'medium',
             ];
@@ -1898,7 +1898,7 @@ SVG;
             $dataComplete = array_merge($data, [
                 'fingerprint' => 'cake_order_transitioned_' . $ck1->id . '_completed',
                 'message'     => "طلب الكيك رقم {$ck1->order_number} اكتمل وجاهز للتسليم",
-                'old_status'  => 'in_preparation',
+                'old_status'  => 'in_progress',
                 'new_status'  => 'completed',
             ]);
             if ($admin)    $notifications[] = $row($admin,    'App\\Notifications\\SpecialCakeOrderTransitionedNotification', $dataComplete, true,  now()->subDays(5)->addHours(3)->toDateTimeString());
@@ -1914,7 +1914,7 @@ SVG;
                 'message'      => "طلب الكيك رقم {$ck4->order_number} جاهز للاستلام من الفرع",
                 'order_id'     => $ck4->id,
                 'order_number' => $ck4->order_number,
-                'old_status'   => 'quality_check',
+                'old_status'   => 'in_progress',
                 'new_status'   => 'ready',
                 'url'          => '/cake-orders/' . $ck4->id,
                 'priority'     => 'high',
