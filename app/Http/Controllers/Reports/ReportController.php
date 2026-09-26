@@ -16,6 +16,7 @@ use App\Models\StockTransfer;
 use App\Models\Location;
 use App\Models\User;
 use App\Models\ActivityLog;
+use App\Support\ArabicDate;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -1453,7 +1454,7 @@ class ReportController extends Controller
                 $row->location?->name ?? '—',
                 number_format($row->total_amount ?? 0, 2),
                 $row->status?->label() ?? $row->status?->value ?? '—',
-                \Carbon\Carbon::parse($row->created_at)->format('Y/m/d'),
+                ArabicDate::date($row->created_at, false),
             ],
             'invoices' => [
                 '#' . $row->id,
@@ -1463,7 +1464,7 @@ class ReportController extends Controller
                 number_format($row->paid_amount ?? 0, 2),
                 number_format($row->remaining_amount ?? 0, 2),
                 $row->status?->label() ?? $row->status?->value ?? '—',
-                \Carbon\Carbon::parse($row->issued_at)->format('Y/m/d'),
+                ArabicDate::date($row->issued_at, false),
             ],
             'payments' => [
                 '#' . $row->id,
@@ -1475,7 +1476,7 @@ class ReportController extends Controller
                     ?? '—',
                 $this->paymentStatusLabel($row->status ?? null),
                 $row->paid_at
-                    ? \Carbon\Carbon::parse($row->paid_at)->format('Y/m/d')
+                    ? ArabicDate::date($row->paid_at, false)
                     : '—',
             ],
             'collections' => [
@@ -1486,11 +1487,16 @@ class ReportController extends Controller
                     ?? $row->paymentMethod?->name
                     ?? '—',
                 $row->paid_at
-                    ? \Carbon\Carbon::parse($row->paid_at)->format('Y/m/d')
+                    ? ArabicDate::date($row->paid_at, false)
                     : '—',
             ],
             'daily-sales' => [
-                $row->sale_date ?? '—',
+                $row->sale_date
+                    ? ArabicDate::date(
+                        $row->sale_date,
+                        false
+                    )
+                    : '—',
                 (int) ($row->invoice_count ?? 0),
                 number_format($row->total_sales ?? 0, 2),
                 number_format($row->total_paid ?? 0, 2),
@@ -1523,14 +1529,14 @@ class ReportController extends Controller
                 $row->location?->name ?? '—',
                 $row->movement_type?->label() ?? $row->movement_type?->value ?? '—',
                 number_format($row->quantity ?? 0, 2),
-                \Carbon\Carbon::parse($row->created_at)->format('Y/m/d'),
+                ArabicDate::date($row->created_at, false),
             ],
             'stock-transfers' => [
                 $row->fromLocation?->name ?? '—',
                 $row->toLocation?->name ?? '—',
                 $row->status?->label() ?? $row->status?->value ?? '—',
                 $row->dispatchedBy?->employee?->full_name ?? '—',
-                \Carbon\Carbon::parse($row->created_at)->format('Y/m/d'),
+                ArabicDate::date($row->created_at, false),
             ],
             'cash-sessions' => [
                 $row->location?->name ?? '—',
@@ -1540,7 +1546,7 @@ class ReportController extends Controller
                 number_format($row->actual_cash ?? 0, 2),
                 number_format($row->variance ?? 0, 2),
                 ($row->status?->value ?? $row->status) === 'open' ? 'مفتوح' : 'مغلق',
-                \Carbon\Carbon::parse($row->created_at)->format('Y/m/d'),
+                ArabicDate::date($row->created_at, false),
             ],
             'outstanding' => [
                 $row->customer?->name ?? '—',
@@ -1548,21 +1554,21 @@ class ReportController extends Controller
                 number_format($row->total_amount ?? 0, 2),
                 number_format($row->paid_amount ?? 0, 2),
                 number_format($row->remaining_amount ?? 0, 2),
-                \Carbon\Carbon::parse($row->issued_at)->format('Y/m/d'),
+                ArabicDate::date($row->issued_at, false),
             ],
             'activity-logs' => [
                 $row->user?->username ?? '—',
                 $row->action,
                 $row->module . ' / ' . $row->record_type,
-                \Carbon\Carbon::parse($row->created_at)->format('Y/m/d H:i'),
+                ArabicDate::dateTime($row->created_at, false),
             ],
             'cake-orders' => [
                 '#' . $row->id,
                 $row->customer?->name ?? '—',
                 $row->originBranch?->name ?? '—',
                 $row->status?->label() ?? $row->status?->value ?? '—',
-                $row->required_date ? \Carbon\Carbon::parse($row->required_date)->format('Y/m/d') : '—',
-                \Carbon\Carbon::parse($row->created_at)->format('Y/m/d'),
+                $row->required_date ? ArabicDate::date($row->required_date, false) : '—',
+                ArabicDate::date($row->created_at, false),
             ],
             'cake-production' => [
                 $row->cake_type ?? 'غير محدد',
