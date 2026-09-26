@@ -1116,11 +1116,16 @@
                         $isUnread = is_null($notif->read_at);
 
                         $createdForHumans = $notif->created_at
-                            ? $notif->created_at->diffForHumans()
+                            ? \App\Support\ArabicDate::compactDateTime(
+                                $notif->created_at
+                            )
                             : 'الآن';
 
                         $createdFullDate = $notif->created_at
-                            ? $notif->created_at->translatedFormat('d F Y - h:i A')
+                            ? \App\Support\ArabicDate::dateTime(
+                                $notif->created_at,
+                                false
+                            )
                             : '';
 
                         $fromStatusValue = data_get($data, 'from_status')
