@@ -269,6 +269,8 @@
                     <th>النكهة</th>
                     <th>الشكل</th>
                     <th>الكمية</th>
+                    <th>محجوز للعملاء</th>
+                    <th>متاح للعرض</th>
                     <th>ملاحظة</th>
                 </tr>
             </thead>
@@ -334,6 +336,27 @@
                         </td>
 
                         <td>
+                            @if((int) $item->reserved_quantity > 0)
+                                <strong style="color:#c2410c">
+                                    {{ $item->reserved_quantity }}
+                                </strong>
+                                @if($item->reservation_notes)
+                                    <div style="margin-top:.2rem;color:var(--text-muted);font-size:.68rem">
+                                        {{ $item->reservation_notes }}
+                                    </div>
+                                @endif
+                            @else
+                                <span style="color:var(--text-muted)">0</span>
+                            @endif
+                        </td>
+
+                        <td>
+                            <strong style="color:#15803d">
+                                {{ $item->availableQuantity() }}
+                            </strong>
+                        </td>
+
+                        <td>
                             {{ $item->notes ?? '—' }}
                         </td>
 
@@ -342,7 +365,7 @@
                 @empty
 
                     <tr>
-                        <td colspan="7">
+                        <td colspan="9">
                             <div class="empty-state-sm">
                                 لا توجد أصناف.
                             </div>
@@ -363,12 +386,28 @@
                             color:var(--text-muted);
                         "
                     >
-                        إجمالي الكمية المطلوبة:
+                        الإجمالي:
                     </td>
 
                     <td>
                         <strong>
                             {{ $showroomCakeRequest->items->sum('quantity') }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        <strong style="color:#c2410c">
+                            {{ $showroomCakeRequest->items->sum('reserved_quantity') }}
+                        </strong>
+                    </td>
+
+                    <td>
+                        <strong style="color:#15803d">
+                            {{
+                                $showroomCakeRequest->items->sum(
+                                    fn ($item) => $item->availableQuantity()
+                                )
+                            }}
                         </strong>
                     </td>
 
