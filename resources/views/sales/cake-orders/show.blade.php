@@ -284,6 +284,30 @@
 
 </div>
 
+@if($cakeOrder->is_urgent)
+    <div
+        style="
+            margin:0 0 1rem;
+            padding:.85rem 1rem;
+            display:flex;
+            align-items:flex-start;
+            gap:.7rem;
+            border:1px solid #fdba74;
+            border-radius:12px;
+            color:#9a3412;
+            background:#fff7ed;
+        "
+    >
+        <strong style="white-space:nowrap">
+            ⚠ طلب طارئ
+        </strong>
+
+        <span>
+            {{ $cakeOrder->urgent_reason ?: 'تم اعتماد هذا الطلب كتسليم طارئ لنفس اليوم.' }}
+        </span>
+    </div>
+@endif
+
 
 {{-- =========================================================
      مسار العملية
