@@ -18,6 +18,7 @@ use App\Models\ShowroomSweetsRequest;
 use App\Models\ShowroomSweetsRequestItem;
 use App\Models\SpecialCakeOrder;
 use App\Models\User;
+use App\Notifications\SpecialCakeOrderTransitionedNotification;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
@@ -332,6 +333,62 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
         $this->assertSame(
             'مناسبة مفاجئة والعميل يحتاج الكيك اليوم.',
             $order->urgent_reason
+        );
+    }
+
+    #[Test]
+    public function urgent_special_cake_notification_is_high_priority_and_exposes_reason(): void
+    {
+        $order = $this->makeSpecialCakeOrder();
+
+        $order->update([
+            'is_urgent' => true,
+            'urgent_reason' =>
+                'مناسبة مفاجئة',
+        ]);
+
+        $notification =
+            new SpecialCakeOrderTransitionedNotification(
+                $order->fresh(),
+                'draft',
+                'in_progress',
+                'موافقة تلقائية'
+            );
+
+        $data =
+            $notification->toDatabase(
+                $this->admin
+            );
+
+        $this->assertSame(
+            'high',
+            data_get(
+                $data,
+                'priority'
+            )
+        );
+
+        $this->assertTrue(
+            data_get(
+                $data,
+                'is_urgent'
+            )
+        );
+
+        $this->assertSame(
+            'مناسبة مفاجئة',
+            data_get(
+                $data,
+                'urgent_reason'
+            )
+        );
+
+        $this->assertStringContainsString(
+            'طارئ',
+            (string) data_get(
+                $data,
+                'title'
+            )
         );
     }
 
