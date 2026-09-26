@@ -259,9 +259,9 @@
                                 <span>بدون وقت</span>
                                 <small>{{ $groupOrders->count() }} طلب</small>
                             @else
-                                <span>{{ CarbonCarbon::createFromFormat('H:i', $timeKey)->format('h:i') }}</span>
+                                <span>{{ \Carbon\Carbon::createFromFormat('H:i', $timeKey)->format('h:i') }}</span>
                                 <small>
-                                    {{ CarbonCarbon::createFromFormat('H:i', $timeKey)->format('A') === 'AM' ? 'ص' : 'م' }}
+                                    {{ \Carbon\Carbon::createFromFormat('H:i', $timeKey)->format('A') === 'AM' ? 'ص' : 'م' }}
                                     · {{ $groupOrders->count() }} طلب
                                 </small>
                             @endif
@@ -277,7 +277,7 @@
                                         $priorityOrder->required_date
                                         && $priorityOrder->required_time
                                     ) {
-                                        $priorityDueAt = CarbonCarbon::parse(
+                                        $priorityDueAt = \Carbon\Carbon::parse(
                                             $priorityOrder->required_date->format('Y-m-d')
                                             . ' '
                                             . substr(
@@ -301,7 +301,7 @@
                                         default => 'normal',
                                     };
 
-                                    $priorityStatus = $priorityOrder->status instanceof BackedEnum
+                                    $priorityStatus = $priorityOrder->status instanceof \BackedEnum
                                         ? $priorityOrder->status->value
                                         : (string) $priorityOrder->status;
                                 @endphp
