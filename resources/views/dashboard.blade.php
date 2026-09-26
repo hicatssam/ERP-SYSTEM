@@ -393,7 +393,7 @@
         </h1>
 
         <p class="page-subheading">
-            {{ now()->translatedFormat('l، d F Y') }}
+            {{ \App\Support\ArabicDate::date(now()) }}
             —
             نظام إدارة {{ \App\Models\SystemSetting::get('system_name', 'حلويات دهب') }}
         </p>
@@ -402,7 +402,7 @@
 
     <span style="font-size:.75rem;color:var(--text-muted)">
         آخر تحديث:
-        {{ now()->format('H:i') }}
+        {{ \App\Support\ArabicDate::time(now()) }}
     </span>
 
 </div>
@@ -1466,7 +1466,7 @@
                             margin-top:.15rem;
                         "
                     >
-                        {{ $notification->created_at->diffForHumans() }}
+                        {{ \App\Support\ArabicDate::compactDateTime($notification->created_at) }}
                     </div>
 
                 </div>
