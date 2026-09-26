@@ -9,6 +9,8 @@ use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Employee;
 use App\Models\Location;
+use App\Models\LocationPaymentMethod;
+use App\Models\PaymentMethod;
 use App\Models\Product;
 use App\Models\ShowroomCakeRequest;
 use App\Models\ShowroomCakeRequestItem;
@@ -92,6 +94,98 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
         Carbon::setTestNow();
 
         parent::tearDown();
+    }
+
+    #[Test]
+    public function normal_special_cake_cannot_be_created_for_today(): void
+    {
+        $paymentMethod =
+            $this->makeCashPaymentMethod();
+
+        $this->actingAs($this->admin)
+            ->post(
+                route(
+                    'cake-orders.store'
+                ),
+                $this->specialCakeStorePayload(
+                    $paymentMethod,
+                    [
+                        'required_date' =>
+                            today()->toDateString(),
+                        'required_time' =>
+                            '16:00',
+                    ]
+                )
+            )
+            ->assertSessionHasErrors(
+                'required_date'
+            );
+
+        $this->assertDatabaseMissing(
+            'special_cake_orders',
+            [
+                'customer_id' =>
+                    $this->customer->id,
+                'required_date' =>
+                    today()->toDateString(),
+            ]
+        );
+    }
+
+    #[Test]
+    public function urgent_special_cake_can_be_created_for_later_today(): void
+    {
+        $paymentMethod =
+            $this->makeCashPaymentMethod();
+
+        $response =
+            $this->actingAs($this->admin)
+                ->post(
+                    route(
+                        'cake-orders.store'
+                    ),
+                    $this->specialCakeStorePayload(
+                        $paymentMethod,
+                        [
+                            'required_date' =>
+                                today()->toDateString(),
+                            'required_time' =>
+                                '16:00',
+                            'is_urgent' => 1,
+                            'urgent_reason' =>
+                                'مناسبة مفاجئة والعميل يحتاج الطلب اليوم.',
+                        ]
+                    )
+                );
+
+        $order = SpecialCakeOrder::query()
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($order);
+
+        $response->assertRedirect(
+            route(
+                'cake-orders.show',
+                $order
+            )
+        );
+
+        $this->assertTrue(
+            (bool) $order->is_urgent
+        );
+
+        $this->assertSame(
+            today()->toDateString(),
+            $order
+                ->required_date
+                ->toDateString()
+        );
+
+        $this->assertSame(
+            'مناسبة مفاجئة والعميل يحتاج الطلب اليوم.',
+            $order->urgent_reason
+        );
     }
 
     #[Test]
@@ -379,6 +473,8 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
                 'unit' => 'صدر',
                 'base_selling_price' =>
                     0,
+                'product_type' =>
+                    'standard',
                 'is_active' => true,
                 'tracks_batch' => false,
                 'tracks_expiry' => false,
@@ -470,6 +566,79 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
             (int) $item
                 ->fresh()
                 ->reserved_quantity
+        );
+    }
+
+    private function makeCashPaymentMethod(): PaymentMethod
+    {
+        $method = PaymentMethod::query()
+            ->create([
+                'name' => 'Cash',
+                'name_ar' => 'نقدي',
+                'code' =>
+                    'cash-'
+                    . Str::lower(
+                        Str::random(6)
+                    ),
+                'type' => 'cash',
+                'requires_verification' =>
+                    false,
+                'requires_reference' =>
+                    false,
+                'is_active' => true,
+                'sort_order' => 1,
+            ]);
+
+        LocationPaymentMethod::query()
+            ->create([
+                'location_id' =>
+                    $this->branch->id,
+                'payment_method_id' =>
+                    $method->id,
+                'is_active' => true,
+            ]);
+
+        return $method;
+    }
+
+    /**
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
+    private function specialCakeStorePayload(
+        PaymentMethod $paymentMethod,
+        array $overrides = []
+    ): array {
+        return array_merge(
+            [
+                'customer_id' =>
+                    $this->customer->id,
+                'required_date' =>
+                    today()
+                        ->addDay()
+                        ->toDateString(),
+                'required_time' =>
+                    '16:00',
+                'cake_type' =>
+                    'chocolate',
+                'shape' =>
+                    'round',
+                'cake_size' =>
+                    'medium',
+                'total_price' =>
+                    150,
+                'payment_arrangement' =>
+                    'pay_on_pickup',
+                'payment_method_id' =>
+                    $paymentMethod->id,
+                'image_cover_type' =>
+                    'none',
+                'discount_type' =>
+                    'none',
+                'discount_value' =>
+                    0,
+            ],
+            $overrides
         );
     }
 
