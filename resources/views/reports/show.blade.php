@@ -675,6 +675,24 @@
 
                     <td>{{ \Carbon\Carbon::parse($row->created_at)->format('Y/m/d') }}</td>
 
+                {{-- ── Unified Cake Production ── --}}
+
+                @elseif($type === 'cake-production')
+
+                    <td>{{ $row->cake_type ?? 'غير محدد' }}</td>
+
+                    <td>{{ $row->cake_size ?? 'غير محدد' }}</td>
+
+                    <td>{{ $row->shape ?? 'غير محدد' }}</td>
+
+                    <td>{{ number_format((int) ($row->special_quantity ?? 0)) }}</td>
+
+                    <td>{{ number_format((int) ($row->showroom_quantity ?? 0)) }}</td>
+
+                    <td style="font-weight:900;color:var(--theme-primary)">
+                        {{ number_format((int) ($row->total_quantity ?? 0)) }}
+                    </td>
+
                 {{-- ── Activity Logs ── --}}
 
                 @elseif($type === 'activity-logs')
