@@ -399,6 +399,11 @@ Route::post(
             Route::patch('showroom-cake-requests/{showroomCakeRequest}/status', [ShowroomCakeRequestController::class, 'updateStatus'])
                 ->name('showroom-cake-requests.status')
                 ->middleware('can:showroom_cake_requests.update_status');
+
+            Route::patch(
+                'showroom-cake-requests/{showroomCakeRequest}/items/{item}/reservation',
+                [ShowroomCakeRequestController::class, 'updateItemReservation']
+            )->name('showroom-cake-requests.items.reservation');
         });
 
         // ─── Showroom Sweets Requests (طلبات حلويات الفروع) ───────────────
@@ -424,6 +429,13 @@ Route::post(
 
         Route::patch('showroom-sweets-requests/{showroomSweetsRequest}/cancel', [ShowroomSweetsRequestController::class, 'cancel'])
             ->name('showroom-sweets-requests.cancel')
+            ->middleware('can:showroom_sweets_requests.view');
+
+        Route::patch(
+            'showroom-sweets-requests/{showroomSweetsRequest}/items/{item}/reservation',
+            [ShowroomSweetsRequestController::class, 'updateItemReservation']
+        )
+            ->name('showroom-sweets-requests.items.reservation')
             ->middleware('can:showroom_sweets_requests.view');
 
         Route::delete('showroom-sweets-requests/{showroomSweetsRequest}', [ShowroomSweetsRequestController::class, 'destroy'])
