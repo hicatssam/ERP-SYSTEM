@@ -1201,7 +1201,7 @@
         </div>
 
         <div class="request-due-date">
-            {{ $showroomSweetsRequest->needed_by?->format('Y-m-d') ?? '—' }}
+            {{ \App\Support\ArabicDate::date($showroomSweetsRequest->needed_by) }}
         </div>
     </div>
 
@@ -1324,7 +1324,7 @@
                 </div>
 
                 <div class="summary-value">
-                    {{ $showroomSweetsRequest->submitted_at?->format('Y-m-d H:i') ?? '—' }}
+                    {{ \App\Support\ArabicDate::compactDateTime($showroomSweetsRequest->submitted_at) }}
                 </div>
             </div>
 
@@ -1631,7 +1631,7 @@
                             </span>
 
                             <span class="detail-value">
-                                {{ $showroomSweetsRequest->created_at?->format('Y-m-d H:i') ?? '—' }}
+                                {{ \App\Support\ArabicDate::compactDateTime($showroomSweetsRequest->created_at) }}
                             </span>
 
                         </div>
@@ -1649,7 +1649,7 @@
                                     class="detail-value"
                                     style="color:#16a34a"
                                 >
-                                    {{ $showroomSweetsRequest->fulfilled_at->format('Y-m-d H:i') }}
+                                    {{ \App\Support\ArabicDate::compactDateTime($showroomSweetsRequest->fulfilled_at) }}
                                 </span>
 
                             </div>
