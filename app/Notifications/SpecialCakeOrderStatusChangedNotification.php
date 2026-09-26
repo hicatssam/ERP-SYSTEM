@@ -21,7 +21,15 @@ class SpecialCakeOrderStatusChangedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         $statusLabels = [
-            'draft' => 'مسودة',
+            'draft' => 'مسودة داخلية',
+            'pending' => 'قيد المراجعة',
+            'in_progress' => 'قيد التنفيذ',
+            'ready' => 'جاهز للاستلام',
+            'completed' => 'مكتمل',
+            'cancelled' => 'ملغي',
+
+            // Historical values retained so old status-history notifications
+            // remain readable after the workflow simplification.
             'pending_deposit' => 'بانتظار العربون',
             'deposit_paid' => 'تم دفع العربون',
             'pending_factory_review' => 'بانتظار مراجعة المصنع',
@@ -33,7 +41,6 @@ class SpecialCakeOrderStatusChangedNotification extends Notification
             'decorating' => 'قيد التزيين',
             'in_decoration' => 'قيد التزيين',
             'quality_check' => 'فحص الجودة',
-            'ready' => 'جاهز في المصنع',
             'sent_to_branch' => 'تم الإرسال إلى الفرع',
             'dispatched_to_branch' => 'تم الإرسال إلى الفرع',
             'received_by_branch' => 'تم الاستلام في الفرع',
@@ -41,10 +48,8 @@ class SpecialCakeOrderStatusChangedNotification extends Notification
             'ready_for_customer' => 'جاهز لاستلام العميل',
             'ready_for_pickup' => 'جاهز للاستلام',
             'delivered' => 'تم التسليم',
-            'completed' => 'مكتمل',
             'delayed' => 'متأخر',
             'issue_open' => 'توجد ملاحظة عند الاستلام',
-            'cancelled' => 'ملغى',
             'canceled' => 'ملغى',
         ];
 
@@ -65,7 +70,7 @@ class SpecialCakeOrderStatusChangedNotification extends Notification
             'url' => '/cake-orders/' . $this->order->id,
             'priority' => in_array(
                 $this->toStatus,
-                ['rejected', 'cancelled', 'canceled', 'delayed', 'issue_open'],
+                ['cancelled', 'rejected', 'canceled'],
                 true
             ) ? 'high' : 'medium',
         ];
