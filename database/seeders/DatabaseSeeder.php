@@ -3204,7 +3204,7 @@ SVG;
 
             $this->upsertExisting('showroom_cake_requests', ['request_number' => 'DEMO-SCR-0001'], [
                 'requesting_location_id' => $branchId, 'factory_location_id' => $factoryId,
-                'status' => 'submitted', 'needed_by' => $now->copy()->addDays(4)->toDateString(),
+                'status' => 'pending', 'needed_by' => $now->copy()->addDays(4)->toDateString(),
                 'notes' => 'طلب كيك من الفرع للمصنع.', 'created_by' => $adminId, 'submitted_at' => $now,
             ]);
             $cakeRequestId = DB::table('showroom_cake_requests')->where('request_number', 'DEMO-SCR-0001')->value('id');
