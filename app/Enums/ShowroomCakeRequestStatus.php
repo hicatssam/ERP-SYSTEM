@@ -4,50 +4,104 @@ namespace App\Enums;
 
 enum ShowroomCakeRequestStatus: string
 {
-    case Draft      = 'draft';
-    case Submitted  = 'submitted';
+    // Simplified visible workflow.
+    case Pending = 'pending';
     case InProgress = 'in_progress';
-    case Fulfilled  = 'fulfilled';
-    case Rejected   = 'rejected';
-    case Cancelled  = 'cancelled';
+    case Ready = 'ready';
+    case Completed = 'completed';
+    case Cancelled = 'cancelled';
+
+    // Legacy values kept so historical rows remain readable before migration.
+    case Draft = 'draft';
+    case Submitted = 'submitted';
+    case Fulfilled = 'fulfilled';
+    case Rejected = 'rejected';
 
     public function label(): string
     {
-        return match($this) {
-            self::Draft      => 'مسودة',
-            self::Submitted  => 'مُرسل للمصنع',
-            self::InProgress => 'قيد التنفيذ',
-            self::Fulfilled  => 'تم التنفيذ',
-            self::Rejected   => 'مرفوض',
-            self::Cancelled  => 'ملغى',
+        return match ($this->workflowValue()) {
+            'pending' => 'قيد المراجعة',
+            'in_progress' => 'قيد التنفيذ',
+            'ready' => 'جاهز للاستلام',
+            'completed' => 'مكتمل',
+            'cancelled' => 'ملغي',
+            default => 'غير محدد',
         };
     }
 
     public function badgeClass(): string
     {
-        return match($this) {
-            self::Draft      => 'badge-secondary',
-            self::Submitted  => 'badge-pending',
-            self::InProgress => 'badge-warning',
-            self::Fulfilled  => 'badge-success',
-            self::Rejected   => 'badge-danger',
-            self::Cancelled  => 'badge-muted',
+        return match ($this->workflowValue()) {
+            'pending' => 'badge-pending',
+            'in_progress' => 'badge-warning',
+            'ready' => 'badge-info',
+            'completed' => 'badge-success',
+            'cancelled' => 'badge-danger',
+            default => 'badge-secondary',
         };
     }
 
     public function isTerminal(): bool
     {
-        return in_array($this, [self::Fulfilled, self::Rejected, self::Cancelled]);
+        return in_array(
+            $this->workflowValue(),
+            ['completed', 'cancelled'],
+            true
+        );
     }
 
-    /** Returns valid next statuses from current status */
+    /**
+     * @return array<int, self>
+     */
     public function allowedTransitions(): array
     {
-        return match($this) {
-            self::Draft      => [self::Submitted, self::Cancelled],
-            self::Submitted  => [self::InProgress, self::Rejected, self::Cancelled],
-            self::InProgress => [self::Fulfilled, self::Cancelled],
-            default          => [],
+        return match ($this->workflowValue()) {
+            'pending' => [
+                self::InProgress,
+                self::Cancelled,
+            ],
+            'in_progress' => [
+                self::Ready,
+                self::Cancelled,
+            ],
+            'ready' => [
+                self::Completed,
+                self::Cancelled,
+            ],
+            default => [],
         };
+    }
+
+    public function workflowValue(): string
+    {
+        return match ($this) {
+            self::Draft,
+            self::Submitted,
+            self::Pending => 'pending',
+
+            self::InProgress => 'in_progress',
+
+            self::Ready => 'ready',
+
+            self::Fulfilled,
+            self::Completed => 'completed',
+
+            self::Rejected,
+            self::Cancelled => 'cancelled',
+        };
+    }
+
+    /**
+     * @return array<int, self>
+     */
+    public static function workflowCases(): array
+    {
+        return [
+            self::Pending,
+            self::InProgress,
+            self::Ready,
+            self::Completed,
+            self::Cancelled,
+        ];
     }
 }
