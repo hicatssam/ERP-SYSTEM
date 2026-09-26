@@ -124,22 +124,15 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
         );
 
         return match ($status) {
-            'pending_factory_review' => [
+            'pending' => [
                 [
                     'location_ids' => $factory,
                     'permissions' => [
                         'cake_orders.review',
                         'cake_orders.accept',
-                        'cake_orders.reject',
-                        'cake_orders.request_modification',
                         'cake_orders.manage',
                     ],
                 ],
-                /*
-                 * The origin branch manager should know that the request
-                 * successfully reached the factory, without notifying every
-                 * generic cake_orders.view user.
-                 */
                 [
                     'location_ids' => $branch,
                     'permissions' => [
@@ -149,40 +142,13 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
                 ],
             ],
 
-            'accepted' => [
-                [
-                    'location_ids' => $factory,
-                    'permissions' => [
-                        'cake_orders.schedule',
-                        'cake_orders.manage',
-                    ],
-                ],
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
-                        'cake_orders.create',
-                        'cake_orders.view',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'modification_requested' => [
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
-                        'cake_orders.edit',
-                        'cake_orders.create',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'scheduled' => [
+            'in_progress' => [
                 [
                     'location_ids' => $factory,
                     'permissions' => [
                         'cake_orders.prepare',
+                        'cake_orders.decorate',
+                        'cake_orders.quality_check',
                         'cake_orders.manage',
                     ],
                 ],
@@ -191,36 +157,6 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
                     'permissions' => [
                         'cake_orders.create',
                         'cake_orders.view',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'in_preparation' => [
-                [
-                    'location_ids' => $factory,
-                    'permissions' => [
-                        'cake_orders.decorate',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'decorating' => [
-                [
-                    'location_ids' => $factory,
-                    'permissions' => [
-                        'cake_orders.quality_check',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'quality_check' => [
-                [
-                    'location_ids' => $factory,
-                    'permissions' => [
-                        'cake_orders.quality_check',
                         'cake_orders.manage',
                     ],
                 ],
@@ -238,38 +174,7 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
                     'location_ids' => $branch,
                     'permissions' => [
                         'cake_orders.receive',
-                        'cake_orders.create',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'sent_to_branch' => [
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
-                        'cake_orders.receive',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'received_by_branch' => [
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
-                        'cake_orders.receive',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'ready_for_customer' => [
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
                         'cake_orders.complete',
-                        'cake_orders.create',
                         'cake_orders.manage',
                     ],
                 ],
@@ -292,57 +197,11 @@ class NotifyStaffOnSpecialCakeOrderTransitioned
                 ],
             ],
 
-            'rejected' => [
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
-                        'cake_orders.create',
-                        'cake_orders.edit',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
             'cancelled' => [
                 [
                     'location_ids' => $branch,
                     'permissions' => [
                         'cake_orders.create',
-                        'cake_orders.manage',
-                    ],
-                ],
-                [
-                    'location_ids' => $factory,
-                    'permissions' => [
-                        'cake_orders.review',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'delayed' => [
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
-                        'cake_orders.create',
-                        'cake_orders.manage',
-                    ],
-                ],
-                [
-                    'location_ids' => $factory,
-                    'permissions' => [
-                        'cake_orders.schedule',
-                        'cake_orders.prepare',
-                        'cake_orders.manage',
-                    ],
-                ],
-            ],
-
-            'issue_open' => [
-                [
-                    'location_ids' => $branch,
-                    'permissions' => [
-                        'cake_orders.receive',
                         'cake_orders.manage',
                     ],
                 ],
