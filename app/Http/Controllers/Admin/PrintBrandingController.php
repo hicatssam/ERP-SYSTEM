@@ -44,8 +44,10 @@ class PrintBrandingController extends Controller
             'print_footer_text' => ['nullable', 'string', 'max:500'],
             'print_logo_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'print_stamp_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+            'print_signature_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
             'remove_print_logo' => ['nullable', 'boolean'],
             'remove_print_stamp' => ['nullable', 'boolean'],
+            'remove_print_signature' => ['nullable', 'boolean'],
         ]);
 
         foreach ([
@@ -79,6 +81,12 @@ class PrintBrandingController extends Controller
 
         $this->saveImage($request, 'print_logo', 'print_logo_file', 'remove_print_logo');
         $this->saveImage($request, 'print_stamp', 'print_stamp_file', 'remove_print_stamp');
+        $this->saveImage(
+            $request,
+            'print_signature',
+            'print_signature_file',
+            'remove_print_signature'
+        );
 
         SystemSetting::flushCache();
 
