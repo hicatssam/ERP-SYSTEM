@@ -59,10 +59,16 @@ class SpecialCakeOrderTransitionedNotification extends Notification
         $fromLabel = $statusLabels[$this->fromStatus] ?? 'غير محدد';
         $toLabel = $statusLabels[$this->toStatus] ?? 'غير محدد';
 
-        $priority = in_array(
-            $this->toStatus,
-            ['cancelled', 'rejected', 'canceled'],
-            true
+        $isUrgent =
+            (bool) $this->order->is_urgent;
+
+        $priority = (
+            $isUrgent
+            || in_array(
+                $this->toStatus,
+                ['cancelled', 'rejected', 'canceled'],
+                true
+            )
         ) ? 'high' : 'medium';
 
         $this->order->loadMissing([
@@ -73,8 +79,17 @@ class SpecialCakeOrderTransitionedNotification extends Notification
         return [
             'fingerprint' => "cake_transition_{$this->order->id}_{$this->fromStatus}_{$this->toStatus}",
             'type' => 'cake_order_transitioned',
-            'title' => 'تحديث طلب كيك #' . $this->order->order_number,
-            'message' => "انتقل طلب الكيك {$this->order->order_number} من [{$fromLabel}] إلى [{$toLabel}]",
+            'title' => $isUrgent
+                ? 'طلب كيك طارئ #' . $this->order->order_number
+                : 'تحديث طلب كيك #' . $this->order->order_number,
+            'message' => (
+                $isUrgent
+                    ? 'طلب طارئ: '
+                    : ''
+            )
+                . "انتقل طلب الكيك {$this->order->order_number} من [{$fromLabel}] إلى [{$toLabel}]",
+            'is_urgent' => $isUrgent,
+            'urgent_reason' => $this->order->urgent_reason,
             'order_id' => $this->order->id,
             'order_number' => $this->order->order_number,
             'origin_branch_id' => $this->order->origin_branch_id,
