@@ -17,6 +17,8 @@ use App\Services\Notifications\MetaWhatsAppGateway;
 use App\Support\ArabicDisplay;
 use App\Support\ArabicDate;
 use Illuminate\Support\Facades\Blade;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -37,6 +39,24 @@ class AppServiceProvider extends ServiceProvider
 
  
     
+
+        /*
+         * One date/time policy for the whole ERP.
+         * The timezone comes from System Settings and Carbon's human strings
+         * use Arabic everywhere (controllers, notifications and Blade).
+         */
+        $systemTimezone = ArabicDate::timezone();
+
+        config([
+            'app.timezone' => $systemTimezone,
+        ]);
+
+        date_default_timezone_set(
+            $systemTimezone
+        );
+
+        Carbon::setLocale('ar');
+        CarbonImmutable::setLocale('ar');
 
         Schema::defaultStringLength(191);
         // Admin gate — bypasses all permission checks
@@ -70,6 +90,9 @@ class AppServiceProvider extends ServiceProvider
         );
         Blade::directive('timeArabic', static fn (string $expression): string =>
             "<?php echo e(\\App\\Support\\ArabicDate::time({$expression})); ?>"
+        );
+        Blade::directive('dateTimeFullArabic', static fn (string $expression): string =>
+            "<?php echo e(\\App\\Support\\ArabicDate::dateTime({$expression}, false)); ?>"
         );
 
         
