@@ -57,7 +57,7 @@
                 <span>هوية المستندات والطباعة</span>
             </div>
             <h1 class="page-heading">هوية المستندات والطباعة</h1>
-            <p class="page-subheading">هوية مركزية للفواتير والسندات والقسائم وكشوف الحساب.</p>
+            <p class="page-subheading">هوية مركزية موحدة للتقارير والفواتير والسندات والقسائم وكشوف الحساب.</p>
         </div>
         <a class="btn btn-outline" href="{{ route('settings.print-branding.preview') }}" target="_blank">معاينة كاملة</a>
     </div>
