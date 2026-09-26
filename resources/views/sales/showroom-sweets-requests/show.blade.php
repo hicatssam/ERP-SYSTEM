@@ -1155,6 +1155,17 @@
     $totalQuantity = $showroomSweetsRequest
         ->items
         ->sum('quantity');
+
+    $reservedTotal = $showroomSweetsRequest
+        ->items
+        ->sum('reserved_quantity');
+
+    $availableTotal = $showroomSweetsRequest
+        ->items
+        ->sum(
+            fn ($item) =>
+                $item->availableQuantity()
+        );
 @endphp
 
 
@@ -1396,6 +1407,60 @@
                 </div>
             </div>
 
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-icon">
+                <strong style="font-size:.8rem">ح</strong>
+            </div>
+            <div>
+                <div class="summary-label">
+                    محجوز للعملاء
+                </div>
+                <div class="summary-value" style="color:#c2410c">
+                    {{
+                        rtrim(
+                            rtrim(
+                                number_format(
+                                    (float) $reservedTotal,
+                                    3,
+                                    '.',
+                                    ''
+                                ),
+                                '0'
+                            ),
+                            '.'
+                        )
+                    }}
+                </div>
+            </div>
+        </div>
+
+        <div class="summary-box">
+            <div class="summary-icon">
+                <strong style="font-size:.8rem">م</strong>
+            </div>
+            <div>
+                <div class="summary-label">
+                    متاح للعرض
+                </div>
+                <div class="summary-value" style="color:#15803d">
+                    {{
+                        rtrim(
+                            rtrim(
+                                number_format(
+                                    (float) $availableTotal,
+                                    3,
+                                    '.',
+                                    ''
+                                ),
+                                '0'
+                            ),
+                            '.'
+                        )
+                    }}
+                </div>
+            </div>
         </div>
 
     </div>
