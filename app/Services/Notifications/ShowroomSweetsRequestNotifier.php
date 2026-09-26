@@ -24,12 +24,14 @@ class ShowroomSweetsRequestNotifier
 
         $users = self::recipients(
             locationIds: [
+                (int) $request->requesting_location_id,
                 (int) $request->factory_location_id,
             ],
             permissions: [
+                'showroom_sweets_requests.view',
+                'showroom_sweets_requests.create',
                 'showroom_sweets_requests.start',
                 'showroom_sweets_requests.update_status',
-                'showroom_sweets_requests.view',
             ],
         );
 
