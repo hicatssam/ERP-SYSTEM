@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -125,12 +126,34 @@ return new class extends Migration
 
     private function ensureStatusColumnAcceptsSimplifiedValues(): void
     {
+        $driver = DB::getDriverName();
+
         /*
-         * Most installations already use VARCHAR. This guard only upgrades
-         * older MySQL installations that may still have an ENUM column.
-         * SQLite tests skip this branch.
+         * SQLite represents Laravel enum columns as TEXT plus a CHECK
+         * constraint. The old constraint only knows the legacy statuses, so
+         * inserting values such as "pending" or "in_progress" fails before
+         * application logic can run. Changing the column to a normal string
+         * rebuilds the SQLite table without that legacy enum CHECK.
          */
-        if (DB::getDriverName() !== 'mysql') {
+        if ($driver === 'sqlite') {
+            Schema::table(
+                'special_cake_orders',
+                function (Blueprint $table): void {
+                    $table
+                        ->string('status', 50)
+                        ->default('draft')
+                        ->change();
+                }
+            );
+
+            return;
+        }
+
+        /*
+         * Older MySQL installations may still have a native ENUM column.
+         * Convert it to VARCHAR before writing the simplified values.
+         */
+        if ($driver !== 'mysql') {
             return;
         }
 
