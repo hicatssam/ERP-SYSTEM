@@ -528,6 +528,129 @@ class SpecialCakeNotificationFlowTest extends TestCase
     }
 
     #[Test]
+    public function creation_stage_transition_from_draft_to_pending_dispatches_review_notification(): void
+    {
+        Notification::fake();
+
+        $factoryReviewer = $this->makeUser(
+            $this->factory,
+            ['cake_orders.review']
+        );
+
+        $this->order->update([
+            'status' =>
+                CakeOrderStatus::Draft,
+        ]);
+
+        app(
+            SpecialCakeStatusTransitionService::class
+        )->transition(
+            $this->order,
+            CakeOrderStatus::Pending->value,
+            $this->actor,
+            'تم إنشاء الطلب ووضعه قيد المراجعة.'
+        );
+
+        $this->order->refresh();
+
+        $this->assertSame(
+            CakeOrderStatus::Pending,
+            $this->order->status
+        );
+
+        $this->assertDatabaseHas(
+            'cake_order_status_histories',
+            [
+                'special_cake_order_id' =>
+                    $this->order->id,
+                'from_status' => 'draft',
+                'to_status' => 'pending',
+                'changed_by' =>
+                    $this->actor->id,
+            ]
+        );
+
+        Notification::assertSentTo(
+            $factoryReviewer,
+            SpecialCakeOrderTransitionedNotification::class
+        );
+
+        $this->assertTransitionPayload(
+            $factoryReviewer,
+            'draft',
+            'pending',
+            'تم إنشاء الطلب ووضعه قيد المراجعة.',
+            'medium'
+        );
+    }
+
+    #[Test]
+    public function real_service_transition_persists_exactly_one_database_notification_per_recipient(): void
+    {
+        $recipient = $this->makeUser(
+            $this->factory,
+            ['cake_orders.prepare']
+        );
+
+        $this->order->update([
+            'status' =>
+                CakeOrderStatus::Pending,
+        ]);
+
+        app(
+            SpecialCakeStatusTransitionService::class
+        )->transition(
+            $this->order,
+            CakeOrderStatus::InProgress->value,
+            $this->actor,
+            'تنفيذ فعلي'
+        );
+
+        $notifications =
+            $recipient
+                ->fresh()
+                ->notifications()
+                ->get();
+
+        $this->assertCount(
+            1,
+            $notifications,
+            'يجب أن ينتج انتقال الحالة إشعار قاعدة بيانات واحدًا فقط لكل مستلم.'
+        );
+
+        $stored = $notifications->first();
+
+        $this->assertSame(
+            SpecialCakeOrderTransitionedNotification::class,
+            $stored->type
+        );
+
+        $this->assertSame(
+            'cake_order_transitioned',
+            data_get(
+                $stored->data,
+                'type'
+            )
+        );
+
+        $this->assertSame(
+            'pending',
+            data_get(
+                $stored->data,
+                'from_status'
+            )
+        );
+
+        $this->assertSame(
+            'in_progress',
+            data_get(
+                $stored->data,
+                'to_status'
+            )
+        );
+    }
+
+    #[Test]
     public function actual_transition_service_updates_status_history_and_dispatches_notification(): void
     {
         Notification::fake();
@@ -1031,6 +1154,36 @@ class SpecialCakeNotificationFlowTest extends TestCase
                 data_get(
                     $data,
                     'priority'
+                )
+            );
+
+            $this->assertSame(
+                'cake_order_transitioned',
+                data_get(
+                    $data,
+                    'type'
+                )
+            );
+
+            $this->assertSame(
+                'cake_transition_'
+                    . $this->order->id
+                    . '_'
+                    . $from
+                    . '_'
+                    . $to,
+                data_get(
+                    $data,
+                    'fingerprint'
+                )
+            );
+
+            $this->assertSame(
+                'تحديث طلب كيك #'
+                    . $this->order->order_number,
+                data_get(
+                    $data,
+                    'title'
                 )
             );
 
