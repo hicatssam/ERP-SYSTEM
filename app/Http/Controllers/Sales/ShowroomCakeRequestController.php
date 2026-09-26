@@ -404,11 +404,26 @@ class ShowroomCakeRequestController extends Controller
                 $showroomCakeRequest
             );
 
+        $canManageReservations =
+            $user->isAdmin()
+            || (
+                $user->can(
+                    'showroom_cake_requests.create'
+                )
+                && in_array(
+                    (int) $showroomCakeRequest
+                        ->requesting_location_id,
+                    $this->userLocationIds($user),
+                    true
+                )
+            );
+
         return view(
             'sales.showroom-cake-requests.show',
             compact(
                 'showroomCakeRequest',
-                'allowedTransitions'
+                'allowedTransitions',
+                'canManageReservations'
             )
         );
     }
