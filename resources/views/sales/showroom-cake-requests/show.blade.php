@@ -158,7 +158,7 @@
                     </td>
 
                     <td>
-                        {{ $showroomCakeRequest->needed_by?->format('Y-m-d') ?? '—' }}
+                        {{ \App\Support\ArabicDate::date($showroomCakeRequest->needed_by) }}
                     </td>
                 </tr>
 
@@ -195,7 +195,7 @@
                         </td>
 
                         <td>
-                            {{ $showroomCakeRequest->submitted_at->format('Y-m-d H:i') }}
+                            {{ \App\Support\ArabicDate::compactDateTime($showroomCakeRequest->submitted_at) }}
                         </td>
                     </tr>
                 @endif
@@ -207,7 +207,7 @@
                         </td>
 
                         <td>
-                            {{ $showroomCakeRequest->fulfilled_at->format('Y-m-d H:i') }}
+                            {{ \App\Support\ArabicDate::compactDateTime($showroomCakeRequest->fulfilled_at) }}
                         </td>
                     </tr>
                 @endif
