@@ -409,7 +409,10 @@ class SpecialCakeNotificationFlowTest extends TestCase
     {
         Notification::fake();
 
-        $globalManager = $this->makeRoleOnlyUser(
+        $globalManager = $this->makeUser(
+            $this->otherBranch,
+            [],
+            true,
             'Factory Manager'
         );
 
@@ -799,8 +802,8 @@ class SpecialCakeNotificationFlowTest extends TestCase
             ['cake_orders.manage']
         );
 
-        $globalRecipient = $this->makeRoleOnlyUser(
-            null,
+        $globalRecipient = $this->makeUser(
+            $this->otherBranch,
             ['cake_orders.view_all']
         );
 
@@ -918,10 +921,10 @@ class SpecialCakeNotificationFlowTest extends TestCase
         );
 
         $file = UploadedFile::fake()
-            ->image(
+            ->create(
                 'final-cake.jpg',
-                320,
-                320
+                24,
+                'image/jpeg'
             );
 
         $this->actingAs($uploader)
@@ -1342,38 +1345,6 @@ class SpecialCakeNotificationFlowTest extends TestCase
                 'employee_id' =>
                     $employee->id,
                 'is_active' => $active,
-                'must_change_password' =>
-                    false,
-            ]);
-
-        $this->givePermissions(
-            $user,
-            $permissions
-        );
-
-        if ($role) {
-            $user->assignRole(
-                Role::findOrCreate(
-                    $role,
-                    'web'
-                )
-            );
-        }
-
-        app(PermissionRegistrar::class)
-            ->forgetCachedPermissions();
-
-        return $user;
-    }
-
-    private function makeRoleOnlyUser(
-        ?string $role = null,
-        array $permissions = []
-    ): User {
-        $user =
-            User::factory()->create([
-                'employee_id' => null,
-                'is_active' => true,
                 'must_change_password' =>
                     false,
             ]);
