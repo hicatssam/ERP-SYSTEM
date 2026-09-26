@@ -14,6 +14,7 @@ use App\Models\Inventory;
 use App\Models\StockMovement;
 use App\Models\StockTransfer;
 use App\Models\Location;
+use App\Models\User;
 use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -88,8 +89,27 @@ class ReportController extends Controller
         $dateTo     = $request->input('date_to',   now()->toDateString());
         $locationId = $request->input('location_id');
 
-        $locationIds = $this->resolveLocationIds($user, $locationId);
-        $locations   = $user->isAdmin() ? Location::orderBy('name')->get() : collect();
+        $locationIds = $this->resolveLocationIds(
+            $user,
+            $locationId,
+            $type
+        );
+
+        $locations = $type === 'cake-production'
+            ? (
+                $this->canViewAllCakeProductionBranches($user)
+                    ? Location::query()
+                        ->where('type', 'branch')
+                        ->where('is_active', true)
+                        ->orderBy('name')
+                        ->get()
+                    : collect()
+            )
+            : (
+                $user->isAdmin()
+                    ? Location::orderBy('name')->get()
+                    : collect()
+            );
 
         [$columns, $data, $summary] = $this->buildReportData($type, $locationIds, $dateFrom, $dateTo, true);
 
@@ -124,7 +144,7 @@ class ReportController extends Controller
         $dateTo     = $request->input('date_to',   now()->toDateString());
         $locationId = $request->input('location_id');
 
-        $locationIds = $this->resolveLocationIds($user, $locationId);
+        $locationIds = $this->resolveLocationIds($user, $locationId, $type);
 
         [, $query] = $this->buildExportQuery($type, $locationIds, $dateFrom, $dateTo);
 
@@ -151,7 +171,7 @@ class ReportController extends Controller
         $locationId = $request->input('location_id');
         $title      = $this->reportTypes[$type];
 
-        $locationIds = $this->resolveLocationIds($user, $locationId);
+        $locationIds = $this->resolveLocationIds($user, $locationId, $type);
 
         $cap = (int) (env('EXPORT_XLSX_ROW_CAP', self::XLSX_ROW_CAP));
 
@@ -187,7 +207,7 @@ class ReportController extends Controller
         $locationId = $request->input('location_id');
         $title      = $this->reportTypes[$type];
 
-        $locationIds = $this->resolveLocationIds($user, $locationId);
+        $locationIds = $this->resolveLocationIds($user, $locationId, $type);
 
         $cap = (int) env('EXPORT_PDF_ROW_CAP', self::PDF_ROW_CAP);
 
@@ -310,7 +330,8 @@ class ReportController extends Controller
 
         $locationIds = $this->resolveLocationIds(
             $user,
-            $locationId
+            $locationId,
+            $type
         );
 
         /*
@@ -355,17 +376,63 @@ class ReportController extends Controller
     //  Helpers
     // ─────────────────────────────────────────────────────────────────────────
 
-    private function resolveLocationIds($user, ?string $locationId): Collection
-    {
+    private function resolveLocationIds(
+        $user,
+        ?string $locationId,
+        ?string $reportType = null
+    ): Collection {
+        if (
+            $reportType === 'cake-production'
+            && $this->canViewAllCakeProductionBranches($user)
+        ) {
+            $branchIds = Location::query()
+                ->where('type', 'branch')
+                ->where('is_active', true)
+                ->pluck('id');
+
+            if (
+                $locationId
+                && $branchIds->contains(
+                    (int) $locationId
+                )
+            ) {
+                return collect([
+                    (int) $locationId,
+                ]);
+            }
+
+            return $branchIds;
+        }
+
         $locationIds = $user->isAdmin()
             ? Location::pluck('id')
-            : collect([$user->primaryLocation()?->id])->filter();
+            : collect([
+                $user->primaryLocation()?->id,
+            ])->filter();
 
         if ($locationId && $user->isAdmin()) {
-            $locationIds = collect([$locationId]);
+            $locationIds = collect([
+                (int) $locationId,
+            ]);
         }
 
         return $locationIds;
+    }
+
+    private function canViewAllCakeProductionBranches(
+        User $user
+    ): bool {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        return $user->can('cake_orders.view_all')
+            || $user->can('cake_orders.review')
+            || $user->can('cake_orders.accept')
+            || $user->can('cake_orders.prepare')
+            || $user->can('cake_orders.decorate')
+            || $user->can('cake_orders.quality_check')
+            || $user->can('cake_orders.dispatch');
     }
 
 
