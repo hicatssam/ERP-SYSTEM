@@ -645,7 +645,9 @@ if (
                 $cakeOrder->factory_location_id,
             ]),
             ['cake_orders.view_all'],
-            (int) $actor->id,
+            $actor->isAdmin()
+                ? null
+                : (int) $actor->id,
         );
 
         return back()->with('success', 'تم إضافة الملاحظة.');
@@ -685,7 +687,9 @@ if (
                 $cakeOrder->factory_location_id,
             ]),
             ['cake_orders.view_all'],
-            (int) $actor->id,
+            $actor->isAdmin()
+                ? null
+                : (int) $actor->id,
         );
 
         return back()->with('success', 'تم رفع المرفق بنجاح.');
