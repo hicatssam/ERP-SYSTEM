@@ -51,9 +51,13 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">تاريخ التسليم *</label>
-                    <input type="date" name="required_date"
+                    <input type="date"
+                           id="requiredDate"
+                           name="required_date"
+                           min="{{ old('is_urgent') ? today()->toDateString() : today()->addDay()->toDateString() }}"
                            class="form-input @error('required_date') is-invalid @enderror"
-                           value="{{ old('required_date') }}" required>
+                           value="{{ old('required_date') }}"
+                           required>
                     @error('required_date')<span class="form-error">{{ $message }}</span>@enderror
                 </div>
                 <div class="form-group">
@@ -62,6 +66,43 @@
                            class="form-input @error('required_time') is-invalid @enderror"
                            value="{{ old('required_time') }}">
                     @error('required_time')<span class="form-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="form-group urgent-booking" style="grid-column:1/-1">
+                    <label class="urgent-toggle" for="isUrgent">
+                        <input
+                            type="checkbox"
+                            id="isUrgent"
+                            name="is_urgent"
+                            value="1"
+                            @checked(old('is_urgent'))
+                        >
+                        <span class="urgent-toggle-icon">!</span>
+                        <span>
+                            <strong>طلب طارئ / تسليم اليوم</strong>
+                            <small>
+                                الطلب العادي يبدأ من الغد. فعّل هذا الخيار فقط إذا كان الطلب يحتاج تجهيزًا وتسليمًا اليوم.
+                            </small>
+                        </span>
+                    </label>
+
+                    <div
+                        id="urgentReasonGroup"
+                        class="urgent-reason"
+                        @if(! old('is_urgent')) hidden @endif
+                    >
+                        <label class="form-label" for="urgentReason">
+                            سبب الطلب الطارئ *
+                        </label>
+                        <textarea
+                            id="urgentReason"
+                            name="urgent_reason"
+                            class="form-textarea @error('urgent_reason') is-invalid @enderror"
+                            rows="2"
+                            placeholder="مثال: مناسبة مفاجئة والعميل يحتاج الطلب اليوم..."
+                        >{{ old('urgent_reason') }}</textarea>
+                        @error('urgent_reason')<span class="form-error">{{ $message }}</span>@enderror
+                    </div>
                 </div>
             </div>
         </div>
@@ -494,10 +535,52 @@
 [hidden]{display:none!important}
 @media(max-width:800px){.cake-grid-3,.cake-grid-2{grid-template-columns:1fr}.payment-methods-grid,.payment-accounts-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.payment-methods-grid,.payment-accounts-grid{grid-template-columns:1fr}}
+.urgent-booking{padding:.85rem;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed}.urgent-toggle{display:flex;align-items:center;gap:.75rem;cursor:pointer}.urgent-toggle input{width:18px;height:18px;accent-color:#ea580c}.urgent-toggle-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:10px;color:#fff;background:#ea580c;font-weight:900}.urgent-toggle>span:last-child{display:grid;gap:.15rem}.urgent-toggle strong{color:#9a3412;font-size:.84rem}.urgent-toggle small{color:#9a3412;font-size:.72rem;line-height:1.6}.urgent-reason{margin-top:.8rem;padding-top:.8rem;border-top:1px dashed #fdba74}
+
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // ── Normal vs urgent delivery window ───────────────────────────────────
+    const urgentToggle = document.getElementById('isUrgent');
+    const urgentReasonGroup = document.getElementById('urgentReasonGroup');
+    const urgentReason = document.getElementById('urgentReason');
+    const requiredDate = document.getElementById('requiredDate');
+    const todayValue = @json(today()->toDateString());
+    const tomorrowValue = @json(today()->addDay()->toDateString());
+
+    function syncUrgentDelivery() {
+        const urgent = Boolean(urgentToggle?.checked);
+
+        if (requiredDate) {
+            requiredDate.min = urgent
+                ? todayValue
+                : tomorrowValue;
+
+            if (
+                !urgent
+                && requiredDate.value
+                && requiredDate.value < tomorrowValue
+            ) {
+                requiredDate.value = '';
+            }
+        }
+
+        if (urgentReasonGroup) {
+            urgentReasonGroup.hidden = !urgent;
+        }
+
+        if (urgentReason) {
+            urgentReason.required = urgent;
+        }
+    }
+
+    urgentToggle?.addEventListener(
+        'change',
+        syncUrgentDelivery
+    );
+
+    syncUrgentDelivery();
     // ── Quick customer ───────────────────────────────────────────────────────
     const quickCustomerDialog = document.getElementById('quickCustomerDialog');
     const quickCustomerForm = document.getElementById('quickCustomerForm');
