@@ -27,6 +27,7 @@ class ReportController extends Controller
     private array $reportTypes = [
         'orders'                => 'تقرير الطلبات',
         'cake-orders'           => 'تقرير طلبات الكيك الخاصة',
+        'cake-production'       => 'تقرير إنتاج الكيك الموحد',
         'inventory'             => 'تقرير المخزون',
         'stock-movements'       => 'تقرير حركات المخزون',
         'low-stock'             => 'تقرير المخزون المنخفض',
@@ -48,6 +49,7 @@ class ReportController extends Controller
     private array $reportIcons = [
         'orders'                => 'clipboard',
         'cake-orders'           => 'cake',
+        'cake-production'       => 'layers',
         'inventory'             => 'box',
         'stock-movements'       => 'transfer',
         'low-stock'             => 'warning',
@@ -742,6 +744,22 @@ class ReportController extends Controller
                     ->orderByDesc('id');
                 break;
 
+            case 'cake-production':
+                $columns = [
+                    'نوع الكيك',
+                    'الحجم',
+                    'الشكل',
+                    'طلبات خاصة',
+                    'طلبات الفروع',
+                    'الإجمالي',
+                ];
+                $query = $this->cakeProductionQuery(
+                    $locationIds,
+                    $dateFrom,
+                    $dateTo
+                );
+                break;
+
             case 'inventory':
                 $columns = ['المنتج', 'الموقع', 'الكمية', 'الحد الأدنى', 'الحد الأقصى'];
                 $query   = Inventory::with(['product', 'location'])
@@ -756,6 +774,165 @@ class ReportController extends Controller
         }
 
         return [$columns, $query];
+    }
+
+    /**
+     * Raw production demand from special-cake orders and showroom/branch
+     * requests. The report period follows the required/needed production date,
+     * not the record creation timestamp.
+     */
+    private function cakeDemandUnion(
+        Collection $locationIds,
+        string $dateFrom,
+        string $dateTo
+    ): \Illuminate\Database\Query\Builder {
+        $ids = $locationIds
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        $special = DB::table('special_cake_orders')
+            ->selectRaw("'special' as source")
+            ->selectRaw(
+                "COALESCE(NULLIF(TRIM(cake_type), ''), 'غير محدد') as cake_type"
+            )
+            ->selectRaw(
+                "COALESCE(NULLIF(TRIM(cake_size), ''), 'غير محدد') as cake_size"
+            )
+            ->selectRaw(
+                "COALESCE(NULLIF(TRIM(shape), ''), 'غير محدد') as shape"
+            )
+            ->selectRaw('1 as quantity')
+            ->whereIn('origin_branch_id', $ids)
+            ->whereBetween(
+                'required_date',
+                [$dateFrom, $dateTo]
+            )
+            ->where('status', '!=', 'cancelled')
+            ->whereNull('deleted_at');
+
+        $showroom = DB::table(
+            'showroom_cake_request_items as items'
+        )
+            ->join(
+                'showroom_cake_requests as requests',
+                'requests.id',
+                '=',
+                'items.showroom_cake_request_id'
+            )
+            ->selectRaw("'showroom' as source")
+            ->selectRaw(
+                "COALESCE(NULLIF(TRIM(items.cake_type), ''), 'غير محدد') as cake_type"
+            )
+            ->selectRaw(
+                "COALESCE(NULLIF(TRIM(items.cake_size), ''), 'غير محدد') as cake_size"
+            )
+            ->selectRaw(
+                "COALESCE(NULLIF(TRIM(items.shape), ''), 'غير محدد') as shape"
+            )
+            ->selectRaw('items.quantity as quantity')
+            ->whereIn(
+                'requests.requesting_location_id',
+                $ids
+            )
+            ->whereRaw(
+                'COALESCE(requests.needed_by, DATE(requests.created_at)) BETWEEN ? AND ?',
+                [$dateFrom, $dateTo]
+            )
+            ->whereNotIn(
+                'requests.status',
+                ['cancelled', 'rejected']
+            )
+            ->whereNull('requests.deleted_at');
+
+        return $special->unionAll($showroom);
+    }
+
+    /**
+     * Aggregated factory production view.
+     */
+    private function cakeProductionQuery(
+        Collection $locationIds,
+        string $dateFrom,
+        string $dateTo
+    ): \Illuminate\Database\Query\Builder {
+        return DB::query()
+            ->fromSub(
+                $this->cakeDemandUnion(
+                    $locationIds,
+                    $dateFrom,
+                    $dateTo
+                ),
+                'cake_demand'
+            )
+            ->select(
+                'cake_type',
+                'cake_size',
+                'shape'
+            )
+            ->selectRaw(
+                "SUM(CASE WHEN source = 'special' THEN quantity ELSE 0 END) as special_quantity"
+            )
+            ->selectRaw(
+                "SUM(CASE WHEN source = 'showroom' THEN quantity ELSE 0 END) as showroom_quantity"
+            )
+            ->selectRaw(
+                'SUM(quantity) as total_quantity'
+            )
+            ->groupBy(
+                'cake_type',
+                'cake_size',
+                'shape'
+            )
+            ->orderByDesc('total_quantity')
+            ->orderBy('cake_type')
+            ->orderBy('cake_size')
+            ->orderBy('shape');
+    }
+
+    /**
+     * Summary cards for the unified cake-production report.
+     *
+     * @return array<string, int>
+     */
+    private function cakeProductionSummary(
+        Collection $locationIds,
+        string $dateFrom,
+        string $dateTo
+    ): array {
+        $demand = DB::query()
+            ->fromSub(
+                $this->cakeDemandUnion(
+                    $locationIds,
+                    $dateFrom,
+                    $dateTo
+                ),
+                'cake_demand'
+            );
+
+        return [
+            'إجمالي قطع الكيك' =>
+                (int) (clone $demand)->sum('quantity'),
+
+            'طلبات الكيك الخاصة' =>
+                (int) (clone $demand)
+                    ->where('source', 'special')
+                    ->sum('quantity'),
+
+            'كيك الفروع' =>
+                (int) (clone $demand)
+                    ->where('source', 'showroom')
+                    ->sum('quantity'),
+
+            'تشكيلات الإنتاج' =>
+                $this->countExportRows(
+                    $this->cakeProductionQuery(
+                        $locationIds,
+                        $dateFrom,
+                        $dateTo
+                    )
+                ),
+        ];
     }
 
     /**
@@ -812,6 +989,11 @@ class ReportController extends Controller
                 'إجمالي المستحقات ₪' => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->where('remaining_amount', '>', 0)->sum('remaining_amount'), 2),
                 'عدد الفواتير'         => Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->where('remaining_amount', '>', 0)->count(),
             ],
+            'cake-production' => $this->cakeProductionSummary(
+                $locationIds,
+                $dateFrom,
+                $dateTo
+            ),
             // Types whose summaries are not displayed in the PDF header.
             default => [],
         };
@@ -1056,6 +1238,33 @@ class ReportController extends Controller
                 $data = $paginate ? $query->paginate(25)->withQueryString() : $query->get();
                 break;
 
+            case 'cake-production':
+                $columns = [
+                    'نوع الكيك',
+                    'الحجم',
+                    'الشكل',
+                    'طلبات خاصة',
+                    'طلبات الفروع',
+                    'الإجمالي',
+                ];
+
+                $query = $this->cakeProductionQuery(
+                    $locationIds,
+                    $dateFrom,
+                    $dateTo
+                );
+
+                $summary = $this->cakeProductionSummary(
+                    $locationIds,
+                    $dateFrom,
+                    $dateTo
+                );
+
+                $data = $paginate
+                    ? $query->paginate(25)->withQueryString()
+                    : $query->get();
+                break;
+
             case 'inventory':
                 $columns = ['المنتج', 'الموقع', 'الكمية', 'الحد الأدنى', 'الحد الأقصى'];
                 $query = Inventory::with(['product', 'location'])
@@ -1215,6 +1424,14 @@ class ReportController extends Controller
                 $row->status?->label() ?? $row->status?->value ?? '—',
                 $row->required_date ? \Carbon\Carbon::parse($row->required_date)->format('Y/m/d') : '—',
                 \Carbon\Carbon::parse($row->created_at)->format('Y/m/d'),
+            ],
+            'cake-production' => [
+                $row->cake_type ?? 'غير محدد',
+                $row->cake_size ?? 'غير محدد',
+                $row->shape ?? 'غير محدد',
+                (int) ($row->special_quantity ?? 0),
+                (int) ($row->showroom_quantity ?? 0),
+                (int) ($row->total_quantity ?? 0),
             ],
             'inventory' => [
                 $row->product?->name ?? '—',
