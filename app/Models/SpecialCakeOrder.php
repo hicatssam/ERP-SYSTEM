@@ -100,32 +100,66 @@ class SpecialCakeOrder extends Model
 
     public function isInTerminalState(): bool
     {
-        return $this->status?->isTerminal() ?? in_array($this->status, ['completed', 'cancelled', 'rejected']);
+        if ($this->status instanceof CakeOrderStatus) {
+            return $this->status->isTerminal();
+        }
+
+        return in_array(
+            (string) $this->status,
+            ['completed', 'cancelled', 'canceled', 'rejected', 'delivered'],
+            true
+        );
     }
 
     public static function allowedTransitions(): array
     {
         return [
-            'draft'                  => ['pending_factory_review', 'cancelled'],
-            'pending_factory_review' => ['accepted', 'rejected', 'modification_requested', 'cancelled'],
-            'modification_requested' => ['pending_factory_review', 'cancelled'],
-            'accepted'               => ['scheduled', 'cancelled'],
-            'scheduled'              => ['in_preparation', 'delayed', 'cancelled'],
-            'in_preparation'         => ['decorating', 'delayed'],
-            'decorating'             => ['quality_check'],
-            'quality_check'          => ['ready', 'decorating', 'in_preparation'],
-            'ready'                  => ['sent_to_branch'],
-            'sent_to_branch'         => ['received_by_branch'],
-            'received_by_branch'     => ['ready_for_customer', 'issue_open'],
-            'issue_open'             => ['ready_for_customer'],
-            'ready_for_customer'     => ['completed'],
-            'delayed'                => ['in_preparation', 'cancelled'],
+            'draft' => ['pending', 'cancelled'],
+            'pending' => ['in_progress', 'cancelled'],
+            'in_progress' => ['ready', 'cancelled'],
+            'ready' => ['completed', 'cancelled'],
         ];
     }
 
     public function canTransitionTo(string $newStatus): bool
     {
-        $current = $this->status instanceof CakeOrderStatus ? $this->status->value : $this->status;
-        return in_array($newStatus, self::allowedTransitions()[$current] ?? []);
+        $current = $this->status instanceof CakeOrderStatus
+            ? $this->status->workflowValue()
+            : self::normalizeLegacyWorkflowStatus(
+                (string) $this->status
+            );
+
+        return in_array(
+            $newStatus,
+            self::allowedTransitions()[$current] ?? [],
+            true
+        );
+    }
+
+    public static function normalizeLegacyWorkflowStatus(
+        string $status
+    ): string {
+        $enum = CakeOrderStatus::tryFrom($status);
+
+        if ($enum) {
+            return $enum->workflowValue();
+        }
+
+        return match ($status) {
+            'pending_deposit',
+            'deposit_paid' => 'pending',
+
+            'in_decoration' => 'in_progress',
+
+            'dispatched_to_branch',
+            'received_at_branch',
+            'ready_for_pickup' => 'ready',
+
+            'delivered' => 'completed',
+
+            'canceled' => 'cancelled',
+
+            default => $status,
+        };
     }
 }
