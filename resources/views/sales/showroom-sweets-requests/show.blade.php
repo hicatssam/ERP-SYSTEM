@@ -503,6 +503,39 @@
         font-weight: 900;
     }
 
+    .reservation-breakdown {
+        display:flex;
+        flex-wrap:wrap;
+        gap:.35rem;
+        margin-top:.45rem;
+    }
+
+    .reservation-breakdown span {
+        padding:.24rem .45rem;
+        border-radius:8px;
+        font-size:.64rem;
+        font-weight:700;
+    }
+
+    .reservation-breakdown .reserved {
+        color:#c2410c;
+        background:#fff7ed;
+        border:1px solid #fed7aa;
+    }
+
+    .reservation-breakdown .available {
+        color:#15803d;
+        background:#f0fdf4;
+        border:1px solid #bbf7d0;
+    }
+
+    .reservation-note {
+        margin-top:.35rem;
+        color:#9a3412;
+        font-size:.63rem;
+        line-height:1.55;
+    }
+
     .product-sku {
         margin-top: .25rem;
 
@@ -1380,18 +1413,34 @@
                         @foreach($showroomSweetsRequest->items as $index => $item)
 
                             @php
-                                $quantity = rtrim(
-                                    rtrim(
-                                        number_format(
-                                            (float) $item->quantity,
-                                            3,
-                                            '.',
-                                            ''
+                                $formatQty = static function ($value): string {
+                                    return rtrim(
+                                        rtrim(
+                                            number_format(
+                                                (float) $value,
+                                                3,
+                                                '.',
+                                                ''
+                                            ),
+                                            '0'
                                         ),
-                                        '0'
-                                    ),
-                                    '.'
-                                );
+                                        '.'
+                                    );
+                                };
+
+                                $quantity =
+                                    $formatQty($item->quantity);
+
+                                $reservedQuantity =
+                                    $formatQty(
+                                        $item->reserved_quantity
+                                        ?? 0
+                                    );
+
+                                $availableQuantity =
+                                    $formatQty(
+                                        $item->availableQuantity()
+                                    );
 
                                 $productImage = $item->product?->image;
 
@@ -1499,6 +1548,32 @@
                                         </span>
 
                                     </div>
+
+                                    @if((float) ($item->reserved_quantity ?? 0) > 0)
+                                        <div class="reservation-breakdown">
+                                            <span class="reserved">
+                                                محجوز للعملاء:
+                                                <strong>
+                                                    {{ $reservedQuantity }}
+                                                    {{ $item->requested_unit }}
+                                                </strong>
+                                            </span>
+
+                                            <span class="available">
+                                                متاح للعرض:
+                                                <strong>
+                                                    {{ $availableQuantity }}
+                                                    {{ $item->requested_unit }}
+                                                </strong>
+                                            </span>
+                                        </div>
+
+                                        @if($item->reservation_notes)
+                                            <div class="reservation-note">
+                                                {{ $item->reservation_notes }}
+                                            </div>
+                                        @endif
+                                    @endif
 
 
                                     @if($item->product?->sku)
