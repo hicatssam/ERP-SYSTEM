@@ -15,6 +15,7 @@ use App\Services\Restaurant\RestaurantContextService;
 use App\Services\Notifications\WhatsAppGateway;
 use App\Services\Notifications\MetaWhatsAppGateway;
 use App\Support\ArabicDisplay;
+use App\Support\ArabicDate;
 use Illuminate\Support\Facades\Blade;
 
 class AppServiceProvider extends ServiceProvider
@@ -59,6 +60,16 @@ class AppServiceProvider extends ServiceProvider
         );
         Blade::directive('roleArabic', static fn (string $expression): string =>
             "<?php echo e(\\App\\Support\\ArabicDisplay::role({$expression})); ?>"
+        );
+
+        Blade::directive('dateArabic', static fn (string $expression): string =>
+            "<?php echo e(\\App\\Support\\ArabicDate::date({$expression})); ?>"
+        );
+        Blade::directive('dateTimeArabic', static fn (string $expression): string =>
+            "<?php echo e(\\App\\Support\\ArabicDate::compactDateTime({$expression})); ?>"
+        );
+        Blade::directive('timeArabic', static fn (string $expression): string =>
+            "<?php echo e(\\App\\Support\\ArabicDate::time({$expression})); ?>"
         );
 
         
