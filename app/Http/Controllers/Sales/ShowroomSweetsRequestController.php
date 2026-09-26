@@ -277,6 +277,18 @@ class ShowroomSweetsRequestController extends Controller
                 'min:0.001',
             ],
 
+            'items.*.reserved_quantity' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+
+            'items.*.reservation_notes' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+
             'items.*.requested_unit' => [
                 'required',
                 'string',
@@ -289,6 +301,21 @@ class ShowroomSweetsRequestController extends Controller
                 'max:500',
             ],
         ]);
+
+        foreach ($validated['items'] as $index => $item) {
+            $reserved =
+                (float) ($item['reserved_quantity'] ?? 0);
+
+            $quantity =
+                (float) $item['quantity'];
+
+            if ($reserved > $quantity) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    "items.{$index}.reserved_quantity" =>
+                        'الكمية المحجوزة للعملاء لا يمكن أن تتجاوز الكمية المطلوبة.',
+                ]);
+            }
+        }
 
         $branch = $canChooseBranch
             ? Location::query()
@@ -425,6 +452,20 @@ class ShowroomSweetsRequestController extends Controller
                                 $item[
                                     'quantity'
                                 ],
+
+                            'reserved_quantity' =>
+                                (float) (
+                                    $item[
+                                        'reserved_quantity'
+                                    ]
+                                    ?? 0
+                                ),
+
+                            'reservation_notes' =>
+                                $item[
+                                    'reservation_notes'
+                                ]
+                                ?? null,
 
                             'requested_unit' =>
                                 trim(
