@@ -565,7 +565,7 @@ class ShowroomSweetsRequestController extends Controller
         $oldStatus =
             $showroomSweetsRequest
                 ->status
-                ->value;
+                ->workflowValue();
 
         if (
             ! $showroomSweetsRequest
