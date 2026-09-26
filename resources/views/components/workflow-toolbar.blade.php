@@ -115,7 +115,7 @@
                         @endif
 
                         @if($step['at'])
-                            <div class="dahab-workflow__meta">🕒 {{ $step['at']->format('Y-m-d H:i') }}</div>
+                            <div class="dahab-workflow__meta">🕒 {{ \App\Support\ArabicDate::compactDateTime($step['at']) }}</div>
                         @endif
 
                         @if($step['note'])
@@ -148,9 +148,13 @@
 
             <div class="dahab-workflow__delivery-grid">
                 <div><small>موظف التوصيل</small><strong>{{ data_get($dispatchStep, 'actor') ?: 'بانتظار تحديد الموظف' }}</strong></div>
-                <div><small>وقت الخروج</small><strong>{{ data_get($dispatchStep, 'at') ? data_get($dispatchStep, 'at')->format('Y-m-d H:i') : '—' }}</strong></div>
+                <div><small>وقت الخروج</small><strong>{{ data_get($dispatchStep, 'at')
+    ? \App\Support\ArabicDate::compactDateTime(data_get($dispatchStep, 'at'))
+    : '—' }}</strong></div>
                 <div><small>استلمه في الفرع</small><strong>{{ data_get($receiveStep, 'actor') ?: 'لم يتم الاستلام بعد' }}</strong></div>
-                <div><small>وقت الاستلام</small><strong>{{ data_get($receiveStep, 'at') ? data_get($receiveStep, 'at')->format('Y-m-d H:i') : '—' }}</strong></div>
+                <div><small>وقت الاستلام</small><strong>{{ data_get($receiveStep, 'at')
+    ? \App\Support\ArabicDate::compactDateTime(data_get($receiveStep, 'at'))
+    : '—' }}</strong></div>
             </div>
         </div>
     @endif
