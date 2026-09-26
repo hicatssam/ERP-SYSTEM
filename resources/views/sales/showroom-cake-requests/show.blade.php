@@ -336,17 +336,77 @@
                         </td>
 
                         <td>
-                            @if((int) $item->reserved_quantity > 0)
-                                <strong style="color:#c2410c">
-                                    {{ $item->reserved_quantity }}
-                                </strong>
-                                @if($item->reservation_notes)
-                                    <div style="margin-top:.2rem;color:var(--text-muted);font-size:.68rem">
-                                        {{ $item->reservation_notes }}
-                                    </div>
+                            <div class="reservation-value">
+                                @if((int) $item->reserved_quantity > 0)
+                                    <strong style="color:#c2410c">
+                                        {{ $item->reserved_quantity }}
+                                    </strong>
+                                @else
+                                    <span style="color:var(--text-muted)">0</span>
                                 @endif
-                            @else
-                                <span style="color:var(--text-muted)">0</span>
+                            </div>
+
+                            @if($item->reservation_notes)
+                                <div class="reservation-note-text">
+                                    {{ $item->reservation_notes }}
+                                </div>
+                            @endif
+
+                            @if(
+                                $canManageReservations
+                                && ! $showroomCakeRequest->status->isTerminal()
+                            )
+                                <details class="reservation-editor">
+                                    <summary>
+                                        تعديل الحجز
+                                    </summary>
+
+                                    <form
+                                        method="POST"
+                                        action="{{ route(
+                                            'showroom-cake-requests.items.reservation',
+                                            [
+                                                $showroomCakeRequest,
+                                                $item,
+                                            ]
+                                        ) }}"
+                                    >
+                                        @csrf
+                                        @method('PATCH')
+
+                                        <label>
+                                            الكمية المحجوزة
+                                            <input
+                                                type="number"
+                                                name="reserved_quantity"
+                                                min="0"
+                                                max="{{ $item->quantity }}"
+                                                value="{{ $item->reserved_quantity ?? 0 }}"
+                                                class="form-input"
+                                                required
+                                            >
+                                        </label>
+
+                                        <label>
+                                            تفاصيل الحجوزات
+                                            <input
+                                                type="text"
+                                                name="reservation_notes"
+                                                maxlength="1000"
+                                                value="{{ $item->reservation_notes }}"
+                                                class="form-input"
+                                                placeholder="مثال: 3 لمحمد، 2 لسارة"
+                                            >
+                                        </label>
+
+                                        <button
+                                            type="submit"
+                                            class="btn btn-gold btn-sm"
+                                        >
+                                            حفظ الحجز
+                                        </button>
+                                    </form>
+                                </details>
                             @endif
                         </td>
 
@@ -609,6 +669,51 @@
         display:flex;
         flex-wrap:wrap;
         gap:.5rem;
+    }
+
+
+    .reservation-note-text {
+        margin-top:.2rem;
+        color:var(--text-muted);
+        font-size:.68rem;
+        line-height:1.55;
+    }
+
+    .reservation-editor {
+        margin-top:.45rem;
+    }
+
+    .reservation-editor summary {
+        color:var(--gold);
+        font-size:.66rem;
+        font-weight:800;
+        cursor:pointer;
+        user-select:none;
+    }
+
+    .reservation-editor form {
+        display:grid;
+        gap:.45rem;
+        min-width:190px;
+        margin-top:.45rem;
+        padding:.55rem;
+        border:1px solid var(--border);
+        border-radius:10px;
+        background:var(--off-white);
+    }
+
+    .reservation-editor label {
+        display:grid;
+        gap:.22rem;
+        color:var(--text-muted);
+        font-size:.62rem;
+        font-weight:700;
+    }
+
+    .reservation-editor .form-input {
+        min-height:34px;
+        padding:.4rem .5rem;
+        font-size:.68rem;
     }
 
 
