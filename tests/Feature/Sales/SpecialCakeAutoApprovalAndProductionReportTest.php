@@ -180,9 +180,17 @@ class SpecialCakeAutoApprovalAndProductionReportTest extends TestCase
             $productionDate
         );
 
-        // Must be excluded.
+        // Cancelled and draft special-cake rows must be excluded.
         $this->makeSpecialCakeOrder(
             CakeOrderStatus::Cancelled->value,
+            'بلاطة',
+            '40x60',
+            'مستطيل',
+            $productionDate
+        );
+
+        $this->makeSpecialCakeOrder(
+            CakeOrderStatus::Draft->value,
             'بلاطة',
             '40x60',
             'مستطيل',
@@ -211,7 +219,7 @@ class SpecialCakeAutoApprovalAndProductionReportTest extends TestCase
             'quantity' => 2,
         ]);
 
-        // Rejected branch demand must not affect production totals.
+        // Rejected and draft branch demand must not affect production totals.
         $rejected = $this->makeShowroomRequest(
             $this->branch,
             ShowroomCakeRequestStatus::Rejected,
@@ -224,6 +232,20 @@ class SpecialCakeAutoApprovalAndProductionReportTest extends TestCase
             'cake_size' => '40x60',
             'shape' => 'مستطيل',
             'quantity' => 9,
+        ]);
+
+        $draft = $this->makeShowroomRequest(
+            $this->branch,
+            ShowroomCakeRequestStatus::Draft,
+            $productionDate
+        );
+
+        ShowroomCakeRequestItem::query()->create([
+            'showroom_cake_request_id' => $draft->id,
+            'cake_type' => 'بلاطة',
+            'cake_size' => '40x60',
+            'shape' => 'مستطيل',
+            'quantity' => 11,
         ]);
 
         // Same cake in another branch must be excluded when branch filter is used.
