@@ -14,9 +14,9 @@ use Illuminate\Validation\ValidationException;
 class SpecialCakeStatusTransitionService
 {
     /**
-     * كل انتقال في خط إنتاج الكيك مربوط بصلاحية العملية الفعلية.
-     * مصدر الانتقالات المسموحة نفسه هو SpecialCakeOrder::allowedTransitions()
-     * حتى لا تتكرر حالات قديمة مثل in_decoration.
+     * حالات طلب الكيك المرئية مختصرة إلى أربع مراحل تشغيلية.
+     * نبقي الصلاحيات الدقيقة الحالية حتى لا تتغير أدوار الموظفين
+     * بالتزامن مع تبسيط الحالات.
      */
     private array $transitionPermissions = [
         'draft' => [
@@ -170,8 +170,27 @@ class SpecialCakeStatusTransitionService
             $toStatus
         );
 
-        return $permission !== null
-            && $user->can($permission);
+        if (
+            $permission !== null
+            && $user->can($permission)
+        ) {
+            return true;
+        }
+
+        /*
+         * The simplified Ready stage replaces both branch receiving and
+         * customer handoff. Existing branch users with receive permission
+         * therefore remain able to finish the order without needing a new
+         * role migration.
+         */
+        $canonicalFrom =
+            SpecialCakeOrder::normalizeLegacyWorkflowStatus(
+                $fromStatus
+            );
+
+        return $canonicalFrom === 'ready'
+            && $toStatus === 'completed'
+            && $user->can('cake_orders.receive');
     }
 
     public function requiredPermission(
