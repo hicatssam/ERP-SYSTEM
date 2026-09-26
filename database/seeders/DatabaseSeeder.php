@@ -833,6 +833,16 @@ SVG;
             }
         }
 
+        SystemSetting::query()
+            ->where(
+                'key',
+                'special_cake_auto_approval'
+            )
+            ->update([
+                'description' =>
+                    'عند التفعيل ينتقل طلب الكيك الخاص الجديد مباشرة إلى قيد التنفيذ بموافقة تلقائية من النظام. عند الإلغاء يبدأ الطلب قيد المراجعة ويحتاج موافقة يدوية.',
+            ]);
+
         SystemSetting::flushCache();
     }
 
