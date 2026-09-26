@@ -6,85 +6,42 @@ use App\Models\ShowroomSweetsRequest;
 use App\Models\User;
 use App\Notifications\ShowroomSweetsRequestNotification;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 
 class ShowroomSweetsRequestNotifier
 {
-    /*
-    |--------------------------------------------------------------------------
-    | طلب جديد وصل للمصنع
-    |--------------------------------------------------------------------------
-    */
+    private const DEDUP_TTL_SECONDS = 600;
 
     public static function requestCreated(
-        ShowroomSweetsRequest $request
+        ShowroomSweetsRequest $request,
+        ?User $actor = null
     ): void {
-
-        if (
-            ! $request
-                ->factory_location_id
-        ) {
-            return;
-        }
-
         $request->loadMissing([
             'requestingLocation',
             'factoryLocation',
             'items.product',
         ]);
 
-        /*
-         * يستقبل الإشعار:
-         *
-         * - من عنده بدء تجهيز
-         * - من عنده رفض الطلب
-         * - أو صلاحية تحديث الحالة القديمة
-         *
-         * بشرط أن يكون في نفس المصنع.
-         */
-
         $users = self::recipients(
-
-            locationId:
-                (int)
-                $request
-                    ->factory_location_id,
-
+            locationIds: [
+                (int) $request->factory_location_id,
+            ],
             permissions: [
-
                 'showroom_sweets_requests.start',
-
-                'showroom_sweets_requests.reject',
-
-                /*
-                 * للتوافق مع الأدوار القديمة
-                 * مثل مدير المصنع إذا كان عنده
-                 * update_status فقط.
-                 */
                 'showroom_sweets_requests.update_status',
+                'showroom_sweets_requests.view',
             ],
         );
 
         self::send(
-
             $users,
-
             new ShowroomSweetsRequestNotification(
-
-                showroomSweetsRequest:
-                    $request,
-
-                event:
-                    'created',
-            )
+                showroomSweetsRequest: $request,
+                event: 'created',
+            ),
+            $actor
         );
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | تغيير حالة الطلب
-    |--------------------------------------------------------------------------
-    */
 
     public static function statusChanged(
         ShowroomSweetsRequest $request,
@@ -92,293 +49,114 @@ class ShowroomSweetsRequestNotifier
         string $toStatus,
         ?User $actor = null
     ): void {
-
         $request->loadMissing([
             'requestingLocation',
             'factoryLocation',
             'items.product',
         ]);
 
+        $branchId =
+            (int) $request->requesting_location_id;
 
-        /*
-        |--------------------------------------------------------------------------
-        | تحديد صاحب المهمة التالية
-        |--------------------------------------------------------------------------
-        */
+        $factoryId =
+            (int) $request->factory_location_id;
 
-        $users = match ($toStatus) {
-
-            /*
-             * بدأ التجهيز.
-             *
-             * المهمة التالية:
-             * اعتماد أن الطلب جاهز.
-             */
-
-            'in_progress' =>
-                self::recipients(
-
-                    locationId:
-                        (int)
-                        $request
-                            ->factory_location_id,
-
-                    permissions: [
-
-                        'showroom_sweets_requests.ready',
-
-                        'showroom_sweets_requests.update_status',
-                    ],
-                ),
-
-
-            /*
-             * جاهز للتوصيل.
-             *
-             * المهمة التالية:
-             * موظف التوصيل يرسل الطلب.
-             */
-
-            'ready_for_dispatch' =>
-                self::recipients(
-
-                    locationId:
-                        (int)
-                        $request
-                            ->factory_location_id,
-
-                    permissions: [
-
-                        'showroom_sweets_requests.dispatch',
-
-                        'showroom_sweets_requests.update_status',
-                    ],
-                ),
-
-
-            /*
-             * الطلب خرج من المصنع.
-             *
-             * المهمة التالية:
-             * الفرع يؤكد الاستلام.
-             */
-
-            'out_for_delivery' =>
-                self::recipients(
-
-                    locationId:
-                        (int)
-                        $request
-                            ->requesting_location_id,
-
-                    permissions: [
-
-                        'showroom_sweets_requests.receive',
-
-                        'showroom_sweets_requests.update_status',
-                    ],
-                ),
-
-
-            /*
-             * الفرع استلم الطلب.
-             *
-             * نبلغ المصنع أن الدورة انتهت.
-             */
-
-            'received_at_branch',
-            'fulfilled' =>
-                self::recipients(
-
-                    locationId:
-                        (int)
-                        $request
-                            ->factory_location_id,
-
-                    permissions: [
-
+        [$locationIds, $permissions] =
+            match ($toStatus) {
+                'in_progress' => [
+                    [$branchId, $factoryId],
+                    [
                         'showroom_sweets_requests.view',
-
-                        'showroom_sweets_requests.ready',
-
-                        'showroom_sweets_requests.dispatch',
-
-                        'showroom_sweets_requests.update_status',
-                    ],
-                ),
-
-
-            /*
-             * المصنع رفض الطلب.
-             *
-             * يرجع الإشعار للفرع الطالب.
-             */
-
-            'rejected' =>
-                self::recipients(
-
-                    locationId:
-                        (int)
-                        $request
-                            ->requesting_location_id,
-
-                    permissions: [
-
-                        'showroom_sweets_requests.view',
-
-                        'showroom_sweets_requests.create',
-                    ],
-                ),
-
-
-            /*
-             * الفرع ألغى الطلب.
-             *
-             * نبلغ المصنع.
-             */
-
-            'cancelled' =>
-                self::recipients(
-
-                    locationId:
-                        (int)
-                        $request
-                            ->factory_location_id,
-
-                    permissions: [
-
                         'showroom_sweets_requests.start',
-
-                        'showroom_sweets_requests.reject',
-
+                        'showroom_sweets_requests.ready',
                         'showroom_sweets_requests.update_status',
                     ],
-                ),
+                ],
 
+                'ready' => [
+                    [$branchId, $factoryId],
+                    [
+                        'showroom_sweets_requests.view',
+                        'showroom_sweets_requests.ready',
+                        'showroom_sweets_requests.receive',
+                        'showroom_sweets_requests.update_status',
+                    ],
+                ],
 
-            default =>
-                collect(),
-        };
+                'completed' => [
+                    [$branchId, $factoryId],
+                    [
+                        'showroom_sweets_requests.view',
+                        'showroom_sweets_requests.create',
+                        'showroom_sweets_requests.receive',
+                        'showroom_sweets_requests.update_status',
+                    ],
+                ],
 
+                'cancelled' => [
+                    [$branchId, $factoryId],
+                    [
+                        'showroom_sweets_requests.view',
+                        'showroom_sweets_requests.create',
+                        'showroom_sweets_requests.cancel',
+                        'showroom_sweets_requests.update_status',
+                    ],
+                ],
 
-        /*
-        |--------------------------------------------------------------------------
-        | لا نرسل للشخص الذي نفذ العملية نفسها
-        |--------------------------------------------------------------------------
-        */
-
-        if ($actor) {
-
-            $users =
-                $users
-                    ->reject(
-                        fn (User $user): bool =>
-                            (int)
-                            $user->id
-                            ===
-                            (int)
-                            $actor->id
-                    )
-                    ->values();
-        }
-
-
-        if (
-            $users->isEmpty()
-        ) {
-            return;
-        }
-
+                default => [
+                    [$branchId, $factoryId],
+                    [
+                        'showroom_sweets_requests.view',
+                    ],
+                ],
+            };
 
         self::send(
-
-            $users,
-
+            self::recipients(
+                $locationIds,
+                $permissions
+            ),
             new ShowroomSweetsRequestNotification(
-
-                showroomSweetsRequest:
-                    $request,
-
-                event:
-                    'status_changed',
-
-                fromStatus:
-                    $fromStatus,
-
-                toStatus:
-                    $toStatus,
-            )
+                showroomSweetsRequest: $request,
+                event: 'status_changed',
+                fromStatus: $fromStatus,
+                toStatus: $toStatus,
+            ),
+            $actor
         );
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | تحديد المستلمين
-    |--------------------------------------------------------------------------
-    |
-    | القاعدة:
-    |
-    | 1. المستخدم فعال.
-    |
-    | 2. Admin يستقبل.
-    |
-    | 3. صاحب view_all يستقبل
-    |    على مستوى جميع المواقع.
-    |
-    | 4. غير ذلك:
-    |    لازم عنده صلاحية المهمة
-    |    ومربوط بنفس الموقع.
-    |
-    */
-
     private static function recipients(
-        int $locationId,
+        array $locationIds,
         array $permissions
     ): Collection {
+        $locationIds = array_values(
+            array_unique(
+                array_filter(
+                    array_map(
+                        'intval',
+                        $locationIds
+                    )
+                )
+            )
+        );
 
         return User::query()
-
-            ->where(
-                'is_active',
-                true
-            )
-
+            ->where('is_active', true)
             ->with([
-
                 'roles',
-
                 'permissions',
-
                 'employee.locations',
             ])
-
             ->get()
-
             ->filter(
-
-                function (
-                    User $user
-                ) use (
-                    $locationId,
+                function (User $user) use (
+                    $locationIds,
                     $permissions
                 ): bool {
-
-
-                    /*
-                     * Admin
-                     */
-
-                    if (
-                        $user->isAdmin()
-                    ) {
+                    if ($user->isAdmin()) {
                         return true;
                     }
-
-
-                    /*
-                     * مستخدم عالمي
-                     */
 
                     if (
                         $user->can(
@@ -388,86 +166,110 @@ class ShowroomSweetsRequestNotifier
                         return true;
                     }
 
-
-                    /*
-                     * هل عنده إحدى صلاحيات المهمة؟
-                     */
-
-                    $hasTaskPermission =
-                        collect(
-                            $permissions
-                        )
-                        ->contains(
-
-                            fn (
-                                string $permission
-                            ): bool =>
-
-                                $user->can(
-                                    $permission
-                                )
-                        );
-
-
                     if (
-                        ! $hasTaskPermission
+                        ! collect($permissions)
+                            ->contains(
+                                fn (string $permission) =>
+                                    $user->can(
+                                        $permission
+                                    )
+                            )
                     ) {
                         return false;
                     }
 
-
-                    /*
-                     * يجب أن يكون المستخدم
-                     * مرتبطًا بموقع.
-                     */
-
-                    if (
-                        ! $user->employee
-                    ) {
+                    if (! $user->employee) {
                         return false;
                     }
-
-
-                    /*
-                     * فحص الموقع.
-                     */
 
                     return $user
                         ->employee
                         ->locations
                         ->contains(
-                            'id',
-                            $locationId
+                            fn ($location) =>
+                                in_array(
+                                    (int) $location->id,
+                                    $locationIds,
+                                    true
+                                )
                         );
                 }
             )
-
             ->unique('id')
-
             ->values();
     }
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | الإرسال
-    |--------------------------------------------------------------------------
-    */
-
     private static function send(
         Collection $users,
-        ShowroomSweetsRequestNotification
-        $notification
+        ShowroomSweetsRequestNotification $notification,
+        ?User $actor
     ): void {
+        foreach ($users as $user) {
+            if (
+                $actor
+                && (int) $actor->id === (int) $user->id
+                && ! $user->isAdmin()
+            ) {
+                continue;
+            }
 
-        foreach (
-            $users
-            as $user
-        ) {
+            $data =
+                $notification->toDatabase(
+                    $user
+                );
+
+            $fingerprint =
+                (string) (
+                    $data['fingerprint']
+                    ?? ''
+                );
+
+            if (
+                $fingerprint === ''
+                || ! self::claimDedup(
+                    $user,
+                    $fingerprint
+                )
+            ) {
+                continue;
+            }
 
             $user->notify(
                 clone $notification
             );
         }
+    }
+
+    private static function claimDedup(
+        User $user,
+        string $fingerprint
+    ): bool {
+        if (
+            $user->notifications()
+                ->where(
+                    'type',
+                    ShowroomSweetsRequestNotification::class
+                )
+                ->where(
+                    'data->fingerprint',
+                    $fingerprint
+                )
+                ->where(
+                    'created_at',
+                    '>=',
+                    now()->subSeconds(
+                        self::DEDUP_TTL_SECONDS
+                    )
+                )
+                ->exists()
+        ) {
+            return false;
+        }
+
+        return Cache::add(
+            "notif_dedup_{$user->id}_{$fingerprint}",
+            1,
+            self::DEDUP_TTL_SECONDS
+        );
     }
 }
