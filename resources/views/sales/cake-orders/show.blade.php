@@ -16,6 +16,17 @@
         ])
         ->all();
 
+    $statusLabels = array_merge([
+        'pending_deposit' => 'بانتظار دفع العربون',
+        'deposit_paid' => 'تم دفع العربون',
+        'in_decoration' => 'قيد التزيين',
+        'dispatched_to_branch' => 'تم الإرسال إلى الفرع',
+        'received_at_branch' => 'تم الاستلام في الفرع',
+        'ready_for_pickup' => 'جاهز لاستلام العميل',
+        'delivered' => 'مكتمل',
+        'canceled' => 'ملغى',
+    ], $statusLabels);
+
     $statusValue = $cakeOrder->status instanceof \BackedEnum
         ? $cakeOrder->status->value
         : (string) $cakeOrder->status;
