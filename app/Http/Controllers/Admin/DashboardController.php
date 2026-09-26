@@ -344,34 +344,24 @@ class DashboardController extends Controller
                 (clone $cakeQuery)
                     ->where(
                         'status',
-                        'pending_factory_review'
+                        'pending'
                     )
                     ->count();
 
             $stats['factory_production'] =
                 (clone $cakeQuery)
-                    ->whereIn(
+                    ->where(
                         'status',
-                        [
-                            'accepted',
-                            'scheduled',
-                            'in_preparation',
-                            'decorating',
-                            'quality_check',
-                        ]
+                        'in_progress'
                     )
                     ->count();
 
             foreach (
                 [
-                    'pending_factory_review',
-                    'accepted',
-                    'scheduled',
-                    'in_preparation',
-                    'decorating',
-                    'quality_check',
+                    'pending',
+                    'in_progress',
                     'ready',
-                    'sent_to_branch',
+                    'completed',
                 ] as $stage
             ) {
                 $stats['cake_pipeline'][$stage] =
@@ -744,12 +734,12 @@ class DashboardController extends Controller
         ) {
             $pushTask(
                 'cake',
-                'طلبات كيك بانتظار مراجعة المصنع',
-                'طلبات تحتاج مراجعة واعتماد أو رفض من المصنع.',
+                'طلبات كيك قيد المراجعة',
+                'طلبات جديدة تحتاج مراجعة قبل بدء التنفيذ.',
                 'فتح طلبات الكيك',
                 (int) (
                     $stats['cake_pipeline'][
-                        'pending_factory_review'
+                        'pending'
                     ]
                     ?? 0
                 ),
@@ -757,7 +747,7 @@ class DashboardController extends Controller
                     'cake-orders.index',
                     [
                         'status' =>
-                            'pending_factory_review',
+                            'pending',
                     ]
                 ),
                 'gold'
