@@ -444,6 +444,47 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
     }
 
     #[Test]
+    public function admin_receives_creation_notifications_even_when_admin_created_the_requests(): void
+    {
+        Notification::fake();
+
+        $admin =
+            $this->makeAdmin(
+                $this->factory
+            );
+
+        $cake =
+            $this->makeCakeRequest(
+                'pending'
+            );
+
+        $sweets =
+            $this->makeSweetsRequest(
+                'pending'
+            );
+
+        ShowroomCakeRequestNotifier::requestCreated(
+            $cake,
+            $admin
+        );
+
+        ShowroomSweetsRequestNotifier::requestCreated(
+            $sweets,
+            $admin
+        );
+
+        Notification::assertSentTo(
+            $admin,
+            ShowroomCakeRequestNotification::class
+        );
+
+        Notification::assertSentTo(
+            $admin,
+            ShowroomSweetsRequestNotification::class
+        );
+    }
+
+    #[Test]
     public function admin_receives_notifications_even_when_admin_performs_the_action(): void
     {
         Notification::fake();
