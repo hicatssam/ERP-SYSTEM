@@ -188,7 +188,7 @@
         display: grid;
 
         grid-template-columns:
-            repeat(4, minmax(0, 1fr));
+            repeat(3, minmax(0, 1fr));
 
         gap: .8rem;
 
@@ -992,6 +992,22 @@
             flex-basis: 78px;
         }
 
+        .status-modal {
+            padding:.75rem;
+        }
+
+        .status-modal-footer {
+            flex-direction:column-reverse;
+        }
+
+        .status-modal-footer .btn {
+            width:100%;
+        }
+
+        .request-due-alert {
+            align-items:flex-start;
+        }
+
     }
 </style>
 @endpush
@@ -1047,7 +1063,10 @@
         : null;
 
     $daysUntilNeeded = $neededBy
-        ? today()->diffInDays($neededBy, false)
+        ? (int) today()->diffInDays(
+            $neededBy,
+            false
+        )
         : null;
 
     [$dueTone, $dueLabel] = match (true) {
@@ -1214,47 +1233,52 @@
          ملخص
     ========================================================== --}}
 
-    <div class="request-summary-grid">
+    <div class="request-summary-grid compact">
 
-        {{-- تاريخ الحاجة --}}
         <div class="summary-box">
 
             <div class="summary-icon">
-
                 <svg
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     stroke-width="1.8"
                 >
-                    <rect x="3" y="5" width="18" height="16" rx="2"/>
-                    <path d="M16 3v4"/>
-                    <path d="M8 3v4"/>
-                    <path d="M3 10h18"/>
+                    <path d="M4 7h16"/>
+                    <path d="M4 12h16"/>
+                    <path d="M4 17h10"/>
                 </svg>
-
             </div>
 
             <div>
-
                 <div class="summary-label">
-                    تاريخ الحاجة
+                    إجمالي الكمية
                 </div>
 
                 <div class="summary-value">
-                    {{ $showroomSweetsRequest->needed_by?->format('Y-m-d') ?? 'غير محدد' }}
+                    {{
+                        rtrim(
+                            rtrim(
+                                number_format(
+                                    (float) $totalQuantity,
+                                    3,
+                                    '.',
+                                    ''
+                                ),
+                                '0'
+                            ),
+                            '.'
+                        )
+                    }}
                 </div>
-
             </div>
 
         </div>
 
 
-        {{-- الأصناف --}}
         <div class="summary-box">
 
             <div class="summary-icon">
-
                 <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -1266,11 +1290,9 @@
                     <rect x="3" y="14" width="7" height="7" rx="1"/>
                     <rect x="14" y="14" width="7" height="7" rx="1"/>
                 </svg>
-
             </div>
 
             <div>
-
                 <div class="summary-label">
                     عدد الأصناف
                 </div>
@@ -1279,17 +1301,14 @@
                     {{ $showroomSweetsRequest->items->count() }}
                     صنف
                 </div>
-
             </div>
 
         </div>
 
 
-        {{-- وقت الإرسال --}}
         <div class="summary-box">
 
             <div class="summary-icon">
-
                 <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -1299,11 +1318,9 @@
                     <circle cx="12" cy="12" r="9"/>
                     <path d="M12 7v5l3 2"/>
                 </svg>
-
             </div>
 
             <div>
-
                 <div class="summary-label">
                     وقت الإرسال
                 </div>
@@ -1311,42 +1328,6 @@
                 <div class="summary-value">
                     {{ $showroomSweetsRequest->submitted_at?->format('Y-m-d H:i') ?? '—' }}
                 </div>
-
-            </div>
-
-        </div>
-
-
-        {{-- الحالة --}}
-        <div class="summary-box">
-
-            <div class="summary-icon">
-
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.8"
-                >
-                    <circle cx="12" cy="12" r="9"/>
-                    <path d="M8 12l2.5 2.5L16 9"/>
-                </svg>
-
-            </div>
-
-            <div>
-
-                <div class="summary-label">
-                    حالة الطلب
-                </div>
-
-                <div
-                    class="summary-value"
-                    style="color:var(--request-accent)"
-                >
-                    {{ $statusLabel }}
-                </div>
-
             </div>
 
         </div>
