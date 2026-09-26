@@ -766,18 +766,17 @@
     $statusLabel = $showroomSweetsRequest->status->label();
 
     $cardTone = match ($statusValue) {
-        'submitted',
-        'sent_to_factory',
         'pending',
-        'requested' => 'gold',
+        'submitted' => 'gold',
 
-        'processing',
-        'in_progress',
-        'preparing',
-        'in_preparation' => 'blue',
+        'in_progress' => 'blue',
+
+        'ready',
+        'ready_for_dispatch',
+        'out_for_delivery' => 'gold',
 
         'completed',
-        'done',
+        'received_at_branch',
         'fulfilled' => 'green',
 
         'rejected' => 'red',
@@ -785,14 +784,7 @@
         'cancelled',
         'canceled' => 'gray',
 
-        default => match ($statusLabel) {
-            'مرسل للمصنع' => 'gold',
-            'قيد التجهيز' => 'blue',
-            'تم التنفيذ' => 'green',
-            'مرفوض' => 'red',
-            'ملغي', 'ملغى' => 'gray',
-            default => 'gold',
-        },
+        default => 'gold',
     };
 @endphp
 
@@ -862,7 +854,7 @@
                 <form
                     action="{{ route('showroom-sweets-requests.cancel', $showroomSweetsRequest) }}"
                     method="POST"
-                    onsubmit="return confirm('هل تريد إلغاء هذا الطلب قبل بدء المصنع بالتجهيز؟')"
+                    onsubmit="return confirm('هل تريد إلغاء هذا الطلب؟')"
                 >
 
                     @csrf
