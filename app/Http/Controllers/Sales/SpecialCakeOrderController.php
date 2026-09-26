@@ -485,20 +485,28 @@ if (
 }
 
         /*
-         * A submitted cake-order form is a real request, not an abandoned draft.
-         * Moving it to factory review also dispatches the operational alert to
-         * eligible staff at the assigned factory and the administration.
+         * The approval mode is controlled from Branding Settings.
+         * Auto mode records a single draft -> in_progress transition.
+         * Manual mode records draft -> pending and waits for review.
          */
-        $this->transitionService->transition(
+        $this->transitionService->submitCreatedOrder(
             $order,
-            CakeOrderStatus::Pending->value,
-            Auth::user(),
-            'تم إنشاء الطلب ووضعه قيد المراجعة.'
+            Auth::user()
         );
+
+        $order->refresh();
+
+        $autoApproved =
+            $order->status === CakeOrderStatus::InProgress;
 
         return redirect()
             ->route('cake-orders.show', $order)
-            ->with('success', 'تم إنشاء طلب الكيك ووضعه قيد المراجعة.');
+            ->with(
+                'success',
+                $autoApproved
+                    ? 'تم إنشاء طلب الكيك واعتماده تلقائيًا وبدأ التنفيذ.'
+                    : 'تم إنشاء طلب الكيك ووضعه قيد المراجعة.'
+            );
     }
 
     public function show(SpecialCakeOrder $cakeOrder)
