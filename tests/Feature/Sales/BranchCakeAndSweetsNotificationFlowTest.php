@@ -687,6 +687,217 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
     }
 
     #[Test]
+    public function branch_cake_status_route_changes_state_and_dispatches_notification(): void
+    {
+        Notification::fake();
+
+        $factoryActor =
+            $this->makeUser(
+                $this->factory,
+                [
+                    'showroom_cake_requests.view',
+                    'showroom_cake_requests.update_status',
+                ]
+            );
+
+        $branchRecipient =
+            $this->makeUser(
+                $this->branch,
+                [
+                    'showroom_cake_requests.view',
+                ]
+            );
+
+        $request =
+            $this->makeCakeRequest(
+                'pending'
+            );
+
+        $this->actingAs($factoryActor)
+            ->patch(
+                route(
+                    'showroom-cake-requests.status',
+                    $request
+                ),
+                [
+                    'status' =>
+                        'in_progress',
+                    'factory_notes' =>
+                        'بدأ التنفيذ',
+                ]
+            )
+            ->assertRedirect();
+
+        $request->refresh();
+
+        $this->assertSame(
+            ShowroomCakeRequestStatus::InProgress,
+            $request->status
+        );
+
+        $this->assertSame(
+            $factoryActor->id,
+            $request->handled_by
+        );
+
+        Notification::assertSentTo(
+            $branchRecipient,
+            ShowroomCakeRequestNotification::class
+        );
+
+        Notification::assertNotSentTo(
+            $factoryActor,
+            ShowroomCakeRequestNotification::class
+        );
+    }
+
+    #[Test]
+    public function branch_sweets_status_route_changes_state_and_dispatches_notification(): void
+    {
+        Notification::fake();
+
+        $factoryActor =
+            $this->makeUser(
+                $this->factory,
+                [
+                    'showroom_sweets_requests.view',
+                    'showroom_sweets_requests.start',
+                ]
+            );
+
+        $branchRecipient =
+            $this->makeUser(
+                $this->branch,
+                [
+                    'showroom_sweets_requests.view',
+                ]
+            );
+
+        $request =
+            $this->makeSweetsRequest(
+                'pending'
+            );
+
+        $this->actingAs($factoryActor)
+            ->patch(
+                route(
+                    'showroom-sweets-requests.status',
+                    $request
+                ),
+                [
+                    'status' =>
+                        'in_progress',
+                    'factory_notes' =>
+                        'بدأ التنفيذ',
+                ]
+            )
+            ->assertRedirect();
+
+        $request->refresh();
+
+        $this->assertSame(
+            ShowroomSweetsRequestStatus::InProgress,
+            $request->status
+        );
+
+        $this->assertSame(
+            $factoryActor->id,
+            $request->handled_by
+        );
+
+        Notification::assertSentTo(
+            $branchRecipient,
+            ShowroomSweetsRequestNotification::class
+        );
+
+        Notification::assertNotSentTo(
+            $factoryActor,
+            ShowroomSweetsRequestNotification::class
+        );
+    }
+
+    #[Test]
+    public function branch_receiving_users_complete_ready_requests_for_both_flows(): void
+    {
+        Notification::fake();
+
+        $cakeReceiver =
+            $this->makeUser(
+                $this->branch,
+                [
+                    'showroom_cake_requests.view',
+                    'showroom_cake_requests.update_status',
+                ]
+            );
+
+        $sweetsReceiver =
+            $this->makeUser(
+                $this->branch,
+                [
+                    'showroom_sweets_requests.view',
+                    'showroom_sweets_requests.receive',
+                ]
+            );
+
+        $cake =
+            $this->makeCakeRequest(
+                'ready'
+            );
+
+        $sweets =
+            $this->makeSweetsRequest(
+                'ready'
+            );
+
+        $this->actingAs($cakeReceiver)
+            ->patch(
+                route(
+                    'showroom-cake-requests.status',
+                    $cake
+                ),
+                [
+                    'status' => 'completed',
+                ]
+            )
+            ->assertRedirect();
+
+        $this->actingAs($sweetsReceiver)
+            ->patch(
+                route(
+                    'showroom-sweets-requests.status',
+                    $sweets
+                ),
+                [
+                    'status' => 'completed',
+                ]
+            )
+            ->assertRedirect();
+
+        $this->assertSame(
+            ShowroomCakeRequestStatus::Completed,
+            $cake->fresh()->status
+        );
+
+        $this->assertNotNull(
+            $cake->fresh()->fulfilled_at
+        );
+
+        $this->assertSame(
+            ShowroomSweetsRequestStatus::Completed,
+            $sweets->fresh()->status
+        );
+
+        $this->assertSame(
+            $sweetsReceiver->id,
+            $sweets->fresh()->received_by
+        );
+
+        $this->assertNotNull(
+            $sweets->fresh()->received_at
+        );
+    }
+
+    #[Test]
     public function notification_payloads_use_only_the_simplified_statuses_and_correct_urls(): void
     {
         $admin =
