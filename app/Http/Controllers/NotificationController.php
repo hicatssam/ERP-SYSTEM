@@ -3,6 +3,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ArabicDate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -216,7 +217,9 @@ class NotificationController extends Controller
             'type' => $data['type'] ?? 'general',
             'url' => $data['url'] ?? null,
             'icon' => $data['icon'] ?? null,
-            'time' => $notification->created_at->diffForHumans(),
+            'time' => ArabicDate::compactDateTime(
+                $notification->created_at
+            ),
             'read_at' => $notification->read_at,
         ];
     }
