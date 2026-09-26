@@ -6,6 +6,7 @@ use App\Enums\CakeOrderStatus;
 use App\Events\SpecialCakeOrderTransitioned;
 use App\Models\CakeOrderStatusHistory;
 use App\Models\SpecialCakeOrder;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -45,7 +46,6 @@ class SpecialCakeStatusTransitionService
     ): void {
         $fromStatus = $this->statusValue($order);
 
-        // يمنع تمرير أي قيمة غير موجودة في الـ Enum قبل محاولة Eloquent حفظها.
         if (! CakeOrderStatus::tryFrom($toStatus)) {
             throw ValidationException::withMessages([
                 'to_status' => 'الحالة المطلوبة غير معروفة في النظام.',
@@ -62,6 +62,65 @@ class SpecialCakeStatusTransitionService
             throw new AuthorizationException('ليس لديك صلاحية تنفيذ هذه الخطوة في طلب الكيك.');
         }
 
+        $this->persistTransition(
+            $order,
+            $fromStatus,
+            $toStatus,
+            $user,
+            $note,
+            false
+        );
+    }
+
+    /**
+     * Submit a freshly-created cake order using the configured approval mode.
+     *
+     * Auto approval skips the visible review stage and records one auditable
+     * draft -> in_progress transition. Manual mode starts at pending.
+     */
+    public function submitCreatedOrder(
+        SpecialCakeOrder $order,
+        User $user
+    ): void {
+        $fromStatus = $this->statusValue($order);
+
+        if ($fromStatus !== CakeOrderStatus::Draft->value) {
+            throw ValidationException::withMessages([
+                'status' => 'يمكن تطبيق اعتماد الإنشاء على الطلبات الجديدة فقط.',
+            ]);
+        }
+
+        $autoApproval = (bool) SystemSetting::get(
+            'special_cake_auto_approval',
+            true
+        );
+
+        $toStatus = $autoApproval
+            ? CakeOrderStatus::InProgress->value
+            : CakeOrderStatus::Pending->value;
+
+        $note = $autoApproval
+            ? 'تمت الموافقة تلقائيًا من النظام وبدأ تنفيذ الطلب.'
+            : 'تم إنشاء الطلب ووضعه قيد المراجعة.';
+
+        $this->persistTransition(
+            $order,
+            $fromStatus,
+            $toStatus,
+            $user,
+            $note,
+            $autoApproval
+        );
+    }
+
+    private function persistTransition(
+        SpecialCakeOrder $order,
+        string $fromStatus,
+        string $toStatus,
+        User $user,
+        ?string $note,
+        bool $automaticApproval
+    ): void {
         $update = [
             'status' => CakeOrderStatus::from($toStatus),
         ];
@@ -89,7 +148,9 @@ class SpecialCakeStatusTransitionService
 
         ActivityLogger::log(
             userId: $user->id,
-            action: 'cake_order.status_changed',
+            action: $automaticApproval
+                ? 'cake_order.auto_approved'
+                : 'cake_order.status_changed',
             module: 'special_cake_orders',
             recordType: 'special_cake_orders',
             recordId: $order->id,
@@ -100,6 +161,7 @@ class SpecialCakeStatusTransitionService
                 'origin_branch_id' => $order->origin_branch_id,
                 'factory_id' => $order->factory_location_id,
                 'note' => $note,
+                'automatic_approval' => $automaticApproval,
             ],
         );
 
