@@ -46,7 +46,14 @@ class SpecialCakeOrderPolicy
             return false;
         }
 
-        return $order->status === CakeOrderStatus::Draft;
+        return in_array(
+            $order->status,
+            [
+                CakeOrderStatus::Draft,
+                CakeOrderStatus::Pending,
+            ],
+            true
+        );
     }
 
     public function transition(User $user, SpecialCakeOrder $order): bool
