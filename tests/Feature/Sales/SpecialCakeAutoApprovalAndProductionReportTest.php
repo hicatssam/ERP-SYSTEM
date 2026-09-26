@@ -199,7 +199,7 @@ class SpecialCakeAutoApprovalAndProductionReportTest extends TestCase
 
         $showroom = $this->makeShowroomRequest(
             $this->branch,
-            ShowroomCakeRequestStatus::Submitted,
+            ShowroomCakeRequestStatus::Pending,
             $productionDate
         );
 
@@ -222,7 +222,7 @@ class SpecialCakeAutoApprovalAndProductionReportTest extends TestCase
         // Rejected and draft branch demand must not affect production totals.
         $rejected = $this->makeShowroomRequest(
             $this->branch,
-            ShowroomCakeRequestStatus::Rejected,
+            ShowroomCakeRequestStatus::Cancelled,
             $productionDate
         );
 
@@ -251,7 +251,7 @@ class SpecialCakeAutoApprovalAndProductionReportTest extends TestCase
         // Same cake in another branch must be excluded when branch filter is used.
         $otherBranchRequest = $this->makeShowroomRequest(
             $this->otherBranch,
-            ShowroomCakeRequestStatus::Submitted,
+            ShowroomCakeRequestStatus::Pending,
             $productionDate
         );
 
