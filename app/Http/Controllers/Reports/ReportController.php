@@ -233,17 +233,36 @@ class ReportController extends Controller
             ->take($cap)
             ->collect();
 
-        $html = view('pdf.reports.template', compact(
+        $formattedRows = $rows
+            ->map(
+                fn ($row) =>
+                    $this->formatRowForExport(
+                        $type,
+                        $row
+                    )
+            )
+            ->values();
+
+        /*
+         * PDF and browser print deliberately render the SAME Blade template.
+         * This guarantees one source for logo, colours, stamp, signature,
+         * header and footer.
+         */
+        $pdfMode = true;
+
+        $html = view('reports.print', compact(
             'type',
             'title',
             'rows',
+            'formattedRows',
             'columns',
             'summary',
             'dateFrom',
             'dateTo',
             'truncated',
             'cap',
-            'total'
+            'total',
+            'pdfMode'
         ))->render();
 
         $tempDir = storage_path('app/mpdf');
@@ -252,10 +271,10 @@ class ReportController extends Controller
         $mpdf = new Mpdf([
             'mode'             => 'utf-8',
             'format'           => 'A4-L',
-            'margin_top'       => 12,
-            'margin_bottom'    => 12,
-            'margin_left'      => 12,
-            'margin_right'     => 12,
+            'margin_top'       => 0,
+            'margin_bottom'    => 0,
+            'margin_left'      => 0,
+            'margin_right'     => 0,
             'directionality'   => 'rtl',
             'default_font'     => 'dejavusans',
             'autoScriptToLang' => true,
@@ -347,9 +366,20 @@ class ReportController extends Controller
         );
 
         /*
-         * وحّد نوع البيانات دائماً إلى Collection.
+         * وحّد نوع البيانات دائماً إلى Collection ثم استخدم نفس mapper
+         * المستخدم في Excel وPDF حتى تبقى الأعمدة متطابقة.
          */
         $rows = collect($rows)->values();
+
+        $formattedRows = $rows
+            ->map(
+                fn ($row) =>
+                    $this->formatRowForExport(
+                        $type,
+                        $row
+                    )
+            )
+            ->values();
 
         /*
          * في الطباعة العادية لا يوجد truncation.
@@ -357,18 +387,21 @@ class ReportController extends Controller
         $total     = $rows->count();
         $truncated = false;
         $cap       = $total;
+        $pdfMode   = false;
 
         return view('reports.print', compact(
             'type',
             'title',
             'rows',
+            'formattedRows',
             'columns',
             'summary',
             'dateFrom',
             'dateTo',
             'truncated',
             'cap',
-            'total'
+            'total',
+            'pdfMode'
         ));
     }
 
