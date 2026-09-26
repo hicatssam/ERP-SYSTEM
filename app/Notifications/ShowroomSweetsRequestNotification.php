@@ -188,7 +188,7 @@ class ShowroomSweetsRequestNotification
 
 
                 'priority' =>
-                    'high',
+                    'medium',
             ];
         }
 
