@@ -119,6 +119,73 @@ class ArabicDate
         );
     }
 
+    /**
+     * Format a date field together with an optional separate time field.
+     *
+     * Useful for operational records that store delivery date and delivery
+     * time in two columns. Date-only records remain date-only.
+     */
+    public static function dateWithOptionalTime(
+        mixed $dateValue,
+        mixed $timeValue = null,
+        bool $relativeDay = true
+    ): string {
+        $date = self::parse($dateValue);
+
+        if (! $date) {
+            return self::fallback($dateValue);
+        }
+
+        $time = trim((string) ($timeValue ?? ''));
+
+        if ($time === '') {
+            return self::date(
+                $date,
+                $relativeDay
+            );
+        }
+
+        if (
+            ! preg_match(
+                '/^(\d{1,2}):(\d{2})(?::\d{2})?$/',
+                $time,
+                $matches
+            )
+        ) {
+            return self::date(
+                $date,
+                $relativeDay
+            );
+        }
+
+        $hour = (int) $matches[1];
+        $minute = (int) $matches[2];
+
+        if (
+            $hour < 0
+            || $hour > 23
+            || $minute < 0
+            || $minute > 59
+        ) {
+            return self::date(
+                $date,
+                $relativeDay
+            );
+        }
+
+        $date = $date->setTime(
+            $hour,
+            $minute
+        );
+
+        return $relativeDay
+            ? self::compactDateTime($date)
+            : self::dateTime(
+                $date,
+                false
+            );
+    }
+
     public static function compactDateTime(
         mixed $value
     ): string {
