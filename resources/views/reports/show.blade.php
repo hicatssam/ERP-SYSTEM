@@ -111,6 +111,10 @@
 
             الفترة: {{ \Carbon\Carbon::parse($dateFrom)->format('d/m/Y') }} — {{ \Carbon\Carbon::parse($dateTo)->format('d/m/Y') }}
 
+            @if($type === 'cake-production')
+                · حسب تاريخ التسليم / الاحتياج
+            @endif
+
         </p>
 
     </div>
