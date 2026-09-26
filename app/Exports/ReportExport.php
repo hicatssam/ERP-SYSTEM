@@ -35,11 +35,50 @@ class ReportExport implements FromArray, WithHeadings, WithTitle, WithStyles, Sh
 
     public function styles(Worksheet $sheet): array
     {
+        $theme = app(
+            \App\Services\PrintThemeService::class
+        )->settings();
+
+        $secondary = strtoupper(
+            ltrim(
+                (string) (
+                    $theme['secondary_color']
+                    ?? '#111827'
+                ),
+                '#'
+            )
+        );
+
+        if (
+            ! preg_match(
+                '/^[0-9A-F]{6}$/',
+                $secondary
+            )
+        ) {
+            $secondary = '111827';
+        }
+
+        $sheet->setRightToLeft(true);
+        $sheet->freezePane('A2');
+
         return [
             1 => [
-                'font'      => ['bold' => true, 'color' => ['argb' => 'FF8C6818']],
-                'fill'      => ['fillType' => 'solid', 'startColor' => ['argb' => 'FFF5EDD8']],
-                'alignment' => ['horizontal' => 'center'],
+                'font' => [
+                    'bold' => true,
+                    'color' => [
+                        'argb' => 'FFFFFFFF',
+                    ],
+                ],
+                'fill' => [
+                    'fillType' => 'solid',
+                    'startColor' => [
+                        'argb' => 'FF' . $secondary,
+                    ],
+                ],
+                'alignment' => [
+                    'horizontal' => 'center',
+                    'vertical' => 'center',
+                ],
             ],
         ];
     }
