@@ -57,6 +57,10 @@ class SpecialCakeOrderService
                 'factory_location_id'    => $factory?->id,
                 'required_date'          => $data['required_date'],
                 'required_time'          => $data['required_time'] ?? null,
+                'is_urgent'              => ! empty($data['is_urgent']),
+                'urgent_reason'          => ! empty($data['is_urgent'])
+                    ? trim((string) ($data['urgent_reason'] ?? ''))
+                    : null,
                 'cake_type'              => $data['cake_type'] ?? null,
                 'cake_size'              => $data['cake_size'] ?? null,
                 'cake_weight'            => $data['cake_weight'] ?? null,
