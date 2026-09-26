@@ -14,7 +14,7 @@ class SettingsController extends Controller
 {
     private const VALUE_KEYS = [
         'system_name','timezone','invoice_footer_ar','invoice_footer_en','deposit_policy_enabled','deposit_type',
-        'minimum_deposit_percentage','minimum_deposit_amount','factory_can_accept_unpaid_cake_orders',
+        'minimum_deposit_percentage','minimum_deposit_amount','factory_can_accept_unpaid_cake_orders','special_cake_auto_approval',
         'require_active_cash_session_for_cash_payment','block_financial_period_close_with_open_cash_sessions',
         'notification_sound_enabled','chat_enabled','order_number_prefix','cake_order_prefix','stock_request_prefix','invoice_prefix',
         'system_name_en','brand_tagline_ar','brand_tagline_en','brand_footer_text',
@@ -146,6 +146,7 @@ class SettingsController extends Controller
             'brand_tagline_ar' => ['nullable', 'string', 'max:180'],
             'brand_tagline_en' => ['nullable', 'string', 'max:180'],
             'brand_footer_text' => ['nullable', 'string', 'max:255'],
+            'special_cake_auto_approval' => ['nullable', 'boolean'],
 
             /*
             |--------------------------------------------------------------------------
