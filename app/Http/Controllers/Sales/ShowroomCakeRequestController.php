@@ -413,6 +413,93 @@ class ShowroomCakeRequestController extends Controller
         );
     }
 
+    public function updateItemReservation(
+        Request $request,
+        ShowroomCakeRequest $showroomCakeRequest,
+        ShowroomCakeRequestItem $item
+    ) {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $this->ensureCanAccess(
+            $user,
+            $showroomCakeRequest
+        );
+
+        abort_unless(
+            (int) $item->showroom_cake_request_id
+                === (int) $showroomCakeRequest->id,
+            404
+        );
+
+        $canManageReservation =
+            $user->isAdmin()
+            || (
+                $user->can(
+                    'showroom_cake_requests.create'
+                )
+                && in_array(
+                    (int) $showroomCakeRequest
+                        ->requesting_location_id,
+                    $this->userLocationIds($user),
+                    true
+                )
+            );
+
+        abort_unless(
+            $canManageReservation,
+            403,
+            'تعديل حجوزات العملاء متاح للفرع الطالب فقط.'
+        );
+
+        if ($showroomCakeRequest->status->isTerminal()) {
+            return back()->with(
+                'error',
+                'لا يمكن تعديل حجوزات العملاء بعد انتهاء الطلب.'
+            );
+        }
+
+        $validated = $request->validate([
+            'reserved_quantity' => [
+                'required',
+                'integer',
+                'min:0',
+            ],
+            'reservation_notes' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
+        if (
+            (int) $validated['reserved_quantity']
+            > (int) $item->quantity
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'reserved_quantity' =>
+                    'الكمية المحجوزة للعملاء لا يمكن أن تتجاوز الكمية المطلوبة.',
+            ]);
+        }
+
+        $item->update([
+            'reserved_quantity' =>
+                (int) $validated[
+                    'reserved_quantity'
+                ],
+            'reservation_notes' =>
+                $validated[
+                    'reservation_notes'
+                ]
+                ?? null,
+        ]);
+
+        return back()->with(
+            'success',
+            'تم تحديث كمية الحجز للعملاء.'
+        );
+    }
+
     public function updateStatus(
         Request $request,
         ShowroomCakeRequest $showroomCakeRequest
