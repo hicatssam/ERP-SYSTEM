@@ -2653,7 +2653,27 @@ a.app-page-btn:hover {
 
     </div>
 
-    <script src="{{ asset('assets/js/app.js') }}"></script>
+    @php
+        $dateFormatAssetVersion = @filemtime(
+            public_path(
+                'assets/js/date-format.js'
+            )
+        ) ?: 1;
+
+        $appJsAssetVersion = @filemtime(
+            public_path(
+                'assets/js/app.js'
+            )
+        ) ?: 1;
+    @endphp
+
+    <script
+        src="{{ asset('assets/js/date-format.js') }}?v={{ $dateFormatAssetVersion }}"
+    ></script>
+
+    <script
+        src="{{ asset('assets/js/app.js') }}?v={{ $appJsAssetVersion }}"
+    ></script>
 
     <script>
 
