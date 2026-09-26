@@ -43,8 +43,13 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">تاريخ التسليم *</label>
-                    <input type="date" name="required_date" class="form-input @error('required_date') is-invalid @enderror"
-                           value="{{ old('required_date', $cakeOrder->required_date?->format('Y-m-d')) }}" required>
+                    <input type="date"
+                           id="requiredDate"
+                           name="required_date"
+                           min="{{ old('is_urgent', $cakeOrder->is_urgent) ? today()->toDateString() : today()->addDay()->toDateString() }}"
+                           class="form-input @error('required_date') is-invalid @enderror"
+                           value="{{ old('required_date', $cakeOrder->required_date?->format('Y-m-d')) }}"
+                           required>
                     @error('required_date')<span class="form-error">{{ $message }}</span>@enderror
                 </div>
                 <div class="form-group">
@@ -52,6 +57,42 @@
                     <input type="time" name="required_time" class="form-input @error('required_time') is-invalid @enderror"
                            value="{{ old('required_time', $cakeOrder->required_time ? \Carbon\Carbon::parse($cakeOrder->required_time)->format('H:i') : '') }}">
                     @error('required_time')<span class="form-error">{{ $message }}</span>@enderror
+                </div>
+
+                <div class="form-group urgent-booking" style="grid-column:1/-1">
+                    <label class="urgent-toggle" for="isUrgent">
+                        <input
+                            type="checkbox"
+                            id="isUrgent"
+                            name="is_urgent"
+                            value="1"
+                            @checked(old('is_urgent', $cakeOrder->is_urgent))
+                        >
+                        <span class="urgent-toggle-icon">!</span>
+                        <span>
+                            <strong>طلب طارئ / تسليم اليوم</strong>
+                            <small>
+                                بدون هذا الخيار لا يسمح النظام بموعد تسليم اليوم.
+                            </small>
+                        </span>
+                    </label>
+
+                    <div
+                        id="urgentReasonGroup"
+                        class="urgent-reason"
+                        @if(! old('is_urgent', $cakeOrder->is_urgent)) hidden @endif
+                    >
+                        <label class="form-label" for="urgentReason">
+                            سبب الطلب الطارئ *
+                        </label>
+                        <textarea
+                            id="urgentReason"
+                            name="urgent_reason"
+                            class="form-textarea @error('urgent_reason') is-invalid @enderror"
+                            rows="2"
+                        >{{ old('urgent_reason', $cakeOrder->urgent_reason) }}</textarea>
+                        @error('urgent_reason')<span class="form-error">{{ $message }}</span>@enderror
+                    </div>
                 </div>
             </div>
         </section>
@@ -155,5 +196,38 @@
 <style>
 .cake-page-header{display:flex;align-items:center;justify-content:space-between;gap:1rem}.cake-form-wrap{display:grid;gap:1.5rem;max-width:1000px}.cake-grid{display:grid;gap:1rem}.cake-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}.cake-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}.cake-space-top{margin-top:1rem}.form-help{display:block;margin-top:.35rem;color:var(--text-muted);font-size:.78rem}.form-error{display:block;margin-top:.35rem;color:#dc3545;font-size:.82rem}.is-invalid{border-color:#dc3545!important}.cake-alert{max-width:1000px;margin-bottom:1.25rem;padding:1rem 1.2rem;border-radius:12px}.cake-alert ul{margin:.6rem 0 0;padding-inline-start:1.2rem}.cake-alert-danger{color:#dc3545;background:rgba(220,53,69,.1);border:1px solid rgba(220,53,69,.45)}.cake-alert-success{color:#198754;background:rgba(25,135,84,.1);border:1px solid rgba(25,135,84,.4)}.price-summary{display:flex;align-items:center;justify-content:space-between;padding:1rem;color:var(--text-muted);background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.3);border-radius:10px}.price-summary strong{color:var(--gold);font-size:1.15rem}.sticky-actions{position:sticky;bottom:0;z-index:20;display:flex;justify-content:flex-end;gap:.75rem;padding:1rem;background:color-mix(in srgb,var(--surface) 94%,transparent);border:1px solid var(--border);border-radius:12px;backdrop-filter:blur(10px)}
 @media(max-width:800px){.cake-page-header{align-items:flex-start;flex-direction:column}.cake-grid-3,.cake-grid-2{grid-template-columns:1fr}.sticky-actions{position:static}}
+.urgent-booking{padding:.85rem;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed}.urgent-toggle{display:flex;align-items:center;gap:.75rem;cursor:pointer}.urgent-toggle input{width:18px;height:18px;accent-color:#ea580c}.urgent-toggle-icon{display:grid;place-items:center;width:34px;height:34px;flex:0 0 34px;border-radius:10px;color:#fff;background:#ea580c;font-weight:900}.urgent-toggle>span:last-child{display:grid;gap:.15rem}.urgent-toggle strong{color:#9a3412;font-size:.84rem}.urgent-toggle small{color:#9a3412;font-size:.72rem}.urgent-reason{margin-top:.8rem;padding-top:.8rem;border-top:1px dashed #fdba74}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const urgentToggle = document.getElementById('isUrgent');
+    const urgentReasonGroup = document.getElementById('urgentReasonGroup');
+    const urgentReason = document.getElementById('urgentReason');
+    const requiredDate = document.getElementById('requiredDate');
+    const todayValue = @json(today()->toDateString());
+    const tomorrowValue = @json(today()->addDay()->toDateString());
+
+    function syncUrgentDelivery() {
+        const urgent = Boolean(urgentToggle?.checked);
+
+        if (requiredDate) {
+            requiredDate.min = urgent
+                ? todayValue
+                : tomorrowValue;
+        }
+
+        if (urgentReasonGroup) {
+            urgentReasonGroup.hidden = !urgent;
+        }
+
+        if (urgentReason) {
+            urgentReason.required = urgent;
+        }
+    }
+
+    urgentToggle?.addEventListener('change', syncUrgentDelivery);
+    syncUrgentDelivery();
+});
+</script>
 @endsection
