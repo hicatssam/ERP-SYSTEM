@@ -52,9 +52,17 @@ class SpecialCakeOrderController extends Controller
             });
         }
 
-        $activeStatuses = collect(CakeOrderStatus::cases())
-            ->reject(fn (CakeOrderStatus $status) => $status->isTerminal())
-            ->map(fn (CakeOrderStatus $status) => $status->value)
+        $activeStatuses = collect(
+            CakeOrderStatus::workflowCases()
+        )
+            ->reject(
+                fn (CakeOrderStatus $status) =>
+                    $status->isTerminal()
+            )
+            ->map(
+                fn (CakeOrderStatus $status) =>
+                    $status->value
+            )
             ->values()
             ->all();
 
