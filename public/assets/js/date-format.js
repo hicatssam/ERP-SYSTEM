@@ -250,7 +250,7 @@
     };
 
     const formatZonedIsoDates = text => text.replace(
-        /(?<!\d)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,6})?(?:Z|[+-]\d{2}:?\d{2}))(?!\d)/g,
+        /(?<![\p{L}\p{N}_-])(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,6})?(?:Z|[+-]\d{2}:?\d{2}))(?![\p{L}\p{N}_-])/gu,
         original => {
             const parts =
                 dateTimePartsInSystemTimezone(
@@ -264,7 +264,7 @@
     );
 
     const formatIsoDates = text => text.replace(
-        /(?<!\d)(\d{4})[-\/](\d{2})[-\/](\d{2})(?:(?:T|\s+(?:·|—|-)?\s*)(\d{1,2}):(\d{2})(?::\d{2})?)?(?!\d)/g,
+        /(?<![\p{L}\p{N}_-])(\d{4})[-\/](\d{2})[-\/](\d{2})(?:(?:T|\s+(?:·|—|-)?\s*)(\d{1,2}):(\d{2})(?::\d{2})?)?(?![\p{L}\p{N}_-])/gu,
         (
             original,
             year,
@@ -295,7 +295,7 @@
     );
 
     const formatSlashDates = text => text.replace(
-        /(?<!\d)(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?(?!\d)/g,
+        /(?<![\p{L}\p{N}_-])(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::\d{2})?)?(?![\p{L}\p{N}_-])/gu,
         (
             original,
             day,
