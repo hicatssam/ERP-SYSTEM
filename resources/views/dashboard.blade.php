@@ -349,27 +349,34 @@
         ?? [];
 
     /*
-     * خط إنتاج الكيك لا يظهر للـ Dispatcher
-     * لمجرد أنه يمتلك cake_orders.view.
+     * مراحل الكيك تظهر لمستخدمي المصنع والفرع المشاركين فعليًا
+     * في المراجعة أو التنفيذ أو الاستلام، وليس لمجرد امتلاك view.
      */
     $canSeeCakeProductionPipeline =
         $moduleEnabled('cake_orders')
         && (
-        $dashboardUser->isAdmin()
-        || $dashboardUser->can('cake_orders.review')
-        || $dashboardUser->can('cake_orders.accept')
-        || $dashboardUser->can('cake_orders.schedule')
-        || $dashboardUser->can('cake_orders.prepare')
-        || $dashboardUser->can('cake_orders.decorate')
-        || $dashboardUser->can('cake_orders.quality_check')
+            $dashboardUser->isAdmin()
+            || $dashboardUser->can('cake_orders.review')
+            || $dashboardUser->can('cake_orders.accept')
+            || $dashboardUser->can('cake_orders.prepare')
+            || $dashboardUser->can('cake_orders.decorate')
+            || $dashboardUser->can('cake_orders.quality_check')
+            || $dashboardUser->can('cake_orders.receive')
+            || $dashboardUser->can('cake_orders.complete')
         );
 
     /*
-     * كرت "كيك في الإنتاج"
-     * أيضًا لا علاقة للـ Dispatcher به.
+     * كرت "كيك في الإنتاج" يظل خاصًا بالمصنع/الإنتاج.
      */
     $canSeeFactoryProductionStat =
-        $canSeeCakeProductionPipeline;
+        $moduleEnabled('cake_orders')
+        && (
+            $dashboardUser->isAdmin()
+            || $dashboardUser->can('cake_orders.accept')
+            || $dashboardUser->can('cake_orders.prepare')
+            || $dashboardUser->can('cake_orders.decorate')
+            || $dashboardUser->can('cake_orders.quality_check')
+        );
 @endphp
 
 
