@@ -1512,137 +1512,53 @@
 
                 <div class="pipeline-grid">
 
-                    {{-- مراجعة المصنع --}}
-                    @if(
-                        $dashboardUser->isAdmin()
-                        || $dashboardUser->can('cake_orders.review')
-                        || $dashboardUser->can('cake_orders.accept')
-                        || $dashboardUser->can('cake_orders.reject')
-                        || $dashboardUser->can('cake_orders.request_modification')
-                    )
-
-                        <div class="pipeline-stage">
-
-                            <div
-                                class="pipeline-count {{ ($stats['cake_pipeline']['pending_factory_review'] ?? 0) > 0 ? 'has-items' : '' }}"
-                            >
-                                {{ $stats['cake_pipeline']['pending_factory_review'] ?? 0 }}
-                            </div>
-
-                            <div class="pipeline-label">
-                                بانتظار مراجعة المصنع
-                            </div>
-
+                    <div class="pipeline-stage">
+                        <div
+                            class="pipeline-count {{ ($stats['cake_pipeline']['pending'] ?? 0) > 0 ? 'has-items' : '' }}"
+                        >
+                            {{ $stats['cake_pipeline']['pending'] ?? 0 }}
                         </div>
 
-                    @endif
+                        <div class="pipeline-label">
+                            قيد المراجعة
+                        </div>
+                    </div>
 
-
-                    {{-- الجدولة --}}
-                    @if(
-                        $dashboardUser->isAdmin()
-                        || $dashboardUser->can('cake_orders.schedule')
-                    )
-
-                        <div class="pipeline-stage">
-
-                            <div
-                                class="pipeline-count {{ ($stats['cake_pipeline']['accepted'] ?? 0) > 0 ? 'has-items' : '' }}"
-                            >
-                                {{ $stats['cake_pipeline']['accepted'] ?? 0 }}
-                            </div>
-
-                            <div class="pipeline-label">
-                                مقبول
-                            </div>
-
+                    <div class="pipeline-stage">
+                        <div
+                            class="pipeline-count {{ ($stats['cake_pipeline']['in_progress'] ?? 0) > 0 ? 'has-items' : '' }}"
+                        >
+                            {{ $stats['cake_pipeline']['in_progress'] ?? 0 }}
                         </div>
 
+                        <div class="pipeline-label">
+                            قيد التنفيذ
+                        </div>
+                    </div>
 
-                        <div class="pipeline-stage">
-
-                            <div
-                                class="pipeline-count {{ ($stats['cake_pipeline']['scheduled'] ?? 0) > 0 ? 'has-items' : '' }}"
-                            >
-                                {{ $stats['cake_pipeline']['scheduled'] ?? 0 }}
-                            </div>
-
-                            <div class="pipeline-label">
-                                مجدول للإنتاج
-                            </div>
-
+                    <div class="pipeline-stage">
+                        <div
+                            class="pipeline-count {{ ($stats['cake_pipeline']['ready'] ?? 0) > 0 ? 'has-items' : '' }}"
+                        >
+                            {{ $stats['cake_pipeline']['ready'] ?? 0 }}
                         </div>
 
-                    @endif
+                        <div class="pipeline-label">
+                            جاهز للاستلام
+                        </div>
+                    </div>
 
-
-                    {{-- موظف الإنتاج --}}
-                    @if(
-                        $dashboardUser->isAdmin()
-                        || $dashboardUser->can('cake_orders.prepare')
-                    )
-
-                        <div class="pipeline-stage">
-
-                            <div
-                                class="pipeline-count {{ ($stats['cake_pipeline']['in_preparation'] ?? 0) > 0 ? 'has-items' : '' }}"
-                            >
-                                {{ $stats['cake_pipeline']['in_preparation'] ?? 0 }}
-                            </div>
-
-                            <div class="pipeline-label">
-                                قيد التحضير
-                            </div>
-
+                    <div class="pipeline-stage">
+                        <div
+                            class="pipeline-count {{ ($stats['cake_pipeline']['completed'] ?? 0) > 0 ? 'has-items' : '' }}"
+                        >
+                            {{ $stats['cake_pipeline']['completed'] ?? 0 }}
                         </div>
 
-                    @endif
-
-
-                    {{-- مصمم الكيك --}}
-                    @if(
-                        $dashboardUser->isAdmin()
-                        || $dashboardUser->can('cake_orders.decorate')
-                    )
-
-                        <div class="pipeline-stage">
-
-                            <div
-                                class="pipeline-count {{ ($stats['cake_pipeline']['decorating'] ?? 0) > 0 ? 'has-items' : '' }}"
-                            >
-                                {{ $stats['cake_pipeline']['decorating'] ?? 0 }}
-                            </div>
-
-                            <div class="pipeline-label">
-                                قيد التزيين
-                            </div>
-
+                        <div class="pipeline-label">
+                            مكتمل
                         </div>
-
-                    @endif
-
-
-                    {{-- الجودة --}}
-                    @if(
-                        $dashboardUser->isAdmin()
-                        || $dashboardUser->can('cake_orders.quality_check')
-                    )
-
-                        <div class="pipeline-stage">
-
-                            <div
-                                class="pipeline-count {{ ($stats['cake_pipeline']['quality_check'] ?? 0) > 0 ? 'has-items' : '' }}"
-                            >
-                                {{ $stats['cake_pipeline']['quality_check'] ?? 0 }}
-                            </div>
-
-                            <div class="pipeline-label">
-                                فحص الجودة
-                            </div>
-
-                        </div>
-
-                    @endif
+                    </div>
 
                 </div>
 
