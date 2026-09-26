@@ -709,6 +709,247 @@
 
 
     /* =========================================================
+       موعد الطلب
+    ========================================================= */
+
+    .request-due-alert {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:1rem;
+        margin:-.2rem 0 1rem;
+        padding:.8rem 1rem;
+        border:1px solid var(--border);
+        border-radius:13px;
+        background:#fff;
+    }
+
+    .request-due-alert > div:first-child {
+        display:grid;
+        gap:.12rem;
+    }
+
+    .request-due-kicker {
+        color:var(--text-muted);
+        font-size:.62rem;
+        font-weight:700;
+    }
+
+    .request-due-alert strong {
+        font-size:.8rem;
+    }
+
+    .request-due-date {
+        font-size:.74rem;
+        font-weight:900;
+        white-space:nowrap;
+    }
+
+    .request-due-alert.late {
+        color:#b91c1c;
+        background:#fef2f2;
+        border-color:#fecaca;
+    }
+
+    .request-due-alert.today {
+        color:#9a6700;
+        background:#fffbeb;
+        border-color:#fde68a;
+    }
+
+    .request-due-alert.soon {
+        color:#0369a1;
+        background:#f0f9ff;
+        border-color:#bae6fd;
+    }
+
+    .request-due-alert.done {
+        color:#15803d;
+        background:#f0fdf4;
+        border-color:#bbf7d0;
+    }
+
+    .request-due-alert.neutral {
+        color:#475569;
+        background:#f8fafc;
+        border-color:#e2e8f0;
+    }
+
+    .workflow-section {
+        margin-bottom:1rem;
+    }
+
+
+    /* =========================================================
+       Popup تحديث الحالة
+    ========================================================= */
+
+    .status-modal {
+        position:fixed;
+        inset:0;
+        z-index:99999;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        padding:1.25rem;
+        background:rgba(15,23,42,.56);
+        backdrop-filter:blur(4px);
+        opacity:0;
+        visibility:hidden;
+        pointer-events:none;
+        transition:opacity .18s ease,visibility .18s ease;
+    }
+
+    .status-modal.is-open {
+        opacity:1;
+        visibility:visible;
+        pointer-events:auto;
+    }
+
+    .status-modal-dialog {
+        width:100%;
+        max-width:560px;
+        max-height:calc(100vh - 2rem);
+        overflow:auto;
+        background:#fff;
+        border:1px solid var(--border);
+        border-radius:18px;
+        box-shadow:0 24px 70px rgba(0,0,0,.24);
+        transform:translateY(16px) scale(.985);
+        transition:transform .18s ease;
+    }
+
+    .status-modal.is-open .status-modal-dialog {
+        transform:translateY(0) scale(1);
+    }
+
+    .status-modal-header {
+        display:flex;
+        align-items:flex-start;
+        justify-content:space-between;
+        gap:1rem;
+        padding:1.15rem 1.25rem;
+        border-bottom:1px solid var(--border);
+    }
+
+    .status-modal-eyebrow {
+        display:block;
+        margin-bottom:.2rem;
+        color:var(--request-accent);
+        font-size:.66rem;
+        font-weight:900;
+    }
+
+    .status-modal-header h3 {
+        margin:0;
+        font-size:1.02rem;
+        font-weight:900;
+    }
+
+    .status-modal-header p {
+        margin:.28rem 0 0;
+        color:var(--text-muted);
+        font-size:.7rem;
+    }
+
+    .status-modal-header p strong {
+        color:var(--request-accent);
+    }
+
+    .status-modal-close {
+        width:34px;
+        height:34px;
+        flex:0 0 34px;
+        display:grid;
+        place-items:center;
+        border:1px solid var(--border);
+        border-radius:50%;
+        background:#fff;
+        color:var(--text-muted);
+        font-size:1.35rem;
+        cursor:pointer;
+    }
+
+    .status-current-box {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:1rem;
+        margin:1rem 1.25rem 0;
+        padding:.75rem .9rem;
+        border:1px solid var(--request-border);
+        border-radius:11px;
+        background:var(--request-soft);
+    }
+
+    .status-current-box span {
+        color:var(--text-muted);
+        font-size:.7rem;
+    }
+
+    .status-current-box strong {
+        color:var(--request-accent);
+        font-size:.78rem;
+    }
+
+    .status-modal-body {
+        display:grid;
+        gap:1rem;
+        padding:1.15rem 1.25rem;
+    }
+
+    .status-choice-grid {
+        display:grid;
+        gap:.55rem;
+    }
+
+    .status-choice {
+        display:flex;
+        align-items:center;
+        gap:.7rem;
+        padding:.72rem .8rem;
+        border:1px solid var(--border);
+        border-radius:11px;
+        cursor:pointer;
+        transition:.15s ease;
+    }
+
+    .status-choice:has(input:checked) {
+        border-color:var(--request-border);
+        background:var(--request-soft);
+    }
+
+    .status-choice input {
+        width:17px;
+        height:17px;
+        accent-color:var(--request-accent);
+    }
+
+    .status-choice span {
+        display:grid;
+        gap:.08rem;
+    }
+
+    .status-choice strong {
+        font-size:.76rem;
+    }
+
+    .status-choice small {
+        color:var(--text-muted);
+        font-size:.62rem;
+    }
+
+    .status-modal-footer {
+        display:flex;
+        justify-content:flex-end;
+        gap:.6rem;
+        padding:.95rem 1.25rem;
+        border-top:1px solid var(--border);
+        background:var(--off-white);
+    }
+
+
+    /* =========================================================
        Responsive
     ========================================================= */
 
@@ -786,6 +1027,47 @@
 
         default => 'gold',
     };
+
+    $terminalStatuses = [
+        'completed',
+        'fulfilled',
+        'cancelled',
+        'canceled',
+        'rejected',
+    ];
+
+    $isTerminal = in_array(
+        $statusValue,
+        $terminalStatuses,
+        true
+    );
+
+    $neededBy = $showroomSweetsRequest->needed_by
+        ? $showroomSweetsRequest->needed_by->copy()->startOfDay()
+        : null;
+
+    $daysUntilNeeded = $neededBy
+        ? today()->diffInDays($neededBy, false)
+        : null;
+
+    [$dueTone, $dueLabel] = match (true) {
+        $isTerminal => ['done', 'الطلب منتهٍ'],
+        $daysUntilNeeded === null => ['neutral', 'موعد الحاجة غير محدد'],
+        $daysUntilNeeded < 0 => [
+            'late',
+            'متأخر ' . abs($daysUntilNeeded) . ' يوم',
+        ],
+        $daysUntilNeeded === 0 => ['today', 'مطلوب اليوم'],
+        $daysUntilNeeded === 1 => ['soon', 'مطلوب غدًا'],
+        default => [
+            'neutral',
+            'متبقي ' . $daysUntilNeeded . ' أيام',
+        ],
+    };
+
+    $totalQuantity = $showroomSweetsRequest
+        ->items
+        ->sum('quantity');
 @endphp
 
 
@@ -848,6 +1130,18 @@
                 {{ $statusLabel }}
             </span>
 
+            @can('showroom_sweets_requests.update_status')
+                @if(count($allowedTransitions) > 0)
+                    <button
+                        type="button"
+                        class="btn btn-gold btn-sm"
+                        onclick="openShowroomSweetsStatusModal()"
+                    >
+                        تحديث الحالة
+                    </button>
+                @endif
+            @endcan
+
 
             @if($canCancel)
 
@@ -881,6 +1175,17 @@
 
         </div>
 
+    </div>
+
+    <div class="request-due-alert {{ $dueTone }}">
+        <div>
+            <span class="request-due-kicker">موعد الطلب</span>
+            <strong>{{ $dueLabel }}</strong>
+        </div>
+
+        <div class="request-due-date">
+            {{ $showroomSweetsRequest->needed_by?->format('Y-m-d') ?? '—' }}
+        </div>
     </div>
 
 
@@ -1050,6 +1355,18 @@
 
 
     {{-- =========================================================
+         مسار الطلب
+    ========================================================== --}}
+
+    <div class="workflow-section">
+        <x-workflow-toolbar
+            type="showroom_sweets"
+            :record="$showroomSweetsRequest"
+        />
+    </div>
+
+
+    {{-- =========================================================
          المحتوى
     ========================================================== --}}
 
@@ -1060,12 +1377,6 @@
         ====================================================== --}}
 
         <div class="request-panel">
-
-
-                                          <x-workflow-toolbar
-    type="showroom_sweets"
-    :record="$showroomSweetsRequest"
-/>
 
             <div class="request-panel-header">
 
@@ -1437,101 +1748,181 @@
             </div>
 
 
-            {{-- =================================================
-                 تحديث الحالة
-            ================================================== --}}
-
-            @can('showroom_sweets_requests.update_status')
-
-                @if(count($allowedTransitions) > 0)
-
-                    <div class="request-panel status-update-panel">
-
-                        <div class="request-panel-header">
-
-                            <div class="request-panel-title">
-                                تحديث حالة الطلب
-                            </div>
-
-                        </div>
-
-
-                        <div class="request-panel-body">
-
-                            <form
-                                action="{{ route('showroom-sweets-requests.status', $showroomSweetsRequest) }}"
-                                method="POST"
-                                class="status-update-form"
-                            >
-
-                                @csrf
-                                @method('PATCH')
-
-
-                                <div class="form-group">
-
-                                    <label class="form-label">
-                                        الحالة الجديدة
-                                    </label>
-
-                                    <select
-                                        name="status"
-                                        class="form-select"
-                                        required
-                                    >
-
-                                        @foreach($allowedTransitions as $nextStatus)
-
-                                            <option
-                                                value="{{ $nextStatus->value }}"
-                                            >
-                                                {{ $nextStatus->label() }}
-                                            </option>
-
-                                        @endforeach
-
-                                    </select>
-
-                                </div>
-
-
-                                <div class="form-group">
-
-                                    <label class="form-label">
-                                        ملاحظات المصنع
-                                    </label>
-
-                                    <textarea
-                                        name="factory_notes"
-                                        class="form-textarea"
-                                        rows="4"
-                                        placeholder="مثال: سيتم تجهيز 3 صدور بقلاوة صباحًا..."
-                                    >{{ old('factory_notes', $showroomSweetsRequest->factory_notes) }}</textarea>
-
-                                </div>
-
-
-                                <button
-                                    class="btn btn-gold status-update-button"
-                                    type="submit"
-                                >
-                                    تحديث حالة الطلب
-                                </button>
-
-                            </form>
-
-                        </div>
-
-                    </div>
-
-                @endif
-
-            @endcan
-
         </div>
 
     </div>
 
 </div>
 
+{{-- =========================================================
+     Popup تحديث حالة الطلب
+========================================================= --}}
+
+@can('showroom_sweets_requests.update_status')
+    @if(count($allowedTransitions) > 0)
+        <div
+            id="showroomSweetsStatusModal"
+            class="status-modal"
+            aria-hidden="true"
+            onclick="closeShowroomSweetsStatusModalFromBackdrop(event)"
+        >
+            <div
+                class="status-modal-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="showroomSweetsStatusModalTitle"
+            >
+                <div class="status-modal-header">
+                    <div>
+                        <span class="status-modal-eyebrow">
+                            تحديث العملية
+                        </span>
+
+                        <h3 id="showroomSweetsStatusModalTitle">
+                            تحديث حالة طلب الحلويات
+                        </h3>
+
+                        <p>
+                            طلب رقم
+                            <strong>
+                                {{ $showroomSweetsRequest->request_number }}
+                            </strong>
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="status-modal-close"
+                        onclick="closeShowroomSweetsStatusModal()"
+                        aria-label="إغلاق"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div class="status-current-box">
+                    <span>الحالة الحالية</span>
+                    <strong>{{ $statusLabel }}</strong>
+                </div>
+
+                <form
+                    action="{{ route('showroom-sweets-requests.status', $showroomSweetsRequest) }}"
+                    method="POST"
+                >
+                    @csrf
+                    @method('PATCH')
+
+                    <div class="status-modal-body">
+                        <div class="form-group">
+                            <label class="form-label">
+                                الانتقال إلى
+                            </label>
+
+                            <div class="status-choice-grid">
+                                @foreach($allowedTransitions as $nextStatus)
+                                    <label class="status-choice">
+                                        <input
+                                            type="radio"
+                                            name="status"
+                                            value="{{ $nextStatus->value }}"
+                                            required
+                                            @checked($loop->first)
+                                        >
+
+                                        <span>
+                                            <strong>
+                                                {{ $nextStatus->label() }}
+                                            </strong>
+
+                                            <small>
+                                                اختر هذه المرحلة كحالة جديدة للطلب
+                                            </small>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">
+                                ملاحظة
+                                <span style="font-weight:500;color:var(--text-muted)">
+                                    (اختياري)
+                                </span>
+                            </label>
+
+                            <textarea
+                                name="factory_notes"
+                                class="form-textarea"
+                                rows="3"
+                                placeholder="مثال: تم تجهيز الطلب وسيكون جاهزًا للاستلام..."
+                            >{{ old('factory_notes', $showroomSweetsRequest->factory_notes) }}</textarea>
+                        </div>
+                    </div>
+
+                    <div class="status-modal-footer">
+                        <button
+                            type="button"
+                            class="btn btn-ghost"
+                            onclick="closeShowroomSweetsStatusModal()"
+                        >
+                            إلغاء
+                        </button>
+
+                        <button
+                            class="btn btn-gold"
+                            type="submit"
+                        >
+                            تأكيد تحديث الحالة
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+@endcan
+
+
+
+@can('showroom_sweets_requests.update_status')
+    @if(count($allowedTransitions) > 0)
+        <script>
+            function openShowroomSweetsStatusModal() {
+                const modal = document.getElementById(
+                    'showroomSweetsStatusModal'
+                );
+
+                if (!modal) return;
+
+                modal.classList.add('is-open');
+                modal.setAttribute('aria-hidden', 'false');
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeShowroomSweetsStatusModal() {
+                const modal = document.getElementById(
+                    'showroomSweetsStatusModal'
+                );
+
+                if (!modal) return;
+
+                modal.classList.remove('is-open');
+                modal.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+            }
+
+            function closeShowroomSweetsStatusModalFromBackdrop(event) {
+                if (event.target.id === 'showroomSweetsStatusModal') {
+                    closeShowroomSweetsStatusModal();
+                }
+            }
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape') {
+                    closeShowroomSweetsStatusModal();
+                }
+            });
+        </script>
+    @endif
+@endcan
 @endsection
