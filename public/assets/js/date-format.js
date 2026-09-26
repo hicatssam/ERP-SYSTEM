@@ -203,8 +203,68 @@
             && test.getUTCDate() === parts.day;
     };
 
+    const dateTimePartsInSystemTimezone = value => {
+        try {
+            const parsed = new Date(value);
+
+            if (Number.isNaN(parsed.getTime())) {
+                return null;
+            }
+
+            const formatter = new Intl.DateTimeFormat(
+                'en-CA',
+                {
+                    timeZone: timezone,
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hourCycle: 'h23',
+                }
+            );
+
+            const values = Object.fromEntries(
+                formatter
+                    .formatToParts(parsed)
+                    .map(part => [
+                        part.type,
+                        part.value,
+                    ])
+            );
+
+            const parts = {
+                year: Number(values.year),
+                month: Number(values.month),
+                day: Number(values.day),
+                hour: Number(values.hour),
+                minute: Number(values.minute),
+            };
+
+            return validParts(parts)
+                ? parts
+                : null;
+        } catch (_) {
+            return null;
+        }
+    };
+
+    const formatZonedIsoDates = text => text.replace(
+        /(?<!\d)(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d{1,6})?(?:Z|[+-]\d{2}:?\d{2}))(?!\d)/g,
+        original => {
+            const parts =
+                dateTimePartsInSystemTimezone(
+                    original
+                );
+
+            return parts
+                ? dateTimeText(parts)
+                : original;
+        }
+    );
+
     const formatIsoDates = text => text.replace(
-        /(?<!\d)(\d{4})[-\/](\d{2})[-\/](\d{2})(?:\s*(?:·|—|-)?\s*(\d{1,2}):(\d{2})(?::\d{2})?)?(?!\d)/g,
+        /(?<!\d)(\d{4})[-\/](\d{2})[-\/](\d{2})(?:(?:T|\s+(?:·|—|-)?\s*)(\d{1,2}):(\d{2})(?::\d{2})?)?(?!\d)/g,
         (
             original,
             year,
@@ -290,7 +350,8 @@
     };
 
     const formatText = text => {
-        let output = formatIsoDates(text);
+        let output = formatZonedIsoDates(text);
+        output = formatIsoDates(output);
         output = formatSlashDates(output);
         output = formatStandaloneTime(output);
 
