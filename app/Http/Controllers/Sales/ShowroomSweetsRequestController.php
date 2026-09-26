@@ -567,6 +567,93 @@ class ShowroomSweetsRequestController extends Controller
         );
     }
 
+    public function updateItemReservation(
+        Request $request,
+        ShowroomSweetsRequest $showroomSweetsRequest,
+        ShowroomSweetsRequestItem $item
+    ) {
+        /** @var User $user */
+        $user = Auth::user();
+
+        $this->ensureCanAccess(
+            $user,
+            $showroomSweetsRequest
+        );
+
+        abort_unless(
+            (int) $item->showroom_sweets_request_id
+                === (int) $showroomSweetsRequest->id,
+            404
+        );
+
+        $canManageReservation =
+            $user->isAdmin()
+            || (
+                $user->can(
+                    'showroom_sweets_requests.create'
+                )
+                && in_array(
+                    (int) $showroomSweetsRequest
+                        ->requesting_location_id,
+                    $this->userLocationIds($user),
+                    true
+                )
+            );
+
+        abort_unless(
+            $canManageReservation,
+            403,
+            'تعديل حجوزات العملاء متاح للفرع الطالب فقط.'
+        );
+
+        if ($showroomSweetsRequest->status->isTerminal()) {
+            return back()->with(
+                'error',
+                'لا يمكن تعديل حجوزات العملاء بعد انتهاء الطلب.'
+            );
+        }
+
+        $validated = $request->validate([
+            'reserved_quantity' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+            'reservation_notes' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+        ]);
+
+        if (
+            (float) $validated['reserved_quantity']
+            > (float) $item->quantity
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'reserved_quantity' =>
+                    'الكمية المحجوزة للعملاء لا يمكن أن تتجاوز الكمية المطلوبة.',
+            ]);
+        }
+
+        $item->update([
+            'reserved_quantity' =>
+                (float) $validated[
+                    'reserved_quantity'
+                ],
+            'reservation_notes' =>
+                $validated[
+                    'reservation_notes'
+                ]
+                ?? null,
+        ]);
+
+        return back()->with(
+            'success',
+            'تم تحديث كمية الحجز للعملاء.'
+        );
+    }
+
     public function updateStatus(
         Request $request,
         ShowroomSweetsRequest
