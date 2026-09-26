@@ -6,11 +6,17 @@
     $printedAt = now();
 
     $dateFromFormatted = ! empty($dateFrom)
-        ? \Carbon\Carbon::parse($dateFrom)->format('d/m/Y')
+        ? \App\Support\ArabicDate::date(
+            $dateFrom,
+            false
+        )
         : '—';
 
     $dateToFormatted = ! empty($dateTo)
-        ? \Carbon\Carbon::parse($dateTo)->format('d/m/Y')
+        ? \App\Support\ArabicDate::date(
+            $dateTo,
+            false
+        )
         : '—';
 
     $reportRows = collect($rows ?? []);
@@ -32,16 +38,28 @@
         return (string) ($value ?? '—');
     };
 
-    $dateValue = static function ($value, string $format = 'd/m/Y'): string {
+    $dateValue = static function (
+        $value,
+        string $format = 'd/m/Y'
+    ): string {
         if (empty($value)) {
             return '—';
         }
 
-        try {
-            return \Carbon\Carbon::parse($value)->format($format);
-        } catch (\Throwable) {
-            return (string) $value;
-        }
+        $withTime =
+            str_contains($format, 'H')
+            || str_contains($format, 'h')
+            || str_contains($format, 'i');
+
+        return $withTime
+            ? \App\Support\ArabicDate::dateTime(
+                $value,
+                false
+            )
+            : \App\Support\ArabicDate::date(
+                $value,
+                false
+            );
     };
 
     $money = static function ($value) use ($reportPrintTheme): string {
@@ -273,7 +291,13 @@
 
 @section('document_title', $title ?? 'تقرير')
 @section('document_number', '')
-@section('document_date', $printedAt->format('Y-m-d'))
+@section(
+    'document_date',
+    \App\Support\ArabicDate::dateTime(
+        $printedAt,
+        false
+    )
+)
 
 @section(
     'document_subtitle',
