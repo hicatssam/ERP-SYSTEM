@@ -584,15 +584,29 @@ Route::post(
 });
         // ─── Reports ───────────────────────────────────────────────────────
         Route::middleware('can:reports.view')->group(function () {
-            Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-            Route::get('reports/{type}', [ReportController::class, 'show'])->name('reports.show');
-            Route::get('reports/{type}/count', [ReportController::class, 'count'])->name('reports.count');
-            Route::get('reports/{type}/export/pdf', [ReportController::class, 'exportPdf'])->name('reports.export.pdf');
-            Route::get('reports/{type}/export/xlsx', [ReportController::class, 'exportXlsx'])->name('reports.export.xlsx');
+            Route::get('reports', [ReportController::class, 'index'])
+                ->name('reports.index');
+            Route::get('reports/{type}', [ReportController::class, 'show'])
+                ->name('reports.show');
+            Route::get('reports/{type}/count', [ReportController::class, 'count'])
+                ->name('reports.count');
+        });
 
-            // طباعة التقرير كامل حسب الفلاتر الحالية
-            Route::get('reports/{type}/print', [ReportController::class, 'printReport'])
-                ->name('reports.print');
+        Route::middleware('can:reports.export')->group(function () {
+            Route::get(
+                'reports/{type}/export/pdf',
+                [ReportController::class, 'exportPdf']
+            )->name('reports.export.pdf');
+
+            Route::get(
+                'reports/{type}/export/xlsx',
+                [ReportController::class, 'exportXlsx']
+            )->name('reports.export.xlsx');
+
+            Route::get(
+                'reports/{type}/print',
+                [ReportController::class, 'printReport']
+            )->name('reports.print');
         });
 
         // ─── Report Schedules ──────────────────────────────────────────────
