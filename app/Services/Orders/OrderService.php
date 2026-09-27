@@ -332,7 +332,7 @@ private function createPaymentIfNeeded(Order $order, array $data, ?int $location
 
     $proofPath = null;
     if (! empty($data['payment_proof']) && $data['payment_proof'] instanceof \Illuminate\Http\UploadedFile) {
-        $proofPath = $data['payment_proof']->store('payment-proofs', 'public');
+        $proofPath = $data['payment_proof']->store('payment-proofs', 'local');
     }
 
     \App\Models\Payment::create([
