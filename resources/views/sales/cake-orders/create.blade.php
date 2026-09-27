@@ -26,6 +26,68 @@
     @csrf
     <div style="display:grid;gap:1.5rem;max-width:1000px">
 
+        @if($canChooseBranch)
+            <div class="card branch-owner-card">
+                <div class="card-header">
+                    <span class="card-title">
+                        الفرع صاحب الطلب
+                    </span>
+                </div>
+
+                <div class="card-body">
+                    <div class="form-group">
+                        <label
+                            class="form-label"
+                            for="originBranchSelect"
+                        >
+                            اختر الفرع *
+                        </label>
+
+                        <select
+                            id="originBranchSelect"
+                            name="origin_branch_id"
+                            class="form-select @error('origin_branch_id') is-invalid @enderror"
+                            required
+                            data-create-url="{{ route('cake-orders.create') }}"
+                        >
+                            <option value="">
+                                اختر الفرع صاحب الطلب
+                            </option>
+
+                            @foreach($branches as $branchOption)
+                                <option
+                                    value="{{ $branchOption->id }}"
+                                    @selected(
+                                        (string) old(
+                                            'origin_branch_id',
+                                            $branch?->id
+                                        )
+                                        === (string) $branchOption->id
+                                    )
+                                >
+                                    {{ $branchOption->name }}
+                                </option>
+                            @endforeach
+                        </select>
+
+                        <small class="form-help">
+                            العملاء وطرق الدفع والحسابات أدناه تتبع الفرع المحدد فقط.
+                        </small>
+
+                        @error('origin_branch_id')
+                            <span class="form-error">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    @unless($branch)
+                        <div class="branch-required-note">
+                            اختر الفرع أولًا حتى يتم تحميل العملاء وطرق الدفع الصحيحة.
+                        </div>
+                    @endunless
+                </div>
+            </div>
+        @endif
+
         {{-- Customer & Delivery --}}
         <div class="card">
             <div class="card-header"><span class="card-title">بيانات العميل والتسليم</span></div>
@@ -33,7 +95,12 @@
                 <div class="form-group">
                     <div class="customer-field-heading">
                         <label class="form-label" for="customerSelect">العميل *</label>
-                        <button type="button" class="quick-customer-trigger" id="openQuickCustomer">
+                        <button
+                            type="button"
+                            class="quick-customer-trigger"
+                            id="openQuickCustomer"
+                            @disabled($canChooseBranch && ! $branch)
+                        >
                             <span aria-hidden="true">＋</span>
                             عميل جديد
                         </button>
@@ -428,7 +495,13 @@
         </div>
 
         <div style="display:flex;gap:.75rem">
-            <button class="btn btn-gold" type="submit">إنشاء الطلب</button>
+            <button
+                class="btn btn-gold"
+                type="submit"
+                @disabled($canChooseBranch && ! $branch)
+            >
+                إنشاء الطلب
+            </button>
             <a href="{{ route('cake-orders.index') }}" class="btn btn-ghost">إلغاء</a>
         </div>
     </div>
@@ -469,6 +542,8 @@
 
 <style>
 .cake-grid{display:grid;gap:1rem}
+.branch-owner-card{border:1px solid rgba(212,175,55,.42)}
+.branch-required-note{margin-top:.75rem;padding:.75rem .9rem;color:#9a6700;background:#fff8dd;border:1px solid #f6d778;border-radius:10px;font-size:.82rem;font-weight:700}
 .customer-field-heading{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
 .quick-customer-trigger{display:inline-flex;align-items:center;gap:.25rem;padding:.3rem .6rem;color:var(--gold);background:rgba(212,175,55,.08);border:1px solid rgba(212,175,55,.45);border-radius:999px;font:inherit;font-size:.78rem;font-weight:800;cursor:pointer}
 .quick-customer-trigger:hover{background:rgba(212,175,55,.16)}
@@ -581,6 +656,37 @@ document.addEventListener('DOMContentLoaded', () => {
     );
 
     syncUrgentDelivery();
+
+    // ── Admin branch owner ─────────────────────────────────────────────────
+    const originBranchSelect =
+        document.getElementById(
+            'originBranchSelect'
+        );
+
+    originBranchSelect?.addEventListener(
+        'change',
+        () => {
+            const branchId =
+                originBranchSelect.value;
+
+            const target = new URL(
+                originBranchSelect.dataset.createUrl,
+                window.location.origin
+            );
+
+            if (branchId) {
+                target.searchParams.set(
+                    'branch_id',
+                    branchId
+                );
+            }
+
+            window.location.assign(
+                target.toString()
+            );
+        }
+    );
+
     // ── Quick customer ───────────────────────────────────────────────────────
     const quickCustomerDialog = document.getElementById('quickCustomerDialog');
     const quickCustomerForm = document.getElementById('quickCustomerForm');
@@ -610,7 +716,20 @@ document.addEventListener('DOMContentLoaded', () => {
         quickCustomerSave.disabled = true;
         quickCustomerSave.textContent = 'جارٍ الحفظ...';
 
-        const payload = new FormData(quickCustomerForm);
+        const payload = new FormData(
+            quickCustomerForm
+        );
+
+        const selectedOriginBranch =
+            originBranchSelect?.value
+            || @json($branch?->id);
+
+        if (selectedOriginBranch) {
+            payload.set(
+                'origin_branch_id',
+                selectedOriginBranch
+            );
+        }
 
         try {
             const response = await fetch(@json(route('cake-orders.customers.quick-store')), {
