@@ -423,20 +423,39 @@ Route::post(
     [SpecialCakeOrderController::class, 'addAttachment']
 )->name('cake-orders.attachment')
     ->middleware('can:cake_orders.view');
-        // ─── Showroom Cake Requests (طلبات المعرض) ─────────────────────────
+        // ─── Showroom Cake Requests (طلبات كيك الفروع) ─────────────────────
         Route::middleware('can:showroom_cake_requests.view')->group(function () {
-            Route::resource('showroom-cake-requests', ShowroomCakeRequestController::class)
-                ->except(['edit', 'update']);
+            Route::resource(
+                'showroom-cake-requests',
+                ShowroomCakeRequestController::class
+            )->only(['index', 'show']);
+        });
 
-            Route::patch('showroom-cake-requests/{showroomCakeRequest}/status', [ShowroomCakeRequestController::class, 'updateStatus'])
-                ->name('showroom-cake-requests.status')
-                ->middleware('can:showroom_cake_requests.update_status');
+        Route::middleware('can:showroom_cake_requests.create')->group(function () {
+            Route::resource(
+                'showroom-cake-requests',
+                ShowroomCakeRequestController::class
+            )->only(['create', 'store']);
 
             Route::patch(
                 'showroom-cake-requests/{showroomCakeRequest}/items/{item}/reservation',
                 [ShowroomCakeRequestController::class, 'updateItemReservation']
             )->name('showroom-cake-requests.items.reservation');
         });
+
+        Route::patch(
+            'showroom-cake-requests/{showroomCakeRequest}/status',
+            [ShowroomCakeRequestController::class, 'updateStatus']
+        )
+            ->name('showroom-cake-requests.status')
+            ->middleware('can:showroom_cake_requests.update_status');
+
+        Route::delete(
+            'showroom-cake-requests/{showroomCakeRequest}',
+            [ShowroomCakeRequestController::class, 'destroy']
+        )
+            ->name('showroom-cake-requests.destroy')
+            ->middleware('can:showroom_cake_requests.delete');
 
         // ─── Showroom Sweets Requests (طلبات حلويات الفروع) ───────────────
         Route::get('showroom-sweets-requests', [ShowroomSweetsRequestController::class, 'index'])
