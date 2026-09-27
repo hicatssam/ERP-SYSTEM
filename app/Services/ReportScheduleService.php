@@ -13,9 +13,6 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ReportScheduleService
 {
-    /** Maximum rows included in a scheduled Excel export. */
-    private const CAP = 10000;
-
     /**
      * Generate the Excel attachment and send the report email(s) for
      * a given schedule. Throws on failure — callers should handle exceptions.
@@ -42,23 +39,53 @@ class ReportScheduleService
             $schedule->report_type, $row,
         ]);
 
-        $total     = $this->countRows(clone $query);
-        $truncated = $total > self::CAP;
+        $cap = (int) config(
+            'reports.xlsx_row_cap',
+            10000
+        );
+
+        $total = $this->countRows(
+            clone $query
+        );
+
+        $truncated = $total > $cap;
 
         $filename = "{$schedule->report_type}_{$dateFrom}_{$dateTo}.xlsx";
         $tmpPath  = sys_get_temp_dir() . '/' . uniqid('rpt_', true) . '_' . $filename;
 
         $content = Excel::raw(
-            new ChunkedQueryReportExport($query, $columns, $title, $mapper, self::CAP, $truncated),
+            new ChunkedQueryReportExport(
+                $query,
+                $columns,
+                $title,
+                $mapper,
+                $cap,
+                $truncated
+            ),
             \Maatwebsite\Excel\Excel::XLSX,
         );
 
         file_put_contents($tmpPath, $content);
 
         try {
-            $mailable = new ScheduledReportMail($schedule, $tmpPath, $filename, $dateFrom, $dateTo);
-            foreach ($schedule->recipientList() as $email) {
-                Mail::to($email)->send($mailable);
+            foreach (
+                $schedule->recipientList()
+                as $email
+            ) {
+                /*
+                 * Use a fresh Mailable per recipient. Reusing one Mailable
+                 * instance can retain recipient state between sends and is not
+                 * appropriate for reports that may contain financial data.
+                 */
+                Mail::to($email)->send(
+                    new ScheduledReportMail(
+                        $schedule,
+                        $tmpPath,
+                        $filename,
+                        $dateFrom,
+                        $dateTo
+                    )
+                );
             }
         } finally {
             @unlink($tmpPath);
