@@ -8,6 +8,40 @@ use Tests\TestCase;
 
 class CriticalRouteIntegrityTest extends TestCase
 {
+    public function test_registered_routes_do_not_use_closure_actions(): void
+    {
+        foreach (Route::getRoutes() as $route) {
+            $action = $route->getAction('uses');
+
+            $this->assertFalse(
+                $action instanceof \Closure,
+                "Route [{$route->uri()}] uses a Closure action and cannot be safely route-cached."
+            );
+        }
+    }
+
+    public function test_public_root_route_is_registered_once_as_named_home(): void
+    {
+        $rootRoutes = collect(Route::getRoutes())
+            ->filter(
+                fn ($route): bool =>
+                    in_array('GET', $route->methods(), true)
+                    && $route->uri() === '/'
+            )
+            ->values();
+
+        $this->assertCount(
+            1,
+            $rootRoutes,
+            'GET / must have exactly one registered route.'
+        );
+
+        $this->assertSame(
+            'home',
+            $rootRoutes->first()->getName()
+        );
+    }
+
     public function test_every_controller_route_targets_an_existing_public_method(): void
     {
         foreach (Route::getRoutes() as $route) {
