@@ -108,6 +108,11 @@ $brandName =
 
     $chatEnabled = $moduleEnabled('chat');
 
+    $notificationSoundEnabled = (bool) \App\Models\SystemSetting::get(
+        'notification_sound_enabled',
+        true
+    );
+
 @endphp
 
 <!DOCTYPE html>
@@ -2104,7 +2109,7 @@ a.app-page-btn:hover {
 
                 <div class="nav-section">
 
-                    <div class="nav-section-title">التقارير</div>
+                    <div class="nav-section-title">التحليلات والتقارير</div>
 
                     <a href="{{ route('reports.index') }}"
 
@@ -2707,7 +2712,12 @@ a.app-page-btn:hover {
 
             let audioUnlocked = false;
 
-            let soundEnabled = localStorage.getItem('dahab_notification_sound') !== 'off';
+            const notificationSoundGloballyEnabled = @json($notificationSoundEnabled);
+            const storedSoundPreference = localStorage.getItem('dahab_notification_sound');
+
+            let soundEnabled =
+                notificationSoundGloballyEnabled
+                && storedSoundPreference !== 'off';
 
             const escapeHtml = (value) => {
 
@@ -2963,9 +2973,16 @@ a.app-page-btn:hover {
 
             window.setDahabNotificationSound = (enabled) => {
 
-                soundEnabled = Boolean(enabled);
+                const userEnabled = Boolean(enabled);
 
-                localStorage.setItem('dahab_notification_sound', soundEnabled ? 'on' : 'off');
+                localStorage.setItem(
+                    'dahab_notification_sound',
+                    userEnabled ? 'on' : 'off'
+                );
+
+                soundEnabled =
+                    notificationSoundGloballyEnabled
+                    && userEnabled;
 
                 if (soundEnabled) unlockAudio();
 
