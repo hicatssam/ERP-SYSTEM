@@ -8,6 +8,7 @@ Route::middleware([
     'auth',
     'location.scope',
     'password.changed',
+    'can:settings.manage',
 ])->group(function (): void {
     Route::get('/settings/modules', [ModuleController::class, 'index'])
         ->name('modules.index');
