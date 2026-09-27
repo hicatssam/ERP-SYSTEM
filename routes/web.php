@@ -166,18 +166,49 @@ Route::prefix('locations/{location}')
         )->name('destroy');
     });
     
-        // ─── Categories ────────────────────────────────────────────────────
+        // ─── Categories & Products ─────────────────────────────────────────
+        // Read-only catalog access.
         Route::middleware('can:products.view')->group(function () {
-            Route::resource('categories', CategoryController::class);
-            Route::post('categories/{category}/toggle-status', [CategoryController::class, 'toggleStatus'])->name('categories.toggle-status');
+            Route::resource('categories', CategoryController::class)
+                ->only(['index', 'show']);
+
+            Route::resource('products', ProductController::class)
+                ->only(['index', 'show']);
+
+            Route::resource('products.location-products', LocationProductController::class)
+                ->only(['index'])
+                ->shallow();
         });
 
-        // ─── Products ──────────────────────────────────────────────────────
-        Route::middleware('can:products.view')->group(function () {
-            Route::resource('products', ProductController::class);
-            Route::post('products/{product}/toggle-status', [ProductController::class, 'toggleStatus'])->name('products.toggle-status');
+        // Catalog creation.
+        Route::middleware('can:products.create')->group(function () {
+            Route::resource('categories', CategoryController::class)
+                ->only(['create', 'store']);
+
+            Route::resource('products', ProductController::class)
+                ->only(['create', 'store']);
+        });
+
+        // Catalog changes, availability and branch-specific settings.
+        Route::middleware('can:products.update')->group(function () {
+            Route::resource('categories', CategoryController::class)
+                ->only(['edit', 'update', 'destroy']);
+
+            Route::post(
+                'categories/{category}/toggle-status',
+                [CategoryController::class, 'toggleStatus']
+            )->name('categories.toggle-status');
+
+            Route::resource('products', ProductController::class)
+                ->only(['edit', 'update', 'destroy']);
+
+            Route::post(
+                'products/{product}/toggle-status',
+                [ProductController::class, 'toggleStatus']
+            )->name('products.toggle-status');
+
             Route::resource('products.location-products', LocationProductController::class)
-                ->only(['index', 'store', 'update', 'destroy'])
+                ->only(['store', 'update', 'destroy'])
                 ->shallow();
         });
 
