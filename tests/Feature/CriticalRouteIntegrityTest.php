@@ -34,6 +34,44 @@ class CriticalRouteIntegrityTest extends TestCase
         }
     }
 
+    public function test_catalog_routes_separate_view_create_and_update_permissions(): void
+    {
+        $expectations = [
+            'products.index' => 'can:products.view',
+            'products.show' => 'can:products.view',
+            'products.create' => 'can:products.create',
+            'products.store' => 'can:products.create',
+            'products.edit' => 'can:products.update',
+            'products.update' => 'can:products.update',
+            'products.destroy' => 'can:products.update',
+            'products.toggle-status' => 'can:products.update',
+
+            'categories.index' => 'can:products.view',
+            'categories.show' => 'can:products.view',
+            'categories.create' => 'can:products.create',
+            'categories.store' => 'can:products.create',
+            'categories.edit' => 'can:products.update',
+            'categories.update' => 'can:products.update',
+            'categories.destroy' => 'can:products.update',
+            'categories.toggle-status' => 'can:products.update',
+        ];
+
+        foreach ($expectations as $name => $middleware) {
+            $route = Route::getRoutes()->getByName($name);
+
+            $this->assertNotNull(
+                $route,
+                "Catalog route [{$name}] is not registered."
+            );
+
+            $this->assertContains(
+                $middleware,
+                $route->gatherMiddleware(),
+                "Catalog route [{$name}] must require [{$middleware}]."
+            );
+        }
+    }
+
     public function test_location_payment_account_routes_require_management_permission(): void
     {
         foreach ([
