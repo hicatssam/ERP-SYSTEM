@@ -192,7 +192,7 @@ class ProductionPreflight extends Command
                 DB::connection()->getDatabaseName()
             );
         } catch (Throwable $e) {
-            $this->fail(
+            $this->recordFailure(
                 'Database connection',
                 $e->getMessage()
             );
@@ -201,7 +201,7 @@ class ProductionPreflight extends Command
         }
 
         if (! Schema::hasTable('migrations')) {
-            $this->fail(
+            $this->recordFailure(
                 'Migrations table',
                 'migrations table is missing.'
             );
@@ -233,13 +233,13 @@ class ProductionPreflight extends Command
                     'none'
                 );
             } else {
-                $this->fail(
+                $this->recordFailure(
                     'Pending migrations',
                     implode(', ', $pending)
                 );
             }
         } catch (Throwable $e) {
-            $this->fail(
+            $this->recordFailure(
                 'Pending migrations',
                 $e->getMessage()
             );
@@ -318,7 +318,7 @@ class ProductionPreflight extends Command
             return;
         }
 
-        $this->fail(
+        $this->recordFailure(
             'Known demo passwords',
             'Rotate immediately: '
                 . implode(
@@ -444,7 +444,7 @@ class ProductionPreflight extends Command
             return;
         }
 
-        $this->fail(
+        $this->recordFailure(
             $check,
             $failureDetails
         );
@@ -474,7 +474,7 @@ class ProductionPreflight extends Command
         ];
     }
 
-    private function fail(
+    private function recordFailure(
         string $check,
         string $details
     ): void {
