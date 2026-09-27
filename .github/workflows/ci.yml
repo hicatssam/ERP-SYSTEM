@@ -1,0 +1,60 @@
+name: ERP CI
+
+on:
+  push:
+    branches:
+      - main
+      - codex/order-bank-transfer-entry
+  pull_request:
+
+concurrency:
+  group: erp-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, pdo_sqlite, sqlite3, intl, gd, zip
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php -r "file_exists('database/database.sqlite') || touch('database/database.sqlite');"
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate app key
+        run: php artisan key:generate
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Run test suite
+        run: php artisan test
+
+      - name: Verify production caches
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan optimize:clear
