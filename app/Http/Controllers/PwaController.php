@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Location;
 use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -22,13 +24,13 @@ class PwaController extends Controller
         $version = $this->brandVersion();
 
         return response()->json([
-            'id' => '/dashboard',
+            'id' => '/staff-app',
             'name' => $name,
             'short_name' => mb_substr($name, 0, 12),
             'description' => 'نظام الإدارة والتشغيل',
             'lang' => 'ar',
             'dir' => 'rtl',
-            'start_url' => '/dashboard?source=pwa',
+            'start_url' => route('pwa.start', ['source' => 'pwa'], false),
             'scope' => '/',
             'display' => 'standalone',
             'orientation' => 'any',
@@ -52,6 +54,17 @@ class PwaController extends Controller
             'Content-Type' => 'application/manifest+json; charset=UTF-8',
             'Cache-Control' => 'no-cache, no-store, must-revalidate',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    public function start(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if ($user && $user->can('dashboard.view')) {
+            return redirect()->route('dashboard');
+        }
+
+        return redirect()->route('profile.show');
     }
 
     /**
