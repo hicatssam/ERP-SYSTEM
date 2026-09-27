@@ -34,6 +34,29 @@ class CriticalRouteIntegrityTest extends TestCase
         }
     }
 
+    public function test_location_payment_account_routes_require_management_permission(): void
+    {
+        foreach ([
+            'locations.payment-accounts.index',
+            'locations.payment-accounts.store',
+            'locations.payment-accounts.update',
+            'locations.payment-accounts.destroy',
+        ] as $name) {
+            $route = Route::getRoutes()->getByName($name);
+
+            $this->assertNotNull(
+                $route,
+                "Payment account route [{$name}] is not registered."
+            );
+
+            $this->assertContains(
+                'can:payment_methods.manage',
+                $route->gatherMiddleware(),
+                "Payment account route [{$name}] must require payment_methods.manage."
+            );
+        }
+    }
+
     public function test_critical_workflow_routes_are_registered(): void
     {
         foreach ([
