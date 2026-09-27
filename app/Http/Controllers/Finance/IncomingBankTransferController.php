@@ -438,7 +438,7 @@ class IncomingBankTransferController extends Controller
             'payment_proof' => $proof
                 ? $proof->store(
                     'incoming-transfer-proofs',
-                    'public'
+                    'local'
                 )
                 : null,
             'notes' =>
@@ -599,13 +599,25 @@ class IncomingBankTransferController extends Controller
             'إثبات الحوالة غير موجود.'
         );
 
-        $disk = Storage::disk('public');
+        /*
+         * New financial proofs live on the private local disk. Keep a
+         * read-only fallback for legacy files that were historically stored
+         * under public/storage so existing records remain accessible.
+         */
+        $disk = Storage::disk('local');
 
-        abort_unless(
-            $disk->exists($path),
-            404,
-            'ملف إثبات الحوالة غير موجود.'
-        );
+        if (! $disk->exists($path)) {
+            $legacyDisk =
+                Storage::disk('public');
+
+            abort_unless(
+                $legacyDisk->exists($path),
+                404,
+                'ملف إثبات الحوالة غير موجود.'
+            );
+
+            $disk = $legacyDisk;
+        }
 
         return $disk->response(
             $path,
