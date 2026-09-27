@@ -265,15 +265,53 @@ class SpecialCakeOrderController extends Controller
         );
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        $user = Auth::user();
-        $branch = $user->primaryLocation();
+        /** @var User $user */
+        $user = $request->user();
 
-        $customers = Customer::query()
-            ->accessibleBy($user)
-            ->orderBy('name')
-            ->get();
+        $canChooseBranch = $user->isAdmin();
+
+        $branches = $canChooseBranch
+            ? Location::query()
+                ->branches()
+                ->active()
+                ->orderBy('name')
+                ->get()
+            : collect();
+
+        if ($canChooseBranch) {
+            $selectedBranchId = $request->integer(
+                'branch_id'
+            );
+
+            $branch = $selectedBranchId > 0
+                ? $branches->firstWhere(
+                    'id',
+                    $selectedBranchId
+                )
+                : null;
+        } else {
+            $branch = $user->primaryLocation();
+
+            abort_unless(
+                $branch
+                && $branch->isBranch()
+                && $branch->is_active,
+                403,
+                'يجب ربط المستخدم بفرع رئيسي فعال قبل إنشاء طلب الكيك.'
+            );
+        }
+
+        $customers = $branch
+            ? Customer::query()
+                ->where(
+                    'location_id',
+                    $branch->id
+                )
+                ->orderBy('name')
+                ->get()
+            : collect();
 
         $paymentMethods = collect();
         $paymentAccounts = collect();
@@ -281,41 +319,70 @@ class SpecialCakeOrderController extends Controller
         if ($branch) {
             $paymentMethods = PaymentMethod::query()
                 ->where('is_active', true)
-                ->whereHas('locationPaymentMethods', function ($query) use ($branch): void {
-                    $query
-                        ->where('location_id', $branch->id)
-                        ->where('is_active', true);
-                })
+                ->whereHas(
+                    'locationPaymentMethods',
+                    function ($query) use ($branch): void {
+                        $query
+                            ->where(
+                                'location_id',
+                                $branch->id
+                            )
+                            ->where(
+                                'is_active',
+                                true
+                            );
+                    }
+                )
                 ->orderBy('sort_order')
                 ->orderBy('name_ar')
                 ->get();
 
-            $paymentAccounts = LocationPaymentAccount::query()
-                ->where('location_id', $branch->id)
-                ->where('is_active', true)
-                ->whereIn('payment_method_id', $paymentMethods->pluck('id'))
-                ->orderBy('sort_order')
-                ->orderBy('id')
-                ->get()
-                ->groupBy('payment_method_id');
+            $paymentAccounts =
+                LocationPaymentAccount::query()
+                    ->where(
+                        'location_id',
+                        $branch->id
+                    )
+                    ->where(
+                        'is_active',
+                        true
+                    )
+                    ->whereIn(
+                        'payment_method_id',
+                        $paymentMethods->pluck('id')
+                    )
+                    ->orderBy('sort_order')
+                    ->orderBy('id')
+                    ->get()
+                    ->groupBy(
+                        'payment_method_id'
+                    );
         }
 
-        return view('sales.cake-orders.create', compact(
-            'customers',
-            'branch',
-            'paymentMethods',
-            'paymentAccounts'
-        ));
+        return view(
+            'sales.cake-orders.create',
+            compact(
+                'customers',
+                'branch',
+                'branches',
+                'canChooseBranch',
+                'paymentMethods',
+                'paymentAccounts'
+            )
+        );
     }
 
     public function quickStoreCustomer(Request $request): JsonResponse
     {
+        /** @var User $user */
         $user = $request->user();
-        $branch = $user->primaryLocation();
 
-        if (! $branch || ! $branch->isBranch() || ! $branch->is_active) {
-            abort(403, 'يجب ربط المستخدم بفرع رئيسي فعال قبل إضافة العميل.');
-        }
+        $branch = $this->resolveCreationBranch(
+            $user,
+            $request->input(
+                'origin_branch_id'
+            )
+        );
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:150'],
@@ -388,6 +455,22 @@ class SpecialCakeOrderController extends Controller
         }
 
       $validated = $request->validate([
+    'origin_branch_id' => [
+        Rule::requiredIf(
+            fn () => $request->user()->isAdmin()
+        ),
+        'nullable',
+        'integer',
+        Rule::exists('locations', 'id')
+            ->where(
+                fn ($query) =>
+                    $query
+                        ->where('type', 'branch')
+                        ->where('is_active', true)
+                        ->whereNull('deleted_at')
+            ),
+    ],
+
     'customer_id' => [
         'required',
         'exists:customers,id',
@@ -514,22 +597,32 @@ class SpecialCakeOrderController extends Controller
             $validated
         );
 
-        $branch = Auth::user()->primaryLocation();
+        /** @var User $user */
+        $user = $request->user();
 
-        if (! $branch) {
-            return back()
-                ->withErrors(['location' => 'يجب ربط المستخدم بفرع رئيسي قبل إنشاء طلب الكيك.'])
-                ->withInput();
-        }
+        $branch = $this->resolveCreationBranch(
+            $user,
+            $validated['origin_branch_id']
+                ?? null
+        );
 
-        $customerIsAvailable = Customer::query()
-            ->accessibleBy(Auth::user())
-            ->whereKey((int) $request->customer_id)
-            ->exists();
+        $customerIsAvailable =
+            Customer::query()
+                ->where(
+                    'location_id',
+                    $branch->id
+                )
+                ->whereKey(
+                    (int) $validated['customer_id']
+                )
+                ->exists();
 
         if (! $customerIsAvailable) {
             return back()
-                ->withErrors(['customer_id' => 'العميل المحدد غير متاح في فرع المستخدم.'])
+                ->withErrors([
+                    'customer_id' =>
+                        'العميل المحدد لا يتبع الفرع صاحب الطلب.',
+                ])
                 ->withInput();
         }
 
@@ -601,6 +694,7 @@ class SpecialCakeOrderController extends Controller
 
         $order = $this->cakeOrderService->createOrder(
     array_merge($request->all(), [
+        'origin_branch_id' => $branch->id,
         'discount_type'   => $discountType,
         'discount_value'  => $discountValue,
         'discount_amount' => $discountAmount,
@@ -967,4 +1061,42 @@ if (
 
         return back()->with('success', 'تم رفع المرفق بنجاح.');
     }
+    private function resolveCreationBranch(
+        User $user,
+        mixed $requestedBranchId = null
+    ): Location {
+        if ($user->isAdmin()) {
+            $branch = Location::query()
+                ->branches()
+                ->active()
+                ->find(
+                    (int) $requestedBranchId
+                );
+
+            if (! $branch) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'origin_branch_id' =>
+                        'اختر الفرع صاحب طلب الكيك قبل المتابعة.',
+                ]);
+            }
+
+            return $branch;
+        }
+
+        $branch = $user->primaryLocation();
+
+        if (
+            ! $branch
+            || ! $branch->isBranch()
+            || ! $branch->is_active
+        ) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'origin_branch_id' =>
+                    'يجب ربط المستخدم بفرع رئيسي فعال قبل إنشاء طلب الكيك.',
+            ]);
+        }
+
+        return $branch;
+    }
+
 }
