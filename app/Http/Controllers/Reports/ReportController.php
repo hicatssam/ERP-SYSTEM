@@ -153,10 +153,10 @@ class ReportController extends Controller
 
         return response()->json([
             'count'            => $total,
-            'xlsx_cap'         => (int) env('EXPORT_XLSX_ROW_CAP', self::XLSX_ROW_CAP),
-            'pdf_cap'          => (int) env('EXPORT_PDF_ROW_CAP',  self::PDF_ROW_CAP),
-            'exceeds_xlsx_cap' => $total > (int) env('EXPORT_XLSX_ROW_CAP', self::XLSX_ROW_CAP),
-            'exceeds_pdf_cap'  => $total > (int) env('EXPORT_PDF_ROW_CAP',  self::PDF_ROW_CAP),
+            'xlsx_cap'         => (int) config('reports.xlsx_row_cap', self::XLSX_ROW_CAP),
+            'pdf_cap'          => (int) config('reports.pdf_row_cap', self::PDF_ROW_CAP),
+            'exceeds_xlsx_cap' => $total > (int) config('reports.xlsx_row_cap', self::XLSX_ROW_CAP),
+            'exceeds_pdf_cap'  => $total > (int) config('reports.pdf_row_cap', self::PDF_ROW_CAP),
         ]);
     }
 
@@ -174,7 +174,7 @@ class ReportController extends Controller
 
         $locationIds = $this->resolveLocationIds($user, $locationId, $type);
 
-        $cap = (int) (env('EXPORT_XLSX_ROW_CAP', self::XLSX_ROW_CAP));
+        $cap = (int) config('reports.xlsx_row_cap', self::XLSX_ROW_CAP);
 
         [$columns, $query] = $this->buildExportQuery($type, $locationIds, $dateFrom, $dateTo);
 
@@ -210,7 +210,7 @@ class ReportController extends Controller
 
         $locationIds = $this->resolveLocationIds($user, $locationId, $type);
 
-        $cap = (int) env('EXPORT_PDF_ROW_CAP', self::PDF_ROW_CAP);
+        $cap = (int) config('reports.pdf_row_cap', self::PDF_ROW_CAP);
 
         [$columns, $query] = $this->buildExportQuery(
             $type,
