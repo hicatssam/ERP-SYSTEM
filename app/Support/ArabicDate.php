@@ -131,7 +131,13 @@ class ArabicDate
         $time = trim((string) ($timeValue ?? ''));
 
         if ($time === '') {
-            return self::formatDate(
+            /*
+             * Date-only fields must follow exactly the same presentation
+             * policy as ArabicDate::date(). Keeping one path prevents a
+             * delivery date from losing اليوم / غدًا / أمس labels merely
+             * because it came from a date+optional-time pair.
+             */
+            return self::date(
                 $date,
                 $relativeDay
             );
@@ -144,7 +150,7 @@ class ArabicDate
                 $matches
             )
         ) {
-            return self::formatDate(
+            return self::date(
                 $date,
                 $relativeDay
             );
@@ -159,7 +165,7 @@ class ArabicDate
             || $minute < 0
             || $minute > 59
         ) {
-            return self::formatDate(
+            return self::date(
                 $date,
                 $relativeDay
             );
