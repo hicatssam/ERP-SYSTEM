@@ -434,13 +434,20 @@ class PaymentController extends Controller
             'إثبات الدفع غير موجود.'
         );
 
-        $disk = Storage::disk('public');
+        $disk = Storage::disk('local');
 
-        abort_unless(
-            $disk->exists($path),
-            404,
-            'ملف إثبات الدفع غير موجود.'
-        );
+        if (! $disk->exists($path)) {
+            $legacyDisk =
+                Storage::disk('public');
+
+            abort_unless(
+                $legacyDisk->exists($path),
+                404,
+                'ملف إثبات الدفع غير موجود.'
+            );
+
+            $disk = $legacyDisk;
+        }
 
         $extension = pathinfo($path, PATHINFO_EXTENSION);
         $downloadName = 'payment-proof-' . $payment->id
