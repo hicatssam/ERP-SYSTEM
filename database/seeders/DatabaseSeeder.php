@@ -59,6 +59,17 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        /*
+         * This seeder contains demo employees, customers, orders and known
+         * development credentials. It must never populate a live ERP.
+         */
+        if (app()->environment('production')) {
+            throw new RuntimeException(
+                'DatabaseSeeder is demo-only and is blocked in production. '
+                . 'Use migrations and production-specific setup instead.'
+            );
+        }
+
         Schema::disableForeignKeyConstraints();
 
         $this->seedLocations();
