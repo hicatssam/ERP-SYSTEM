@@ -78,7 +78,6 @@ Route::middleware(['auth', 'location.scope'])->group(function () {
 
       require __DIR__ . '/procurement.php';
 
-        Route::get('/', fn() => redirect()->route('dashboard'));
         Route::get('/dashboard', [DashboardController::class, 'index'])
             ->middleware('can:dashboard.view')
             ->name('dashboard');
