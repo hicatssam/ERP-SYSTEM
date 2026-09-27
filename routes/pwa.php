@@ -3,6 +3,10 @@
 use App\Http\Controllers\PwaController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/pwa/start', [PwaController::class, 'start'])
+    ->middleware(['auth', 'location.scope', 'password.changed'])
+    ->name('pwa.start');
+
 Route::get('/pwa/manifest.webmanifest', [PwaController::class, 'manifest'])
     ->name('pwa.manifest');
 
