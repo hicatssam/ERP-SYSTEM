@@ -63,7 +63,7 @@ class PaymentService
                 ]);
             }
 
-            $proofPath = $proof instanceof UploadedFile ? $proof->store('payment-proofs', 'public') : null;
+            $proofPath = $proof instanceof UploadedFile ? $proof->store('payment-proofs', 'local') : null;
             $needsVerification = (bool) $method->requires_verification
                 || (bool) ($data['force_verification'] ?? false);
             $payment = Payment::query()->create([
