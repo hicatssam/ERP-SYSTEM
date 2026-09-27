@@ -44,17 +44,9 @@ class ArabicDate
             return self::fallback($value);
         }
 
-        $dayLabel = self::dayLabel(
+        return self::formatDate(
             $date,
             $relativeDay
-        );
-
-        return sprintf(
-            '%s، %d %s %d',
-            $dayLabel,
-            $date->day,
-            self::MONTHS[$date->month],
-            $date->year
         );
     }
 
@@ -139,7 +131,7 @@ class ArabicDate
         $time = trim((string) ($timeValue ?? ''));
 
         if ($time === '') {
-            return self::date(
+            return self::formatDate(
                 $date,
                 $relativeDay
             );
@@ -152,7 +144,7 @@ class ArabicDate
                 $matches
             )
         ) {
-            return self::date(
+            return self::formatDate(
                 $date,
                 $relativeDay
             );
@@ -167,7 +159,7 @@ class ArabicDate
             || $minute < 0
             || $minute > 59
         ) {
-            return self::date(
+            return self::formatDate(
                 $date,
                 $relativeDay
             );
@@ -364,6 +356,24 @@ class ArabicDate
         return self::DAYS[
             $date->dayOfWeek
         ];
+    }
+
+    private static function formatDate(
+        CarbonImmutable $date,
+        bool $relativeDay
+    ): string {
+        $dayLabel = self::dayLabel(
+            $date,
+            $relativeDay
+        );
+
+        return sprintf(
+            '%s، %d %s %d',
+            $dayLabel,
+            $date->day,
+            self::MONTHS[$date->month],
+            $date->year
+        );
     }
 
     private static function fallback(
