@@ -15,7 +15,7 @@ class CheckLocationScope
         $user = $request->user();
 
         if (! $user) {
-            return redirect()->route('auth.login');
+            return redirect()->route('login');
         }
 
         if ($user->isAdmin()) {
@@ -25,9 +25,10 @@ class CheckLocationScope
         $primaryLocation = $user->primaryLocation();
 
         abort_unless(
-            $primaryLocation,
+            $primaryLocation
+            && $primaryLocation->is_active,
             403,
-            'لا يوجد فرع رئيسي مرتبط بحسابك.'
+            'لا يوجد موقع رئيسي فعال مرتبط بحسابك.'
         );
 
         $request->attributes->set(
