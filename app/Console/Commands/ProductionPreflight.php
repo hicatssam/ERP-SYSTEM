@@ -371,7 +371,7 @@ class ProductionPreflight extends Command
         );
 
         if ($mailer === 'log') {
-            $this->warn(
+            $this->recordWarning(
                 'Mail transport',
                 'MAIL_MAILER=log; scheduled reports will not reach real recipients.'
             );
@@ -388,7 +388,7 @@ class ProductionPreflight extends Command
         );
 
         if ($queue === 'sync') {
-            $this->warn(
+            $this->recordWarning(
                 'Queue',
                 'sync; slow external work will run inside the web request.'
             );
@@ -407,7 +407,7 @@ class ProductionPreflight extends Command
         );
 
         if ($logLevel === 'debug') {
-            $this->warn(
+            $this->recordWarning(
                 'Log level',
                 'debug; prefer info/warning in production.'
             );
@@ -418,12 +418,12 @@ class ProductionPreflight extends Command
             );
         }
 
-        $this->warn(
+        $this->recordWarning(
             'Scheduler cron',
             'Verify: * * * * * php artisan schedule:run'
         );
 
-        $this->warn(
+        $this->recordWarning(
             'Backups',
             'Verify an off-server database + uploaded-files backup before launch.'
         );
@@ -461,7 +461,7 @@ class ProductionPreflight extends Command
         ];
     }
 
-    private function warn(
+    private function recordWarning(
         string $check,
         string $details
     ): void {
