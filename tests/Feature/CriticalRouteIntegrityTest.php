@@ -72,6 +72,41 @@ class CriticalRouteIntegrityTest extends TestCase
         }
     }
 
+    public function test_branch_cake_routes_use_action_specific_permissions(): void
+    {
+        $expectations = [
+            'showroom-cake-requests.index' =>
+                'can:showroom_cake_requests.view',
+            'showroom-cake-requests.show' =>
+                'can:showroom_cake_requests.view',
+            'showroom-cake-requests.create' =>
+                'can:showroom_cake_requests.create',
+            'showroom-cake-requests.store' =>
+                'can:showroom_cake_requests.create',
+            'showroom-cake-requests.status' =>
+                'can:showroom_cake_requests.update_status',
+            'showroom-cake-requests.destroy' =>
+                'can:showroom_cake_requests.delete',
+            'showroom-cake-requests.items.reservation' =>
+                'can:showroom_cake_requests.create',
+        ];
+
+        foreach ($expectations as $name => $middleware) {
+            $route = Route::getRoutes()->getByName($name);
+
+            $this->assertNotNull(
+                $route,
+                "Branch cake route [{$name}] is not registered."
+            );
+
+            $this->assertContains(
+                $middleware,
+                $route->gatherMiddleware(),
+                "Branch cake route [{$name}] must require [{$middleware}]."
+            );
+        }
+    }
+
     public function test_location_payment_account_routes_require_management_permission(): void
     {
         foreach ([
