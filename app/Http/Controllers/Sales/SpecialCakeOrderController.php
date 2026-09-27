@@ -10,6 +10,7 @@ use App\Models\Location;
 use App\Models\LocationPaymentAccount;
 use App\Models\PaymentMethod;
 use App\Models\SpecialCakeOrder;
+use App\Models\User;
 use App\Notifications\CustomerCreatedNotification;
 use App\Notifications\SpecialCakeOrderActivityNotification;
 use App\Services\Notifications\NotificationDispatcher;
