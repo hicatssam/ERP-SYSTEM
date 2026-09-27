@@ -124,9 +124,11 @@ Route::middleware(['auth', 'location.scope'])->group(function () {
         });
 
         // ─── Payment Methods ────────────────────────────────────────────────
-  Route::middleware('can:payment_methods.manage')->group(function () {
+Route::middleware('can:payment_methods.manage')->group(function () {
     Route::get('payment-methods/create', [PaymentMethodController::class, 'create'])->name('payment-methods.create');
     Route::post('payment-methods', [PaymentMethodController::class, 'store'])->name('payment-methods.store');
+    Route::get('payment-methods/{paymentMethod}', [PaymentMethodController::class, 'show'])->name('payment-methods.show');
+    Route::get('payment-methods/{paymentMethod}/edit', [PaymentMethodController::class, 'edit'])->name('payment-methods.edit');
     Route::put('payment-methods/{paymentMethod}', [PaymentMethodController::class, 'update'])->name('payment-methods.update');
     Route::delete('payment-methods/{paymentMethod}', [PaymentMethodController::class, 'destroy'])->name('payment-methods.destroy');
     Route::post('payment-methods/{paymentMethod}/toggle', [PaymentMethodController::class, 'toggle'])->name('payment-methods.toggle');
@@ -134,8 +136,6 @@ Route::middleware(['auth', 'location.scope'])->group(function () {
 
 Route::middleware('can:payment_methods.view')->group(function () {
     Route::get('payment-methods', [PaymentMethodController::class, 'index'])->name('payment-methods.index');
-    Route::get('payment-methods/{paymentMethod}', [PaymentMethodController::class, 'show'])->name('payment-methods.show');
-    Route::get('payment-methods/{paymentMethod}/edit', [PaymentMethodController::class, 'edit'])->name('payment-methods.edit');
 });
 
 
@@ -632,7 +632,7 @@ Route::post(
 
 
 
-Route::middleware(['auth', 'location.scope', 'password.changed', 'can:settings.manage'])
+Route::middleware(['auth', 'location.scope', 'password.changed'])
     ->prefix('settings')
     ->name('settings.')
     ->group(function (): void {
