@@ -72,6 +72,43 @@ class CriticalRouteIntegrityTest extends TestCase
         }
     }
 
+    public function test_report_routes_separate_view_and_export_permissions(): void
+    {
+        $expectations = [
+            'reports.index' => 'can:reports.view',
+            'reports.show' => 'can:reports.view',
+            'reports.count' => 'can:reports.view',
+            'reports.export.pdf' => 'can:reports.export',
+            'reports.export.xlsx' => 'can:reports.export',
+            'reports.print' => 'can:reports.export',
+
+            'report-schedules.index' => 'can:reports.export',
+            'report-schedules.create' => 'can:reports.export',
+            'report-schedules.store' => 'can:reports.export',
+            'report-schedules.edit' => 'can:reports.export',
+            'report-schedules.update' => 'can:reports.export',
+            'report-schedules.destroy' => 'can:reports.export',
+            'report-schedules.toggle' => 'can:reports.export',
+            'report-schedules.send-now' => 'can:reports.export',
+            'report-schedules.test-send' => 'can:reports.export',
+        ];
+
+        foreach ($expectations as $name => $middleware) {
+            $route = Route::getRoutes()->getByName($name);
+
+            $this->assertNotNull(
+                $route,
+                "Report route [{$name}] is not registered."
+            );
+
+            $this->assertContains(
+                $middleware,
+                $route->gatherMiddleware(),
+                "Report route [{$name}] must require [{$middleware}]."
+            );
+        }
+    }
+
     public function test_branch_cake_routes_use_action_specific_permissions(): void
     {
         $expectations = [
