@@ -142,6 +142,7 @@ Route::middleware('can:payment_methods.view')->group(function () {
 
 Route::prefix('locations/{location}')
     ->name('locations.payment-accounts.')
+    ->middleware('can:payment_methods.manage')
     ->group(function () {
 
         Route::get(
