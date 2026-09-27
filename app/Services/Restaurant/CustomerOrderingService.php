@@ -361,7 +361,7 @@ class CustomerOrderingService
             $proofPath = $file->storeAs(
                 'payment-proofs/customer-menu/' . $order->id,
                 'proof-' . ($order->public_request_id ?: $order->public_request_token) . '.' . $extension,
-                'public'
+                'local'
             );
         }
 
