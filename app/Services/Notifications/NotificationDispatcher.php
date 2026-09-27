@@ -172,7 +172,11 @@ class NotificationDispatcher
 
         if ($excludeUserId !== null) {
             $users = $users
-                ->reject(fn (User $user): bool => (int) $user->id === $excludeUserId)
+                ->reject(
+                    fn (User $user): bool =>
+                        (int) $user->id === $excludeUserId
+                        && ! $user->isAdmin()
+                )
                 ->values();
         }
 
