@@ -596,7 +596,8 @@ Route::post(
         });
 
         // ─── Report Schedules ──────────────────────────────────────────────
-        Route::middleware('can:reports.view')->group(function () {
+        // Scheduling and emailing reports is an export action, not read-only access.
+        Route::middleware('can:reports.export')->group(function () {
             Route::resource('report-schedules', ReportScheduleController::class)
                 ->except(['show']);
             Route::post('report-schedules/{reportSchedule}/toggle', [ReportScheduleController::class, 'toggleActive'])
