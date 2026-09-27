@@ -26,12 +26,43 @@ class SpecialCakeOrderService
             $prefix   = SystemSetting::get('cake_order_prefix', 'CKO');
             $orderNum = $this->numbers->next('special_cake_order', $prefix);
 
-            $branch  = $user->primaryLocation();
-            $factory = Location::where('type', 'factory')->first();
+            /*
+             * An Admin may be primarily attached to the factory, so the
+             * special-cake origin must be selected explicitly for Admin-created
+             * orders. Normal branch users always use their active primary branch.
+             */
+            $branch = $user->isAdmin()
+                ? Location::query()
+                    ->branches()
+                    ->active()
+                    ->find(
+                        (int) (
+                            $data['origin_branch_id']
+                            ?? 0
+                        )
+                    )
+                : $user->primaryLocation();
 
-            if (! $branch || ! $factory) {
+            if (
+                ! $branch
+                || ! $branch->isBranch()
+                || ! $branch->is_active
+            ) {
                 throw ValidationException::withMessages([
-                    'location' => 'يجب ربط المستخدم بفرع رئيسي وتعريف موقع مصنع قبل إنشاء طلب الكيك.',
+                    'origin_branch_id' =>
+                        'يجب اختيار فرع طالب صحيح وفعال قبل إنشاء طلب الكيك.',
+                ]);
+            }
+
+            $factory = Location::query()
+                ->factory()
+                ->active()
+                ->first();
+
+            if (! $factory) {
+                throw ValidationException::withMessages([
+                    'factory_location_id' =>
+                        'لا يوجد مصنع فعال لاستقبال طلب الكيك.',
                 ]);
             }
 
