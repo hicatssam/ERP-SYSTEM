@@ -20,6 +20,23 @@ class CriticalRouteIntegrityTest extends TestCase
         }
     }
 
+    public function test_health_route_uses_controller_action(): void
+    {
+        $route = Route::getRoutes()
+            ->getByName('health.up');
+
+        $this->assertNotNull(
+            $route,
+            'Health route [health.up] must be registered.'
+        );
+
+        $this->assertSame(
+            \App\Http\Controllers\System\HealthController::class
+                . '@show',
+            $route->getActionName()
+        );
+    }
+
     public function test_public_root_route_is_registered_once_as_named_home(): void
     {
         $rootRoutes = collect(Route::getRoutes())
