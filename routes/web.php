@@ -26,6 +26,8 @@ use App\Http\Controllers\Finance\CustomerAccountController;
 use App\Http\Controllers\Finance\PaymentController;
 use App\Http\Controllers\Finance\IncomingBankTransferController;
 use App\Http\Controllers\Finance\CashSessionController;
+use App\Http\Controllers\Finance\DailyCashReconciliationController;
+use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\FinancialPeriodController;
 use App\Http\Controllers\Finance\FinancialDashboardController;
@@ -560,6 +562,13 @@ Route::post(
             Route::post('cash-sessions', [CashSessionController::class, 'open'])->name('cash-sessions.open');
             Route::post('cash-sessions/{cashSession}/close', [CashSessionController::class, 'close'])->name('cash-sessions.close');
         });
+
+        // Branch treasury reconciliation is separate from an employee's cashier shift.
+        Route::get('financial/daily-cash', [DailyCashReconciliationController::class, 'index'])->name('daily-cash.index');
+        Route::post('financial/daily-cash/movements', [DailyCashReconciliationController::class, 'storeMovement'])->name('daily-cash.movements.store');
+        Route::post('financial/daily-cash/movements/{movement}/void', [DailyCashReconciliationController::class, 'voidMovement'])->name('daily-cash.movements.void');
+        Route::post('financial/daily-cash/close', [DailyCashReconciliationController::class, 'close'])->name('daily-cash.close');
+        Route::post('financial/daily-cash/expenses/{expense}/classify', [ExpenseController::class, 'classifyPaymentMethod'])->name('daily-cash.expenses.classify');
 
         // ─── Invoices ──────────────────────────────────────────────────────
         Route::middleware('can:invoices.view')->group(function () {

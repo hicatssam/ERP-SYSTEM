@@ -1924,6 +1924,8 @@ a.app-page-btn:hover {
 
                 'financial.dashboard.view',
 
+                'financial.cash.view',
+
                 'financial.periods.view',
 
             ])
@@ -2039,7 +2041,7 @@ a.app-page-btn:hover {
 
                     @if($moduleEnabled('finance'))
 
-                    @canany(['payments.record', 'financial.branch.view', 'financial.global.view'])
+                    @can('cash_sessions.manage')
 
                         <a href="{{ route('cash-sessions.index') }}" class="nav-item {{ request()->routeIs('cash-sessions.*') ? 'active' : '' }}">
 
@@ -2055,7 +2057,7 @@ a.app-page-btn:hover {
 
                         </a>
 
-                    @endcanany
+                    @endcan
 
                     @endif
 
@@ -2079,6 +2081,15 @@ a.app-page-btn:hover {
 
                     @endcan
 
+                    @endif
+
+                    @if($moduleEnabled('finance'))
+                    @can('financial.cash.view')
+                        <a href="{{ route('daily-cash.index') }}" class="nav-item {{ request()->routeIs('daily-cash.*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h6M7 17h10"/></svg>
+                            <span>مطابقة خزينة الفرع</span>
+                        </a>
+                    @endcan
                     @endif
 
                     @if($moduleEnabled('finance'))

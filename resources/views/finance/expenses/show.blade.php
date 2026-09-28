@@ -21,6 +21,7 @@
 <div class="card"><div class="card-body">
     <div class="details-grid">
         <div><strong>المستفيد:</strong> {{ $expense->payee ?: '—' }}</div>
+        <div><strong>طريقة الدفع:</strong> {{ $expense->paymentMethod?->name_ar ?: ($expense->paymentMethod?->name ?? 'غير محددة') }}</div>
         <div><strong>المرجع:</strong> {{ $expense->reference_number ?: '—' }}</div>
         <div><strong>أنشأه:</strong> {{ $expense->creator?->display_name ?? 'غير مسجل' }}</div>
         <div><strong>تاريخ الإنشاء:</strong> {{ $expense->created_at?->format('d/m/Y H:i') }}</div>

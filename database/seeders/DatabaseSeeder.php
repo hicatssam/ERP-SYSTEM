@@ -2155,6 +2155,7 @@ SVG;
             'inventory.expiry-alerts.view','inventory.expiry-alerts.receive',
             'inventory.expiry-alerts.receive_all','inventory.expiry-alerts.settings',
             'cash_sessions.manage','receiving_invoices.view',
+            'financial.cash.view','financial.cash.movements.manage','financial.cash.close',
             'chat.view','chat.send','chat.attachments','chat.view_all_branches','chat.manage',
             'chat.direct.start_all','chat.direct.start_location',
             'crm.view','crm.view_all','crm.manage','crm.interactions.manage',
@@ -2233,7 +2234,7 @@ SVG;
             'dashboard.','employees.','products.','categories.','customers.','orders.',
             'inventory.','stock_','reports.','invoices.','payments.','restaurant.','kitchen.','kds.',
             'attendance.','chat.','crm.','loyalty.','delivery.','customer_display.','cash_sessions.',
-        ], [], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all']);
+        ], ['financial.cash.view'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all']);
         $grantByPrefixes('Cashier', ['orders.','customers.','payments.','invoices.','restaurant.pos.'], [
             'products.view','categories.view','payment_methods.view',
         ], ['orders.confirm','orders.cancel','orders.delete','customers.view_all']);

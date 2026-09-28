@@ -15,6 +15,7 @@ class Expense extends Model
     protected $fillable = [
         'expense_number',
         'expense_category_id',
+        'payment_method_id',
         'location_id',
         'financial_period_id',
         'amount',
@@ -53,6 +54,7 @@ class Expense extends Model
     }
 
     public function category(): BelongsTo { return $this->belongsTo(ExpenseCategory::class, 'expense_category_id'); }
+    public function paymentMethod(): BelongsTo { return $this->belongsTo(PaymentMethod::class); }
     public function location(): BelongsTo { return $this->belongsTo(Location::class); }
     public function financialPeriod(): BelongsTo { return $this->belongsTo(FinancialPeriod::class); }
     public function creator(): BelongsTo { return $this->belongsTo(User::class, 'created_by'); }

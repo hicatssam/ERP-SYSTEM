@@ -10,12 +10,17 @@ use App\Http\Requests\Finance\UpdateExpenseRequest;
 use App\Http\Requests\Finance\VoidExpenseRequest;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\DailyCashReconciliation;
 use App\Models\Location;
+use App\Models\PaymentMethod;
+use App\Services\ActivityLogger;
 use App\Services\Finance\ExpenseWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 
 class ExpenseController extends Controller
 {
@@ -64,6 +69,7 @@ class ExpenseController extends Controller
         return view('finance.expenses.index', [
             'expenses' => $query->paginate(30)->withQueryString(),
             'categories' => ExpenseCategory::active()->orderBy('sort_order')->orderBy('name')->get(),
+            'paymentMethods' => PaymentMethod::active()->orderBy('sort_order')->get(),
             'locations' => $this->visibleLocations($request),
             'locationId' => $locationId,
             'statuses' => ExpenseStatus::cases(),
@@ -100,7 +106,7 @@ class ExpenseController extends Controller
         return view('finance.expenses.show', [
             'expense' => $expense->load([
                 'category', 'location', 'financialPeriod', 'creator', 'submittedBy',
-                'approvedBy', 'rejectedBy', 'postedBy', 'voidedBy',
+                'approvedBy', 'rejectedBy', 'postedBy', 'voidedBy', 'paymentMethod',
             ]),
         ]);
     }
@@ -117,6 +123,7 @@ class ExpenseController extends Controller
         return view('finance.expenses.form', [
             'expense' => $expense,
             'categories' => ExpenseCategory::active()->orderBy('sort_order')->orderBy('name')->get(),
+            'paymentMethods' => PaymentMethod::active()->orderBy('sort_order')->get(),
             'locations' => $this->visibleLocations($request),
             'locationId' => $expense->location_id,
             'mode' => 'edit',
@@ -172,6 +179,38 @@ class ExpenseController extends Controller
         $this->workflow->void($expense, $request->validated('reason'), $request->user());
 
         return back()->with('success', 'تم عكس المصروف محاسبيًا بسجل مستقل دون حذف العملية الأصلية.');
+    }
+
+    public function classifyPaymentMethod(Request $request, Expense $expense): RedirectResponse
+    {
+        abort_unless($request->user()->isAdmin() || ($request->user()->can('expenses.post') && $request->user()->can('expenses.view')), 403);
+        $this->assertExpenseVisible($request, $expense);
+        $data = $request->validate([
+            'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
+        ]);
+
+        DB::transaction(function () use ($expense, $data): void {
+            \App\Models\Location::query()->whereKey($expense->location_id)->lockForUpdate()->firstOrFail();
+            $locked = Expense::query()->whereKey($expense->id)->lockForUpdate()->firstOrFail();
+            if ($locked->payment_method_id || ! in_array($locked->statusValue(), ['posted', 'void'], true)) {
+                throw ValidationException::withMessages(['payment_method_id' => 'يمكن تصنيف طريقة دفع مصروف مرحّل غير مصنّف فقط.']);
+            }
+            if ($locked->financialPeriod && ! $locked->financialPeriod->isOpen()) {
+                throw ValidationException::withMessages(['payment_method_id' => 'الفترة المالية لهذا المصروف مغلقة؛ لا يمكن تعديل تصنيف المستند الأصلي.']);
+            }
+            if (DailyCashReconciliation::query()->where('location_id', $locked->location_id)
+                ->where('business_date', '>=', $locked->expense_date->toDateString())->exists()) {
+                throw ValidationException::withMessages(['payment_method_id' => 'يوجد إقفال لهذا اليوم أو يوم لاحق؛ لا يمكن تغيير تصنيف النقد التاريخي.']);
+            }
+            $locked->update(['payment_method_id' => $data['payment_method_id']]);
+        });
+        ActivityLogger::log(
+            userId: $request->user()->id, action: 'expense.payment_method_classified', module: 'finance',
+            recordType: 'expenses', recordId: $expense->id,
+            oldValues: ['payment_method_id' => null], newValues: ['payment_method_id' => $data['payment_method_id']],
+        );
+
+        return back()->with('success', 'تم تحديد طريقة الدفع للمصروف مع حفظ أثر التعديل.');
     }
 
     private function assertExpenseVisible(Request $request, Expense $expense): void

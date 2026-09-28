@@ -20,6 +20,7 @@ class StoreExpenseRequest extends FormRequest
                 'integer',
                 Rule::exists('expense_categories', 'id')->where(fn ($query) => $query->where('is_active', true)),
             ],
+            'payment_method_id' => ['nullable', 'integer', Rule::exists('payment_methods', 'id')],
             'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'amount' => ['required', 'numeric', 'gt:0', 'max:999999999999.99'],
             'expense_date' => ['required', 'date', 'before_or_equal:today'],
