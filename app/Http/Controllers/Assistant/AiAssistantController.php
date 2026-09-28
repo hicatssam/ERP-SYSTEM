@@ -50,11 +50,19 @@ class AiAssistantController extends Controller
 
         try {
             // No ERP data leaves this server: only the user's question reaches the model.
+            $previousContext = $request->session()->get('erp_assistant_context');
             $plan = $planner->plan(
                 trim($data['question']),
-                $request->session()->get('erp_assistant_context'),
+                $previousContext,
                 $access->allowedIntents($request->user())
             );
+
+            // Keep a month selected by a previous payroll question when the
+            // follow-up says only "اعرض التفاصيل" or "افتحها".
+            if (($plan['intent'] ?? null) === 'payroll' && is_array($previousContext)) {
+                $plan['payroll_month'] ??= $previousContext['payroll_month'] ?? null;
+                $plan['payroll_year'] ??= $previousContext['payroll_year'] ?? null;
+            }
         } catch (Throwable $exception) {
             report($exception);
 
@@ -72,6 +80,8 @@ class AiAssistantController extends Controller
                 'intent' => $plan['intent'],
                 'period' => $plan['period'],
                 'focus' => $plan['focus'],
+                'payroll_month' => $plan['payroll_month'] ?? null,
+                'payroll_year' => $plan['payroll_year'] ?? null,
             ]);
         }
 
