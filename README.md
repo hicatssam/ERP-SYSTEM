@@ -193,6 +193,8 @@ After updating `.env`, run `php artisan config:clear` or rebuild the configurati
 
 The model receives the user's question and returns a structured intent. The server runs only predefined read queries, checks the user's existing permissions and branch scope again, and shows suggested questions only for enabled modules. ERP records are not sent to the model. This sprint does not create, confirm, edit, or delete records. With the current architecture, deploy a separate installation and database per customer; shared-database SaaS requires tenant isolation before launch.
 
+Assistant permissions are managed from **Users → Edit user → Assistant permissions**. An administrator can disable the assistant for one account, inherit the user's normal ERP permissions, or select a custom topic allowlist (cake orders, inventory, sales, transfers, reports, attendance, payroll and priorities). The allowlist can only reduce existing ERP access; it can never grant access to a module or another branch. The system settings **المساعد الذكي** group controls the global switch, suggested questions, read-only mode and the maximum number of result cards.
+
 ---
 
 - **Charset:** All tables use `utf8mb4 / utf8mb4_unicode_ci` — required for Arabic text and emoji support.
