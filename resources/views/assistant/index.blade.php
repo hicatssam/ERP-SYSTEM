@@ -25,6 +25,8 @@
     .assistant-suggestions { display: flex; gap: 9px; flex-wrap: wrap; padding: 0 25px 20px; }
     .assistant-suggestions button { cursor: pointer; border: 1px solid var(--theme-accent, #c98516); background: var(--theme-surface, #fff); border-radius: 100px; padding: 8px 13px; color: var(--theme-text, #172435); font: inherit; font-size: .85rem; }
     .assistant-suggestions button:hover { background: color-mix(in srgb, var(--theme-accent, #c98516) 12%, var(--theme-surface, #fff)); }
+    .assistant-scope { display:flex; gap:7px; flex-wrap:wrap; padding:15px 25px 0; }
+    .assistant-scope-chip { border-radius:999px; padding:5px 10px; color:var(--theme-text, #172435); background:color-mix(in srgb, var(--theme-accent, #c98516) 10%, var(--theme-surface, #fff)); border:1px solid color-mix(in srgb, var(--theme-accent, #c98516) 32%, var(--theme-border, #dde2e7)); font-size:.76rem; }
     .assistant-form { display: flex; align-items: flex-end; gap: 12px; border-top: 1px solid var(--theme-border, #dde2e7); padding: 17px 25px; }
     .assistant-form textarea { resize: vertical; flex: 1; min-height: 50px; max-height: 150px; border: 1px solid var(--theme-border, #dde2e7); border-radius: 12px; padding: 11px 14px; background: var(--theme-surface, #fff); color: var(--theme-text, #172435); font: inherit; }
     .assistant-form button { cursor: pointer; background: var(--theme-sidebar-bg, #0a2948); color: var(--theme-sidebar-text, #fff); border: 0; border-radius: 12px; padding: 12px 22px; font: inherit; font-weight: 700; }
@@ -45,26 +47,44 @@
     </header>
 
     <div class="assistant-panel">
-        <div class="assistant-notice">يعتمد الرد على صلاحياتك والفروع المتاحة لك. يُرسل نص السؤال إلى خدمة الذكاء، وتبقى نتائج بيانات النظام على الخادم. المساعد لا ينشئ أو يعدّل أو يؤكد أي عملية في هذه المرحلة.</div>
+        <div class="assistant-notice">
+            يعتمد الرد على صلاحياتك والموضوعات المفعّلة لحسابك والفروع المتاحة لك. يُرسل نص السؤال فقط إلى خدمة الذكاء، وتبقى نتائج بيانات النظام على الخادم.
+            @if($allowActionSuggestions)
+                <span> يمكنك لاحقًا تفعيل اقتراح إجراءات تتطلب تأكيدك.</span>
+            @else
+                <span> المساعد في وضع القراءة والتحليل ولا ينشئ أو يعدّل أو يؤكد أي عملية.</span>
+            @endif
+        </div>
+        @if($allowedTopics)
+            <div class="assistant-scope" aria-label="الموضوعات المتاحة لك">
+                @foreach($allowedTopics as $topic)
+                    @if(isset($topicDefinitions[$topic]))
+                        <span class="assistant-scope-chip">{{ $topicDefinitions[$topic]['label'] }}</span>
+                    @endif
+                @endforeach
+            </div>
+        @endif
         <div class="assistant-messages" id="assistantMessages" role="log" aria-live="polite">
             <div class="assistant-message assistant-message--bot">أهلًا! اسألني عن طلباتك، المخزون، المبيعات، أو أي جزء مفعّل لديك في النظام.</div>
-            @unless($configured)
-                <div class="assistant-message assistant-message--bot assistant-message--error">الخدمة غير مفعّلة حاليًا. تواصل مع مدير النظام لتفعيلها.</div>
-            @endunless
+            @if(!$assistantAvailable)
+                <div class="assistant-message assistant-message--bot assistant-message--error">لا توجد موضوعات مفعّلة لهذا الحساب أو أن المساعد متوقف من إعدادات النظام. تواصل مع مدير النظام.</div>
+            @elseif(!$configured)
+                <div class="assistant-message assistant-message--bot assistant-message--error">الخدمة غير مفعّلة حاليًا. تواصل مع مدير النظام لإعداد مزود الذكاء.</div>
+            @endif
         </div>
 
-        @if($suggestions)
+        @if($showSuggestions && $suggestions)
             <div class="assistant-suggestions" aria-label="أسئلة مقترحة">
                 @foreach($suggestions as $suggestion)
-                    <button type="button" data-suggestion="{{ $suggestion }}" @disabled(!$configured)>{{ $suggestion }}</button>
+                    <button type="button" data-suggestion="{{ $suggestion }}" @disabled(!$configured || !$assistantAvailable)>{{ $suggestion }}</button>
                 @endforeach
             </div>
         @endif
 
         <form class="assistant-form" id="assistantForm">
             @csrf
-            <textarea id="assistantQuestion" name="question" maxlength="500" rows="2" placeholder="اكتب سؤالك هنا…" aria-label="سؤالك للمساعد" required @disabled(!$configured)></textarea>
-            <button type="submit" id="assistantSubmit" @disabled(!$configured)>إرسال</button>
+            <textarea id="assistantQuestion" name="question" maxlength="500" rows="2" placeholder="اكتب سؤالك هنا…" aria-label="سؤالك للمساعد" required @disabled(!$configured || !$assistantAvailable)></textarea>
+            <button type="submit" id="assistantSubmit" @disabled(!$configured || !$assistantAvailable)>إرسال</button>
         </form>
     </div>
 </section>
