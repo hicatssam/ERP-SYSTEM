@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\PaymentMethod;
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Services\Notifications\NotificationDispatcher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\Notification as LaravelNotification;
@@ -116,6 +118,75 @@ class SystemNavigationPwaSettingsNotificationTest extends TestCase
         $this->actingAs($admin)
             ->get(route('business-profiles.index'))
             ->assertOk();
+    }
+
+    #[Test]
+    public function settings_sections_are_ordered_and_only_show_editable_fields(): void
+    {
+        $admin = $this->makeUser($this->branch, ['settings.manage'], true, 'Admin');
+
+        foreach ([
+            ['timezone', 'general'],
+            ['business_legal_name', 'business'],
+            ['business_profile_code', 'business'],
+            ['client_onboarding_completed', 'onboarding'],
+            ['brand_logo', 'branding'],
+            ['special_cake_auto_approval', 'branding'],
+            ['assistant_enabled', 'assistant'],
+            ['customer_menu_title', 'customer-menu'],
+            ['kds_poll_seconds', 'kitchen'],
+            ['print_template', 'print_branding'],
+        ] as [$key, $group]) {
+            SystemSetting::query()->updateOrCreate(
+                ['key' => $key],
+                ['value' => '1', 'type' => 'string', 'group' => $group, 'label' => $key]
+            );
+        }
+        SystemSetting::flushCache();
+
+        $settings = app(SettingsController::class)->index()->getData()['settings'];
+        $groups = $settings->keys()->all();
+
+        $this->assertLessThan(array_search('branding', $groups, true), array_search('business', $groups, true));
+        $this->assertLessThan(array_search('assistant', $groups, true), array_search('branding', $groups, true));
+        $this->assertLessThan(array_search('customer_menu', $groups, true), array_search('assistant', $groups, true));
+        $this->assertTrue($settings->has('customer_menu'));
+        $this->assertFalse($settings->has('customer-menu'));
+        $this->assertFalse($settings->has('onboarding'));
+        $this->assertFalse($settings->has('print_branding'));
+        $this->assertFalse($settings['business']->contains('key', 'business_profile_code'));
+        $this->assertTrue($settings['cake_orders']->contains('key', 'special_cake_auto_approval'));
+
+        $html = $this->actingAs($admin)->get(route('settings.index'))
+            ->assertOk()
+            ->assertSee('بيانات المنشأة')
+            ->assertSee('شاشة المطبخ')
+            ->getContent();
+
+        $this->assertSame(1, substr_count($html, 'class="attendance-settings-entry"'));
+        $this->assertSame(1, substr_count($html, 'class="print-branding-settings-entry"'));
+        $this->assertStringNotContainsString('id="setting_business_profile_code"', $html);
+        $this->assertStringNotContainsString('id="setting_print_template"', $html);
+    }
+
+    #[Test]
+    public function kitchen_settings_shown_in_the_main_form_can_be_saved(): void
+    {
+        $admin = $this->makeUser($this->branch, ['settings.manage'], true, 'Admin');
+        SystemSetting::query()->updateOrCreate(
+            ['key' => 'kds_poll_seconds'],
+            ['value' => '3', 'type' => 'integer', 'group' => 'kitchen', 'label' => 'فترة تحديث شاشة المطبخ']
+        );
+
+        $this->actingAs($admin)
+            ->post(route('settings.update'), [
+                'kds_poll_seconds' => 5,
+                'active_settings_group' => 'kitchen',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('active_settings_group', 'kitchen');
+
+        $this->assertSame('5', SystemSetting::query()->where('key', 'kds_poll_seconds')->value('value'));
     }
 
     #[Test]
