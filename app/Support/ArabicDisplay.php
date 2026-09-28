@@ -11,6 +11,7 @@ final class ArabicDisplay
         'under_review' => 'قيد المراجعة', 'approved' => 'معتمدة', 'rejected' => 'مرفوضة',
         'posted' => 'مرحّلة', 'cancelled' => 'ملغاة', 'canceled' => 'ملغاة',
         'active' => 'نشطة', 'inactive' => 'غير نشطة', 'open' => 'مفتوحة', 'closed' => 'مغلقة',
+        'calculated' => 'محتسبة',
         'paid' => 'مدفوعة', 'unpaid' => 'غير مدفوعة', 'partially_paid' => 'مدفوعة جزئيًا',
         'overdue' => 'متأخرة', 'confirmed' => 'مؤكدة', 'completed' => 'مكتملة',
         'processing' => 'قيد المعالجة', 'in_progress' => 'قيد التنفيذ', 'ready' => 'جاهزة',
