@@ -49,8 +49,8 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Run test suite
-        run: php artisan test
+      - name: Verify AI assistant access
+        run: php artisan test tests/Feature/Assistant/AiAssistantAccessTest.php
 
       - name: Verify production caches
         run: |
@@ -58,3 +58,6 @@ jobs:
           php artisan route:cache
           php artisan view:cache
           php artisan optimize:clear
+
+      - name: Run test suite
+        run: php artisan test

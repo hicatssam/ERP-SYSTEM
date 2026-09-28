@@ -38,6 +38,11 @@ class AssistantReadService
         'financial.global.view', 'financial.collections.view',
     ];
 
+    private const TRANSFER_PERMISSIONS = [
+        'payments.record', 'payments.verify', 'financial.branch.view',
+        'financial.global.view', 'financial.collections.view',
+    ];
+
     public function suggestions(User $user): array
     {
         return collect([
@@ -126,7 +131,8 @@ class AssistantReadService
             'low_stock' => $user->can('inventory.view'),
             'orders' => $user->can('orders.view'),
             'sales_compare' => $user->canAny(['financial.dashboard.view', 'financial.sales.view']),
-            'payments', 'transfers' => $user->canAny(self::PAYMENT_PERMISSIONS),
+            'payments' => $user->canAny(self::PAYMENT_PERMISSIONS),
+            'transfers' => $user->canAny(self::TRANSFER_PERMISSIONS),
             'invoices' => $user->can('invoices.view'),
             'attendance' => $user->can('attendance.view'),
             'payroll' => $user->can('payroll.view'),
@@ -421,6 +427,13 @@ class AssistantReadService
                 ->where('status', 'pending_verification')->count();
             $parts[] = "حوالات تنتظر التحقق: {$count}";
             $links[] = $this->item('الحوالات', route('incoming-bank-transfers.index'));
+        }
+
+        foreach ([['branch_cakes', true, 'طلبات كيك الفروع'], ['branch_sweets', false, 'طلبات حلويات الفروع']] as [$intent, $cakes, $label]) {
+            if ($this->allowed($user, $intent)) {
+                $parts[] = $this->branchRequests($user, 'today', $cakes)['message'];
+                $links[] = $this->item($label, route($cakes ? 'showroom-cake-requests.index' : 'showroom-sweets-requests.index'));
+            }
         }
 
         return $this->result(implode('؛ ', $parts).'.', $links);

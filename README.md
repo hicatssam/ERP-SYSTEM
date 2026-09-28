@@ -1,6 +1,6 @@
-# Dahab Sweets — نظام إدارة حلويات دهب
+# ERP System — نظام إدارة أعمال قابل للتخصيص
 
-A full-stack Laravel 12 management system for Dahab Sweets covering inventory, sales, special cake orders, finance, and reporting.
+A Laravel 12 ERP with configurable business identity, permissions, locations, and modules. Sales, inventory, finance, employees, and reporting are core workflows; cake and bakery workflows can be enabled for relevant businesses.
 
 ---
 
@@ -8,11 +8,12 @@ A full-stack Laravel 12 management system for Dahab Sweets covering inventory, s
 
 | Tool | Version |
 |------|---------|
-| PHP | 8.2 or higher |
+| PHP | 8.4 or higher (required by the current `composer.lock`) |
 | Composer | 2.x |
+| Node.js | 22 (frontend build) |
 | MySQL | 5.7+ or 8.x (recommended) |
 
-> **No Node.js / npm required.** The frontend is pure Blade + CSS + Vanilla JS — no build step.
+The current frontend build uses Vite. Run `npm install` and `npm run build` for deployment.
 
 ---
 
@@ -21,7 +22,7 @@ A full-stack Laravel 12 management system for Dahab Sweets covering inventory, s
 ### 1 — Clone / open the project
 
 ```bash
-cd dahab
+cd erp-system
 ```
 
 ### 2 — Install PHP dependencies
@@ -35,7 +36,7 @@ composer install
 Log in to MySQL and create the database:
 
 ```sql
-CREATE DATABASE dahab_sweets CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE erp_system CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 ### 4 — Copy the environment file
@@ -50,7 +51,7 @@ cp .env.example .env
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=dahab_sweets
+DB_DATABASE=erp_system
 DB_USERNAME=root
 DB_PASSWORD=your_password_here
 ```
@@ -76,6 +77,8 @@ php artisan db:seed
 ### 9 — Start the development server
 
 ```bash
+npm install
+npm run build
 php artisan serve
 ```
 
@@ -84,6 +87,8 @@ Open **http://localhost:8000** in your browser.
 ---
 
 ## Default Login
+
+These seeded credentials are for local development. Change or disable demo accounts before a customer deployment.
 
 | Field    | Value         |
 |----------|---------------|
@@ -175,9 +180,9 @@ The seeder creates 12 roles:
 
 ### AI assistant (read-only sprint)
 
-Set `ERP_AI_API_KEY` on the server and optionally set `ERP_AI_MODEL` (default: `gpt-5-mini`). Clear the configuration cache after changing environment variables. The **المساعد الذكي** page appears in the ERP sidebar and uses the customer-specific `system_name` setting for its brand. Each installation should use its own server-side API key; never place it in frontend assets.
+Set `ERP_AI_API_KEY` on the server and optionally set `ERP_AI_MODEL` (default: `gpt-5-mini`). Clear the configuration cache after changing environment variables. The **المساعد الذكي** page appears in the ERP sidebar and uses the customer's `system_name` and theme settings. Each installation should use its own server-side API key; never place it in frontend assets.
 
-The model receives the user's question and returns a structured intent. The server runs only predefined read queries, checks the user's existing permissions and branch scope again, and shows suggested questions only for enabled modules. ERP records are not sent to the model. This sprint does not create, confirm, edit, or delete records. Keep a separate installation and database per customer with the current architecture; shared-database SaaS requires tenant isolation before launch.
+The model receives the user's question and returns a structured intent. The server runs only predefined read queries, checks the user's existing permissions and branch scope again, and shows suggested questions only for enabled modules. ERP records are not sent to the model. This sprint does not create, confirm, edit, or delete records. With the current architecture, deploy a separate installation and database per customer; shared-database SaaS requires tenant isolation before launch.
 
 ---
 

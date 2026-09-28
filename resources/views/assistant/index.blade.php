@@ -6,28 +6,28 @@
 @push('styles')
 <style>
     .assistant-shell { max-width: 1040px; margin: 0 auto; direction: rtl; font-family: inherit; }
-    .assistant-hero { color: #fff; background: linear-gradient(125deg, #131b28, #26313b 70%, #71551e); padding: 30px; border-radius: 22px 22px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
-    .assistant-hero h1 { margin: 5px 0; font-size: clamp(1.4rem, 2.5vw, 2rem); color: #fff; }
+    .assistant-hero { color: var(--theme-sidebar-text, #fff); background: var(--theme-sidebar-bg, #0a2948); padding: 30px; border-radius: 22px 22px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .assistant-hero h1 { margin: 5px 0; font-size: clamp(1.4rem, 2.5vw, 2rem); color: inherit; }
     .assistant-hero p { margin: 0; opacity: .78; }
-    .assistant-kicker { color: #f1cb75; font-size: .85rem; font-weight: 700; }
-    .assistant-spark { font-size: 3rem; color: #e0b855; text-shadow: 0 0 22px #d9ad5960; }
-    .assistant-panel { background: var(--theme-card, #fff); border: 1px solid #d8dce2; border-top: 0; border-radius: 0 0 22px 22px; box-shadow: 0 18px 45px #11182712; overflow: hidden; }
-    .assistant-notice { padding: 13px 25px; background: #fff8e8; color: #65491c; font-size: .88rem; border-bottom: 1px solid #efdfba; }
+    .assistant-kicker { color: var(--theme-sidebar-active, #c98516); font-size: .85rem; font-weight: 700; }
+    .assistant-spark { font-size: 3rem; color: var(--theme-sidebar-active, #c98516); }
+    .assistant-panel { background: var(--theme-surface, #fff); border: 1px solid var(--theme-border, #dde2e7); border-top: 0; border-radius: 0 0 22px 22px; box-shadow: 0 18px 45px #11182712; overflow: hidden; }
+    .assistant-notice { padding: 13px 25px; background: color-mix(in srgb, var(--theme-accent, #c98516) 11%, var(--theme-surface, #fff)); color: var(--theme-text, #172435); font-size: .88rem; border-bottom: 1px solid var(--theme-border, #dde2e7); }
     .assistant-messages { min-height: 320px; max-height: 55vh; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 18px; }
     .assistant-message { max-width: min(85%, 710px); border-radius: 16px; padding: 13px 18px; white-space: pre-wrap; line-height: 1.8; }
-    .assistant-message--bot { align-self: flex-start; background: #f4f6f8; color: #202a35; }
-    .assistant-message--user { align-self: flex-end; background: #192532; color: white; }
-    .assistant-message--error { background: #fff0ec; color: #943f31; }
+    .assistant-message--bot { align-self: flex-start; background: var(--theme-bg, #f5f6f8); color: var(--theme-text, #172435); }
+    .assistant-message--user { align-self: flex-end; background: var(--theme-sidebar-bg, #0a2948); color: var(--theme-sidebar-text, #fff); }
+    .assistant-message--error { background: color-mix(in srgb, var(--theme-danger, #e22929) 10%, var(--theme-surface, #fff)); color: var(--theme-danger, #e22929); }
     .assistant-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-    .assistant-link { display: inline-flex; flex-direction: column; color: #3c321e; background: #fff; border: 1px solid #dfc783; border-radius: 10px; padding: 7px 10px; text-decoration: none; line-height: 1.5; font-size: .88rem; }
-    .assistant-link:hover { background: #fff9e9; color: #2e2415; }
-    .assistant-link small { color: #69717d; }
+    .assistant-link { display: inline-flex; flex-direction: column; color: var(--theme-text, #172435); background: var(--theme-surface, #fff); border: 1px solid var(--theme-accent, #c98516); border-radius: 10px; padding: 7px 10px; text-decoration: none; line-height: 1.5; font-size: .88rem; }
+    .assistant-link:hover { background: color-mix(in srgb, var(--theme-accent, #c98516) 12%, var(--theme-surface, #fff)); color: var(--theme-text, #172435); }
+    .assistant-link small { color: var(--theme-text-muted, #687482); }
     .assistant-suggestions { display: flex; gap: 9px; flex-wrap: wrap; padding: 0 25px 20px; }
-    .assistant-suggestions button { cursor: pointer; border: 1px solid #ddc88d; background: #fffdf7; border-radius: 100px; padding: 8px 13px; color: #554122; font: inherit; font-size: .85rem; }
-    .assistant-suggestions button:hover { background: #f5e7bf; }
-    .assistant-form { display: flex; align-items: flex-end; gap: 12px; border-top: 1px solid #e2e5e9; padding: 17px 25px; }
-    .assistant-form textarea { resize: vertical; flex: 1; min-height: 50px; max-height: 150px; border: 1px solid #ccd2dc; border-radius: 12px; padding: 11px 14px; background: #fff; color: #202a35; font: inherit; }
-    .assistant-form button { cursor: pointer; background: #a27622; color: #fff; border: 0; border-radius: 12px; padding: 12px 22px; font: inherit; font-weight: 700; }
+    .assistant-suggestions button { cursor: pointer; border: 1px solid var(--theme-accent, #c98516); background: var(--theme-surface, #fff); border-radius: 100px; padding: 8px 13px; color: var(--theme-text, #172435); font: inherit; font-size: .85rem; }
+    .assistant-suggestions button:hover { background: color-mix(in srgb, var(--theme-accent, #c98516) 12%, var(--theme-surface, #fff)); }
+    .assistant-form { display: flex; align-items: flex-end; gap: 12px; border-top: 1px solid var(--theme-border, #dde2e7); padding: 17px 25px; }
+    .assistant-form textarea { resize: vertical; flex: 1; min-height: 50px; max-height: 150px; border: 1px solid var(--theme-border, #dde2e7); border-radius: 12px; padding: 11px 14px; background: var(--theme-surface, #fff); color: var(--theme-text, #172435); font: inherit; }
+    .assistant-form button { cursor: pointer; background: var(--theme-sidebar-bg, #0a2948); color: var(--theme-sidebar-text, #fff); border: 0; border-radius: 12px; padding: 12px 22px; font: inherit; font-weight: 700; }
     .assistant-form button:disabled { opacity: .5; cursor: not-allowed; }
     @media (max-width: 650px) { .assistant-hero, .assistant-messages, .assistant-notice, .assistant-form { padding-left: 16px; padding-right: 16px; } .assistant-message { max-width: 95%; } .assistant-suggestions { padding-left: 16px; padding-right: 16px; } }
 </style>
