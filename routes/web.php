@@ -63,7 +63,11 @@ Route::middleware('guest')->group(function (): void {
 });
 
 
-Route::view('/', 'pages.home')->name('home');
+Route::get('/', function () {
+    return auth()->check()
+        ? redirect()->route('dashboard')
+        : redirect()->route('login');
+})->name('home');
 Route::view('/about', 'pages.about')->name('about');
 Route::view('/services', 'pages.services')->name('services');
 Route::view('/details', 'pages.details')->name('details');
