@@ -149,6 +149,7 @@ class SystemNavigationPwaSettingsNotificationTest extends TestCase
 
         $this->assertLessThan(array_search('branding', $groups, true), array_search('business', $groups, true));
         $this->assertLessThan(array_search('assistant', $groups, true), array_search('branding', $groups, true));
+        $this->assertLessThan(array_search('customer_menu', $groups, true), array_search('kitchen', $groups, true));
         $this->assertLessThan(array_search('customer_menu', $groups, true), array_search('assistant', $groups, true));
         $this->assertTrue($settings->has('customer_menu'));
         $this->assertFalse($settings->has('customer-menu'));
