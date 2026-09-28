@@ -46,8 +46,13 @@ use App\Http\Controllers\Procurement\SupplierController;
 use App\Http\Controllers\Procurement\SupplierInvoiceController;
 use App\Http\Controllers\Procurement\SupplierPaymentController;
 use App\Http\Controllers\Admin\LocationPaymentAccountController;
+use App\Http\Controllers\System\HealthController;
 // Public customer-menu routes live only in routes/customer-ordering.php.
 // Keeping one owner prevents duplicate URIs, duplicate names and controller drift.
+
+// ─── Health ────────────────────────────────────────────────────────────────
+Route::get('/up', [HealthController::class, 'show'])
+    ->name('health.up');
 
 // ─── Auth ──────────────────────────────────────────────────────────────────
 Route::middleware('guest')->group(function (): void {
