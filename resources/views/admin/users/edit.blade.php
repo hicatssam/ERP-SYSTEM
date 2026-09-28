@@ -178,6 +178,95 @@
                     @enderror
                 </div>
 
+                @can('users.manage')
+                    @php
+                        $assistantEnabled = old('assistant_enabled', $assistantSetting->enabled);
+                        $assistantTopicMode = old('assistant_topic_mode', $assistantSetting->topic_mode ?: 'inherit');
+                        $assistantAllowedTopics = old('assistant_allowed_intents', $assistantSetting->allowed_intents ?: []);
+                    @endphp
+
+                    <div style="border:1px solid var(--border);border-radius:16px;padding:1.15rem;background:color-mix(in srgb, var(--gold, #d4af37) 5%, transparent)">
+                        <div style="display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap;margin-bottom:1rem">
+                            <div>
+                                <h3 style="font-size:1rem;margin:0 0 .35rem">صلاحيات المساعد الذكي لهذا المستخدم</h3>
+                                <p style="margin:0;color:var(--text-muted,#777);font-size:.82rem;line-height:1.7">
+                                    هذه الصلاحيات تضيق ما يستطيع المساعد قراءته، ولا تمنح المستخدم صلاحيات ERP جديدة.
+                                </p>
+                            </div>
+
+                            <label style="display:flex;align-items:center;gap:.5rem;font-size:.84rem;white-space:nowrap">
+                                <input
+                                    type="checkbox"
+                                    name="assistant_enabled"
+                                    value="1"
+                                    @checked(filter_var($assistantEnabled, FILTER_VALIDATE_BOOLEAN))
+                                >
+                                تفعيل المساعد
+                            </label>
+                        </div>
+
+                        <div style="display:grid;gap:.8rem">
+                            <div>
+                                <div class="form-label" style="margin-bottom:.5rem">نطاق الموضوعات</div>
+                                <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:.84rem">
+                                    <label style="display:flex;align-items:center;gap:.45rem">
+                                        <input type="radio" name="assistant_topic_mode" value="inherit" @checked($assistantTopicMode === 'inherit')>
+                                        اتبع صلاحيات دور المستخدم
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:.45rem">
+                                        <input type="radio" name="assistant_topic_mode" value="custom" @checked($assistantTopicMode === 'custom')>
+                                        تخصيص الموضوعات يدويًا
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.55rem;padding:.8rem;border:1px solid var(--border);border-radius:12px;background:var(--surface,#fff)">
+                                @foreach($assistantTopics as $topic => $topicMeta)
+                                    <label style="display:flex;align-items:flex-start;gap:.5rem;font-size:.8rem;line-height:1.5">
+                                        <input
+                                            type="checkbox"
+                                            name="assistant_allowed_intents[]"
+                                            value="{{ $topic }}"
+                                            @checked(in_array($topic, (array) $assistantAllowedTopics, true))
+                                        >
+                                        <span>
+                                            <strong>{{ $topicMeta['label'] }}</strong>
+                                            <small style="display:block;color:var(--text-muted,#777)">{{ $topicMeta['description'] }}</small>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+
+                            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,160px);gap:.8rem;align-items:end">
+                                <label style="display:flex;align-items:flex-start;gap:.5rem;font-size:.82rem;line-height:1.6">
+                                    <input
+                                        type="checkbox"
+                                        name="assistant_allow_action_suggestions"
+                                        value="1"
+                                        @checked(filter_var(old('assistant_allow_action_suggestions', $assistantSetting->allow_action_suggestions), FILTER_VALIDATE_BOOLEAN))
+                                    >
+                                    <span>
+                                        السماح باقتراح إجراءات مستقبلية
+                                        <small style="display:block;color:var(--text-muted,#777)">لا ينفّذ المساعد أي إجراء حساس تلقائيًا؛ هذا الخيار يجهّز الحساب لمرحلة التأكيد لاحقًا.</small>
+                                    </span>
+                                </label>
+
+                                <label class="form-group" style="margin:0">
+                                    <span class="form-label">عدد النتائج في الرد</span>
+                                    <input
+                                        type="number"
+                                        name="assistant_max_items"
+                                        min="3"
+                                        max="20"
+                                        class="form-input"
+                                        value="{{ old('assistant_max_items', $assistantSetting->max_items ?: 8) }}"
+                                    >
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                @endcan
+
                 <div style="display:flex;gap:.75rem;flex-wrap:wrap">
                     <button class="btn btn-gold" type="submit">
                         حفظ التغييرات
