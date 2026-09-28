@@ -436,7 +436,7 @@ class AssistantReadService
             }
         }
 
-        return $this->result(implode('؛ ', $parts).'.', $links);
+        return $this->result(implode('؛ ', array_map(fn (string $part) => rtrim($part, '.'), $parts)).'.', $links);
     }
 
     private function dates(string $period): array
