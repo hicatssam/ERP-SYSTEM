@@ -71,9 +71,7 @@ class AssistantReadService
             'attendance' => $this->attendance($user, $period),
             'payroll' => $this->payroll($user),
             'priorities' => $this->priorities($user),
-            'reports' => $this->result('افتح مركز التقارير لاختيار التقرير والفترة المناسبة. أقدر أيضًا ألخّص المبيعات أو الكيك أو المخزون حسب صلاحياتك.', [
-                $this->item('فتح التقارير', route('reports.index')),
-            ]),
+            'reports' => $this->reportSummary($user, $period),
             default => $this->result('لم أفهم السؤال. جرّب صياغة أقصر.'),
         };
     }
@@ -380,6 +378,51 @@ class AssistantReadService
         }
 
         return $this->result(implode('؛ ', array_map(fn (string $part) => rtrim($part, '.'), $parts)).'.', $links);
+    }
+
+    private function reportSummary(User $user, string $period): array
+    {
+        $messages = [];
+        $links = [$this->item('فتح مركز التقارير', route('reports.index'))];
+
+        if ($this->allowed($user, 'sales_compare')) {
+            $answer = $this->salesCompare($user);
+            $messages[] = 'المبيعات: '.rtrim($answer['message'], '.');
+        }
+
+        if ($this->allowed($user, 'payments')) {
+            $answer = $this->payments($user, $period);
+            $messages[] = 'التحصيلات: '.rtrim($answer['message'], '.');
+        }
+
+        if ($this->allowed($user, 'invoices')) {
+            $answer = $this->invoices($user, $period);
+            $messages[] = 'الفواتير: '.rtrim($answer['message'], '.');
+        }
+
+        if ($this->allowed($user, 'transfers')) {
+            $answer = $this->transfers($user, $period);
+            $messages[] = 'الحوالات: '.rtrim($answer['message'], '.');
+        }
+
+        if ($this->allowed($user, 'low_stock')) {
+            $answer = $this->lowStock($user);
+            $messages[] = 'المخزون: '.rtrim($answer['message'], '.');
+        }
+
+        if ($this->allowed($user, 'cake_due')) {
+            $answer = $this->cakeDue($user, $period, 'summary', null);
+            $messages[] = 'الكيك: '.rtrim($answer['message'], '.');
+        }
+
+        if ($messages === []) {
+            return $this->result('صلاحية التقارير موجودة، لكن لا توجد أقسام بيانات إضافية مفعّلة لهذا الحساب.', $links);
+        }
+
+        return $this->result(
+            "ملخص التقرير {$this->periodLabel($period)}:\n• ".implode("\n• ", $messages),
+            array_slice($links, 0, $this->access->maxItems($user))
+        );
     }
 
     private function dates(string $period): array
