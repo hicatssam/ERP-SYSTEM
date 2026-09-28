@@ -46,6 +46,7 @@
             'general'       => ['label' => 'إعدادات عامة', 'description' => 'إعدادات النظام الأساسية'],
             'branding'      => ['label' => 'الهوية والشعار', 'description' => 'الشعارات والختم والتوقيع والهوية'],
             'theme'         => ['label' => 'ألوان وثيم النظام', 'description' => 'تغيير ألوان النظام والخط والمظهر العام'],
+            'assistant'     => ['label' => 'المساعد الذكي', 'description' => 'تشغيل المساعد وتحديد طريقة عرض الردود وإدارة صلاحيات كل مستخدم'],
             'customer_display' => ['label' => 'شاشة طلبات العملاء', 'description' => 'تخصيص تصميم الشاشة فقط — اسم المطعم والشعار والهوية تؤخذ تلقائيًا من قسم الهوية والشعار'],
             'customer_menu' => ['label' => 'منيو QR وطلب العميل', 'description' => 'الألوان والغلاف والبطاقات ومظهر المنيو العام'],
             'chat'          => ['label' => 'ثيم وخلفية المحادثات', 'description' => 'تخصيص خلفية وألوان القنوات والرسائل وحقل الكتابة'],
@@ -206,6 +207,18 @@
                         </div>
 
                         <div class="card-body">
+
+                            @if($group === 'assistant')
+                                <div style="padding:1rem;border:1px solid var(--border);border-radius:14px;background:color-mix(in srgb, var(--gold, #d4af37) 7%, transparent);margin-bottom:1rem;line-height:1.8">
+                                    <strong style="display:block;margin-bottom:.35rem">تحكم مركزي آمن</strong>
+                                    <span style="display:block;color:var(--text-muted,#777);font-size:.84rem">
+                                        المساعد يقرأ البيانات من الخادم بعد تطبيق صلاحيات المستخدم والفروع المتاحة له. لا يتم إرسال صفوف ERP إلى مزود الذكاء، ولا ينفّذ المساعد عمليات تعديل في وضع القراءة فقط.
+                                    </span>
+                                    @can('users.manage')
+                                        <a href="{{ route('users.index') }}" class="btn btn-outline btn-sm" style="margin-top:.8rem">إدارة صلاحيات المساعد لكل مستخدم</a>
+                                    @endcan
+                                </div>
+                            @endif
 
                             @if($group === 'theme')
                                 @php
