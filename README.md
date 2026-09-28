@@ -180,7 +180,7 @@ The seeder creates 12 roles:
 
 ### AI assistant (read-only sprint)
 
-Set `ERP_AI_API_KEY` on the server and optionally set `ERP_AI_MODEL` (default: `gpt-5-mini`). Clear the configuration cache after changing environment variables. The **المساعد الذكي** page appears in the ERP sidebar and uses the customer's `system_name` and theme settings. Each installation should use its own server-side API key; never place it in frontend assets.
+Set `OPENAI_API_KEY` on the server, or use `ERP_AI_API_KEY` to override it for this ERP. Optionally set `ERP_AI_MODEL` (default: `gpt-5-mini`), then run `php artisan config:clear` or rebuild the configuration cache. The **المساعد الذكي** page appears in the ERP sidebar and uses the customer's `system_name` and theme settings. Each installation should use its own server-side API key; never place it in frontend assets or git.
 
 The model receives the user's question and returns a structured intent. The server runs only predefined read queries, checks the user's existing permissions and branch scope again, and shows suggested questions only for enabled modules. ERP records are not sent to the model. This sprint does not create, confirm, edit, or delete records. With the current architecture, deploy a separate installation and database per customer; shared-database SaaS requires tenant isolation before launch.
 

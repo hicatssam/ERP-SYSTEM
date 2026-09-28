@@ -144,9 +144,26 @@ class AiAssistantAccessTest extends TestCase
         $this->assertSame('pending', $order->fresh()->status->value);
     }
 
+    #[Test]
+    public function an_incomplete_openai_response_is_not_used_to_answer(): void
+    {
+        $user = $this->branchUser($this->branch('A'), ['cake_orders.view']);
+        Http::fake(['api.openai.com/v1/responses' => Http::response([
+            'status' => 'incomplete',
+            'incomplete_details' => ['reason' => 'max_output_tokens'],
+            'output' => [],
+        ])]);
+
+        $this->actingAs($user)->postJson(route('assistant.ask'), [
+            'question' => 'كم طلب كيك اليوم؟',
+        ])->assertStatus(503)
+            ->assertJsonPath('message', 'تعذر الاتصال بخدمة الذكاء الآن. حاول لاحقًا.');
+    }
+
     private function fakePlan(string $intent, string $period): void
     {
         Http::fake(['api.openai.com/v1/responses' => Http::response([
+            'status' => 'completed',
             'output' => [[
                 'type' => 'message',
                 'content' => [[

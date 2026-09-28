@@ -27,11 +27,12 @@ class AssistantPlanner
 
         $response = Http::withToken($key)
             ->acceptJson()
-            ->timeout(20)
+            ->timeout(30)
             ->post('https://api.openai.com/v1/responses', [
                 'model' => config('assistant.model'),
                 'store' => false,
-                'max_output_tokens' => 300,
+                'max_output_tokens' => 900,
+                'reasoning' => ['effort' => 'minimal'],
                 'instructions' => <<<'PROMPT'
 You classify Arabic or English questions for a read-only ERP assistant. Return only the schema fields.
 Intents: cake_due (special cakes due/nearest/at an hour), cake_top_branch (which origin branch ordered most cakes), branch_cakes (showroom branch cake requests), branch_sweets (showroom branch sweets requests), low_stock (products near minimum stock), orders (ordinary orders), sales_compare (today vs yesterday sales), payments (collections), invoices, transfers (incoming bank transfers), attendance, payroll, priorities (issues requiring attention), reports, unknown.
@@ -64,7 +65,11 @@ PROMPT,
             ]);
 
         if (! $response->successful()) {
-            throw new RuntimeException('AI planning request failed.');
+            throw new RuntimeException('OpenAI planning request failed with HTTP '.$response->status().'.');
+        }
+
+        if ($response->json('status') !== 'completed') {
+            throw new RuntimeException('OpenAI planning response was not completed.');
         }
 
         $text = null;
