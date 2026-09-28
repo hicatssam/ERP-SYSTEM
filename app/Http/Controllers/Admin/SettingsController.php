@@ -22,6 +22,10 @@ class SettingsController extends Controller
         // AI assistant
         'assistant_enabled','assistant_show_suggestions','assistant_read_only','assistant_max_items',
 
+        // Kitchen display and order hand-off
+        'kds_poll_seconds','kds_warning_minutes','kds_critical_minutes',
+        'kds_sound_enabled','kds_sound_volume','kitchen_require_served_before_complete',
+
         // Business
         'business_legal_name',
         'business_registration_number',
@@ -108,34 +112,92 @@ class SettingsController extends Controller
         'customer_menu_cover','customer_menu_cover_image','customer_menu_intro_image',
     ];
 
+    private const GROUP_ORDER = [
+        'general', 'business', 'branding', 'theme', 'modules', 'assistant',
+        'financial', 'cashier', 'orders', 'cake_orders', 'invoices',
+        'inventory', 'customer_menu', 'customer_display', 'kitchen',
+        'chat', 'notifications',
+    ];
+
+    private const FIRST_KEYS = [
+        'business' => [
+            'business_legal_name', 'business_registration_number', 'business_tax_number',
+            'business_phone', 'business_email', 'business_website',
+            'business_country', 'business_city', 'business_address',
+        ],
+        'branding' => [
+            'system_name', 'system_name_en', 'brand_tagline_ar', 'brand_tagline_en',
+            'brand_logo', 'brand_logo_small', 'brand_favicon', 'brand_login_background',
+            'brand_report_logo', 'brand_stamp', 'brand_signature', 'brand_footer_text',
+        ],
+        'assistant' => [
+            'assistant_enabled', 'assistant_read_only',
+            'assistant_show_suggestions', 'assistant_max_items',
+        ],
+        'kitchen' => [
+            'kds_poll_seconds', 'kds_warning_minutes', 'kds_critical_minutes',
+            'kds_sound_enabled', 'kds_sound_volume', 'kitchen_require_served_before_complete',
+        ],
+    ];
+
     public function index()
     {
         $settings = SystemSetting::query()
-            ->orderByRaw("
-                CASE `group`
-                    WHEN 'branding' THEN 1
-                    WHEN 'theme' THEN 2
-                    WHEN 'assistant' THEN 3
-                    WHEN 'customer_display' THEN 4
-                    WHEN 'customer_menu' THEN 5
-                    WHEN 'chat' THEN 6
-                    WHEN 'modules' THEN 6
-                    WHEN 'general' THEN 7
-                    WHEN 'financial' THEN 8
-                    WHEN 'cake_orders' THEN 9
-                    WHEN 'cashier' THEN 10
-                    WHEN 'orders' THEN 11
-                    WHEN 'invoices' THEN 12
-                    WHEN 'inventory' THEN 13
-                    WHEN 'notifications' THEN 14
-                    ELSE 99
-                END
-            ")
             ->orderBy('key')
             ->get()
-            ->groupBy('group');
+            // Only render controls this form can actually save. Managed setup
+            // status and print branding are handled by dedicated pages.
+            ->filter(fn (SystemSetting $setting): bool =>
+                in_array($setting->key, self::VALUE_KEYS, true)
+                || in_array($setting->key, self::FILE_KEYS, true)
+            )
+            ->groupBy(function (SystemSetting $setting): string {
+                $key = $setting->key;
+                $group = match (true) {
+                    $key === 'special_cake_auto_approval' => 'cake_orders',
+                    in_array($key, ['system_name', 'system_name_en', 'brand_footer_text'], true),
+                    str_starts_with($key, 'brand_') => 'branding',
+                    str_starts_with($key, 'business_') => 'business',
+                    str_starts_with($key, 'customer_menu_') => 'customer_menu',
+                    str_starts_with($key, 'customer_display_') => 'customer_display',
+                    str_starts_with($key, 'assistant_') => 'assistant',
+                    str_starts_with($key, 'kds_'),
+                    str_starts_with($key, 'kitchen_') => 'kitchen',
+                    default => match ($setting->group) {
+                        'customer-menu' => 'customer_menu',
+                        default => $setting->group ?: 'general',
+                    },
+                };
+
+                return in_array($group, self::GROUP_ORDER, true) ? $group : 'general';
+            })
+            ->sortKeysUsing(fn (string $a, string $b): int => self::compareGroups($a, $b))
+            ->map(fn ($groupSettings, string $group) => $groupSettings
+                ->sortBy(function (SystemSetting $setting) use ($group): string {
+                    $rank = array_search($setting->key, self::FIRST_KEYS[$group] ?? [], true);
+
+                    return sprintf('%04d-%s', $rank === false ? 9999 : $rank, $setting->key);
+                }));
+
+        // Keep the core entry points visible before onboarding writes settings.
+        foreach (['general', 'business'] as $entryPoint) {
+            if (! $settings->has($entryPoint)) {
+                $settings->put($entryPoint, collect());
+            }
+        }
+        $settings = $settings->sortKeysUsing(fn (string $a, string $b): int => self::compareGroups($a, $b));
 
         return view('admin.settings.index', compact('settings'));
+    }
+
+    private static function compareGroups(string $a, string $b): int
+    {
+        $aPosition = array_search($a, self::GROUP_ORDER, true);
+        $bPosition = array_search($b, self::GROUP_ORDER, true);
+
+        return ($aPosition === false ? count(self::GROUP_ORDER) : $aPosition)
+            <=> ($bPosition === false ? count(self::GROUP_ORDER) : $bPosition)
+            ?: strcmp($a, $b);
     }
 
     public function update(Request $request, ModuleService $modules)
@@ -149,6 +211,13 @@ class SettingsController extends Controller
             'assistant_show_suggestions' => ['nullable', 'boolean'],
             'assistant_read_only' => ['nullable', 'boolean'],
             'assistant_max_items' => ['nullable', 'integer', 'min:3', 'max:20'],
+
+            'kds_poll_seconds' => ['nullable', 'integer', 'min:1', 'max:60'],
+            'kds_warning_minutes' => ['nullable', 'integer', 'min:1', 'max:240'],
+            'kds_critical_minutes' => ['nullable', 'integer', 'min:1', 'max:480'],
+            'kds_sound_enabled' => ['nullable', 'boolean'],
+            'kds_sound_volume' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'kitchen_require_served_before_complete' => ['nullable', 'boolean'],
 
             'system_name' => ['nullable', 'string', 'max:120'],
             'system_name_en' => ['nullable', 'string', 'max:120'],
@@ -550,10 +619,14 @@ class SettingsController extends Controller
 
         SystemSetting::flushCache();
 
-        return back()->with(
-            'success',
-            'تم حفظ إعدادات النظام بنجاح.'
-        );
+        $activeGroup = (string) $request->input('active_settings_group', 'general');
+
+        return back()->with([
+            'success' => 'تم حفظ إعدادات النظام بنجاح.',
+            'active_settings_group' => in_array($activeGroup, self::GROUP_ORDER, true)
+                ? $activeGroup
+                : 'general',
+        ]);
     }
 
     private function replaceBrandFile(
