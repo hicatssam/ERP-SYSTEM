@@ -387,7 +387,8 @@ class AssistantReadService
         $status = \App\Support\ArabicDisplay::status($period->status);
         $prefix = $month !== null || $year !== null ? 'دورة الرواتب المطلوبة' : 'آخر دورة رواتب متاحة';
         $message = $prefix.': '.$period->name
-            .'؛ الفترة: '.$period->start_date?->format('Y-m-d').' إلى '.$period->end_date?->format('Y-m-d')
+            .'؛ الفترة: '.($period->start_date?->format('Y-m-d') ?? '—')
+            .' إلى '.($period->end_date?->format('Y-m-d') ?? '—')
             .'؛ الحالة: '.$status
             .'؛ الموظفون: '.$itemCount
             .'؛ صافي الرواتب: '.$this->money($net, $currency)
