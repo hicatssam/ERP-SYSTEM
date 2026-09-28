@@ -115,7 +115,7 @@ class SettingsController extends Controller
     private const GROUP_ORDER = [
         'general', 'business', 'branding', 'theme', 'modules', 'assistant',
         'financial', 'cashier', 'orders', 'cake_orders', 'invoices',
-        'inventory', 'customer_menu', 'customer_display', 'kitchen',
+        'inventory', 'kitchen', 'customer_menu', 'customer_display',
         'chat', 'notifications',
     ];
 
@@ -180,7 +180,7 @@ class SettingsController extends Controller
                 }));
 
         // Keep the core entry points visible before onboarding writes settings.
-        foreach (['general', 'business'] as $entryPoint) {
+        foreach (['general', 'business', 'modules'] as $entryPoint) {
             if (! $settings->has($entryPoint)) {
                 $settings->put($entryPoint, collect());
             }
