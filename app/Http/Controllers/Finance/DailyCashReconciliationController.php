@@ -34,13 +34,15 @@ class DailyCashReconciliationController extends Controller
         $locationId = (int) ($validated['location_id'] ?? $locations->first()->id);
         $this->assertLocation($request, $locationId);
         $date = $validated['date'] ?? now()->toDateString();
+        $nextDate = CarbonImmutable::parse($date)->addDay()->toDateString();
 
         $closed = DailyCashReconciliation::query()->with('closedBy')
-            ->where('location_id', $locationId)->where('business_date', $date)->first();
+            ->where('location_id', $locationId)
+            ->where('business_date', '>=', $date)->where('business_date', '<', $nextDate)->first();
         $prior = DailyCashReconciliation::query()->where('location_id', $locationId)
             ->where('business_date', '<', $date)->latest('business_date')->first();
         $hasLaterClose = DailyCashReconciliation::query()->where('location_id', $locationId)
-            ->where('business_date', '>', $date)->exists();
+            ->where('business_date', '>=', $nextDate)->exists();
         $canCarry = $prior && $prior->business_date->toDateString() === CarbonImmutable::parse($date)->subDay()->toDateString();
         $opening = $closed?->opening_balance ?? ($canCarry ? $prior->actual_closing : null);
         $live = $this->cash->forDay($locationId, $date);
@@ -63,7 +65,8 @@ class DailyCashReconciliationController extends Controller
             'canManageMovements' => $request->user()->isAdmin() || $request->user()->can('financial.cash.movements.manage'),
             'canClose' => $request->user()->isAdmin() || $request->user()->can('financial.cash.close'),
             'unclassifiedExpenses' => $canClassify && ! $closed ? Expense::query()
-                ->where('location_id', $locationId)->where('expense_date', $date)
+                ->where('location_id', $locationId)
+                ->where('expense_date', '>=', $date)->where('expense_date', '<', $nextDate)
                 ->whereIn('status', ['posted', 'void'])->whereNull('payment_method_id')
                 ->orderBy('id')->get() : collect(),
             'cashPaymentMethods' => $canClassify && ! $closed ? PaymentMethod::active()->orderBy('sort_order')->get() : collect(),

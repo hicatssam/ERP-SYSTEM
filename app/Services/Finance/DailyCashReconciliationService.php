@@ -47,7 +47,10 @@ class DailyCashReconciliationService
             ->leftJoin('payment_methods as pm', 'pm.id', '=', 'e.payment_method_id')
             ->where('e.location_id', $locationId)->whereNull('e.deleted_at')
             ->whereIn('e.status', ['posted', 'void'])
-            ->where('e.expense_date', $businessDate);
+            // Eloquent date casts can persist midnight timestamps on SQLite.
+            // An indexed range accepts both a DATE and its timestamp representation.
+            ->where('e.expense_date', '>=', $businessDate)
+            ->where('e.expense_date', '<', $end->toDateString());
         $unclassifiedExpenses = (clone $expenses)->whereNull('e.payment_method_id')->count();
         $cashExpenses = (clone $expenses)->where('pm.type', 'cash')->sum('e.amount');
 
@@ -65,7 +68,9 @@ class DailyCashReconciliationService
             ->join('payment_methods as pm', 'pm.id', '=', 'sp.payment_method_id')
             ->join('currencies as c', 'c.id', '=', 'sp.currency_id')
             ->where('sp.location_id', $locationId)->where('sp.status', 'confirmed')
-            ->where('sp.payment_date', $businessDate)->where('pm.type', 'cash');
+            ->where('sp.payment_date', '>=', $businessDate)
+            ->where('sp.payment_date', '<', $end->toDateString())
+            ->where('pm.type', 'cash');
         // Foreign notes cannot be added to an ILS/base-currency physical count.
         $foreignCashPayments = (clone $supplierPayments)->where('c.is_base', false)->count();
         $cashSupplierPayments = (clone $supplierPayments)->where('c.is_base', true)->sum('sp.amount');

@@ -86,7 +86,7 @@ class DailyCashReconciliationTest extends TestCase
             'location_id' => $branch->id, 'date' => '2026-09-29',
             'actual_closing' => 160, 'note' => 'Found extra cash',
         ])->assertRedirect()->assertSessionHasNoErrors();
-        $next = DailyCashReconciliation::query()->where('business_date', '2026-09-29')->firstOrFail();
+        $next = DailyCashReconciliation::query()->whereDate('business_date', '2026-09-29')->firstOrFail();
         $this->assertEquals(157, $next->opening_balance);
         $this->assertEquals(157, $next->expected_closing);
         $this->assertEquals(3, $next->variance);
@@ -159,7 +159,7 @@ class DailyCashReconciliationTest extends TestCase
         ])->assertSessionHasNoErrors();
         $this->actingAs($user)->post(route('daily-cash.movements.store'), [
             'location_id' => $branch->id, 'date' => '2026-09-28', 'type' => 'transfer_out',
-            'amount' => 20, 'description' => 'Cash deposit',
+            'amount' => 20, 'description' => 'Cash deposit', 'reference' => 'BANK-DEPOSIT-20',
         ])->assertSessionHasErrors('date');
 
         $this->payment($branch, $user, $cash, 10, 'confirmed');
