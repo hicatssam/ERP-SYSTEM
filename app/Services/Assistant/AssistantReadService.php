@@ -18,8 +18,6 @@ use App\Models\ShowroomCakeRequest;
 use App\Models\ShowroomSweetsRequest;
 use App\Models\SpecialCakeOrder;
 use App\Models\User;
-use App\Services\ModuleService;
-use App\Services\AttendanceFeatureService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -28,20 +26,8 @@ use Illuminate\Support\Collection;
 class AssistantReadService
 {
     public function __construct(
-        private readonly ModuleService $modules,
-        private readonly AttendanceFeatureService $attendanceFeatures
+        private readonly AssistantAccessService $access
     ) {}
-
-    private const PAYMENT_PERMISSIONS = [
-        'payments.record', 'payments.verify', 'payments.correct',
-        'payments.refund', 'financial.branch.view',
-        'financial.global.view', 'financial.collections.view',
-    ];
-
-    private const TRANSFER_PERMISSIONS = [
-        'payments.record', 'payments.verify', 'financial.branch.view',
-        'financial.global.view', 'financial.collections.view',
-    ];
 
     public function suggestions(User $user): array
     {
@@ -94,51 +80,7 @@ class AssistantReadService
 
     private function allowed(User $user, string $intent): bool
     {
-        if ($intent === 'priorities') {
-            return collect(['cake_due', 'low_stock', 'transfers', 'branch_cakes', 'branch_sweets'])
-                ->contains(fn ($part) => $this->allowed($user, $part));
-        }
-
-        $module = match ($intent) {
-            'cake_due', 'cake_top_branch', 'branch_cakes' => 'cake_orders',
-            'branch_sweets' => 'bakery',
-            'low_stock' => 'inventory',
-            'orders' => 'sales',
-            'sales_compare' => 'finance',
-            'payments', 'transfers' => 'payments',
-            'invoices' => 'invoices',
-            'reports' => 'reports',
-            'attendance', 'payroll' => 'employees',
-            default => null,
-        };
-
-        if ($module === null || ! $this->modules->isEnabled($module)) {
-            return false;
-        }
-
-        if ($intent === 'attendance' && ! $this->attendanceFeatures->attendanceEnabled()) {
-            return false;
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return match ($intent) {
-            'cake_due', 'cake_top_branch' => $user->can('cake_orders.view'),
-            'branch_cakes' => $user->can('showroom_cake_requests.view'),
-            'branch_sweets' => $user->can('showroom_sweets_requests.view'),
-            'low_stock' => $user->can('inventory.view'),
-            'orders' => $user->can('orders.view'),
-            'sales_compare' => $user->canAny(['financial.dashboard.view', 'financial.sales.view']),
-            'payments' => $user->canAny(self::PAYMENT_PERMISSIONS),
-            'transfers' => $user->canAny(self::TRANSFER_PERMISSIONS),
-            'invoices' => $user->can('invoices.view'),
-            'attendance' => $user->can('attendance.view'),
-            'payroll' => $user->can('payroll.view'),
-            'reports' => $user->can('reports.view'),
-            default => false,
-        };
+        return $this->access->canIntent($user, $intent);
     }
 
     private function locationIds(User $user, bool $global = false): Collection
@@ -201,7 +143,7 @@ class AssistantReadService
         $filtered = clone $query;
         $orders = $query->orderBy('required_date')
             ->orderByRaw('required_time IS NULL')
-            ->orderBy('required_time')->orderBy('id')->limit(8)->get();
+            ->orderBy('required_time')->orderBy('id')->limit($this->access->maxItems($user))->get();
         $cards = $orders->map(fn (SpecialCakeOrder $order) => $this->item(
             'طلب '.$order->order_number,
             route('cake-orders.show', $order),
@@ -227,8 +169,9 @@ class AssistantReadService
                 ->where('required_time', '<=', $limit)->count();
             $message .= " مواعيد فاتت: {$overdue}؛ خلال ساعتين: {$soon}.";
         }
-        if ($count > 8) {
-            $message .= ' أعرض أول 8 حسب موعد التسليم.';
+        $maxItems = $this->access->maxItems($user);
+        if ($count > $maxItems) {
+            $message .= " أعرض أول {$maxItems} حسب موعد التسليم.";
         }
 
         return $this->result($message, $cards);
@@ -239,7 +182,7 @@ class AssistantReadService
         [$from, $to] = $this->dates('week');
         $rows = $this->cakes($user, false)->whereBetween('created_at', [$from, $to])
             ->selectRaw('origin_branch_id, COUNT(*) as requests_count')
-            ->groupBy('origin_branch_id')->orderByDesc('requests_count')->limit(5)->get();
+            ->groupBy('origin_branch_id')->orderByDesc('requests_count')->limit($this->access->maxItems($user))->get();
         $names = Location::query()->whereIn('id', $rows->pluck('origin_branch_id'))->pluck('name', 'id');
         $top = $rows->first();
 
@@ -267,7 +210,7 @@ class AssistantReadService
         }
 
         $count = (clone $query)->count();
-        $rows = $query->orderBy('needed_by')->limit(8)->get();
+        $rows = $query->orderBy('needed_by')->limit($this->access->maxItems($user))->get();
 
         return $this->result("طلبات {$label} النشطة {$this->periodLabel($period)}: {$count}.",
             $rows->map(fn ($row) => $this->item($row->request_number, route($route, $row), $row->needed_by?->format('Y-m-d')))->all());
@@ -286,7 +229,7 @@ class AssistantReadService
         $rows = $query->with(['product:id,name,name_ar', 'location:id,name'])
             ->select('location_products.*')
             ->selectRaw('COALESCE(stock.quantity, 0) - COALESCE(stock.reserved_quantity, 0) as available_stock')
-            ->limit(10)->get();
+            ->limit($this->access->maxItems($user))->get();
 
         return $this->result("المنتجات عند الحد الأدنى أو أقل: {$count}.",
             $rows->map(fn ($row) => $this->item(
@@ -302,7 +245,7 @@ class AssistantReadService
         $query = Order::query()->whereIn('location_id', $this->locationIds($user)->all())
             ->whereBetween('created_at', [$from, $to]);
         $count = (clone $query)->count();
-        $rows = $query->latest()->limit(8)->get();
+        $rows = $query->latest()->limit($this->access->maxItems($user))->get();
 
         return $this->result("الطلبات {$this->periodLabel($period)}: {$count}.",
             $rows->map(fn (Order $order) => $this->item($order->order_number, route('orders.show', $order), $order->statusValue()))->all());
