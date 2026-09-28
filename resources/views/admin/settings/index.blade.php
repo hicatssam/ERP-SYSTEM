@@ -9,7 +9,7 @@
     <div class="page-header-text">
         <h1 class="page-heading">إعدادات النظام</h1>
         <p class="page-subheading">
-            إدارة التشغيل والهوية البصرية والثيم من مكان واحد
+            بيانات المنشأة والهوية والتشغيل والمساعد الذكي، مرتبة بحسب الاستخدام
         </p>
     </div>
 </div>
@@ -31,8 +31,6 @@
     </div>
 @endif
 
-@include('admin.settings.partials.attendance-payroll-card')
-
 <form
     action="{{ route('settings.update') }}"
     method="POST"
@@ -40,24 +38,27 @@
     id="system-settings-form"
 >
     @csrf
+    <input type="hidden" id="activeSettingsGroup" name="active_settings_group" value="{{ old('active_settings_group', session('active_settings_group', 'general')) }}">
 
     @php
         $groupMeta = [
-            'general'       => ['label' => 'إعدادات عامة', 'description' => 'إعدادات النظام الأساسية'],
-            'branding'      => ['label' => 'الهوية والشعار', 'description' => 'الشعارات والختم والتوقيع والهوية'],
-            'theme'         => ['label' => 'ألوان وثيم النظام', 'description' => 'تغيير ألوان النظام والخط والمظهر العام'],
-            'assistant'     => ['label' => 'المساعد الذكي', 'description' => 'تشغيل المساعد وتحديد طريقة عرض الردود وإدارة صلاحيات كل مستخدم'],
-            'customer_display' => ['label' => 'شاشة طلبات العملاء', 'description' => 'تخصيص تصميم الشاشة فقط — اسم المطعم والشعار والهوية تؤخذ تلقائيًا من قسم الهوية والشعار'],
-            'customer_menu' => ['label' => 'منيو QR وطلب العميل', 'description' => 'الألوان والغلاف والبطاقات ومظهر المنيو العام'],
-            'chat'          => ['label' => 'ثيم وخلفية المحادثات', 'description' => 'تخصيص خلفية وألوان القنوات والرسائل وحقل الكتابة'],
-            'modules'       => ['label' => 'الوحدات والميزات', 'description' => 'تشغيل أو إيقاف الوحدات الاختيارية في النظام'],
-            'financial'     => ['label' => 'الإعدادات المالية', 'description' => 'سياسات الدفع والتحصيل'],
-            'cake_orders'   => ['label' => 'طلبات الكيك الخاصة', 'description' => 'خيارات سير طلبات الكيك'],
-            'cashier'       => ['label' => 'إعدادات الكاشير', 'description' => 'إعدادات الجلسات والدفع'],
-            'orders'        => ['label' => 'إعدادات الطلبات', 'description' => 'خيارات الطلبات والترقيم'],
-            'invoices'      => ['label' => 'إعدادات الفواتير', 'description' => 'إعدادات وترقيم الفواتير'],
-            'inventory'     => ['label' => 'إعدادات المخزون', 'description' => 'خيارات المخزون والحركات'],
-            'notifications' => ['label' => 'إعدادات الإشعارات', 'description' => 'الصوت والتنبيهات'],
+            'general'       => ['label' => 'إعدادات عامة', 'description' => 'المنطقة الزمنية والتشغيل الأساسي', 'category' => 'أساسيات النظام'],
+            'business'      => ['label' => 'بيانات المنشأة', 'description' => 'المعلومات الرسمية وملف النشاط وإعداد العميل', 'category' => 'أساسيات النظام'],
+            'branding'      => ['label' => 'الهوية والشعارات', 'description' => 'الاسم والشعار والختم والتوقيع والطباعة', 'category' => 'الهوية والمظهر'],
+            'theme'         => ['label' => 'ألوان ومظهر النظام', 'description' => 'الألوان والخط والثيم العام', 'category' => 'الهوية والمظهر'],
+            'modules'       => ['label' => 'الوحدات والميزات', 'description' => 'الميزات والوحدات المفعّلة', 'category' => 'إدارة النظام'],
+            'assistant'     => ['label' => 'المساعد الذكي', 'description' => 'التشغيل، وضع القراءة وصلاحيات المستخدمين', 'category' => 'إدارة النظام'],
+            'financial'     => ['label' => 'الإعدادات المالية', 'description' => 'سياسات الدفع والتحصيل', 'category' => 'التشغيل والعمليات'],
+            'cashier'       => ['label' => 'الكاشير', 'description' => 'جلسات الصندوق والدفع', 'category' => 'التشغيل والعمليات'],
+            'orders'        => ['label' => 'الطلبات', 'description' => 'خيارات الطلبات والترقيم', 'category' => 'التشغيل والعمليات'],
+            'cake_orders'   => ['label' => 'طلبات الكيك الخاصة', 'description' => 'الموافقة والعربون وسير الطلب', 'category' => 'التشغيل والعمليات'],
+            'invoices'      => ['label' => 'الفواتير', 'description' => 'الفواتير وترقيمها', 'category' => 'التشغيل والعمليات'],
+            'inventory'     => ['label' => 'المخزون', 'description' => 'المخزون وحركاته', 'category' => 'التشغيل والعمليات'],
+            'customer_menu' => ['label' => 'منيو QR وطلب العميل', 'description' => 'مظهر المنيو وخيارات الطلب', 'category' => 'واجهات العملاء'],
+            'customer_display' => ['label' => 'شاشة طلبات العملاء', 'description' => 'تصميم شاشة عرض الطلبات', 'category' => 'واجهات العملاء'],
+            'kitchen'       => ['label' => 'شاشة المطبخ', 'description' => 'التحديث والتنبيهات وتسليم الطلبات', 'category' => 'واجهات العملاء'],
+            'chat'          => ['label' => 'المحادثات', 'description' => 'خلفيات وألوان الرسائل', 'category' => 'التواصل والتنبيهات'],
+            'notifications' => ['label' => 'الإشعارات', 'description' => 'الصوت والتنبيهات', 'category' => 'التواصل والتنبيهات'],
         ];
 
         $imageKeys = [
@@ -157,18 +158,28 @@
     <div class="settings-shell">
 
         <aside class="settings-nav">
+            @php $lastCategory = null; @endphp
             @foreach($settings as $group => $groupSettings)
                 @php
                     $meta = $groupMeta[$group] ?? [
-                        'label' => $group,
-                        'description' => '',
+                        'label' => 'إعدادات إضافية',
+                        'description' => 'إعدادات النظام الأخرى',
+                        'category' => 'إعدادات إضافية',
                     ];
+                    $category = $meta['category'];
                 @endphp
+
+                @if($category !== $lastCategory)
+                    <div class="settings-nav-heading">{{ $category }}</div>
+                    @php $lastCategory = $category; @endphp
+                @endif
 
                 <button
                     type="button"
                     class="settings-nav-item {{ $loop->first ? 'active' : '' }}"
                     data-settings-target="settings-group-{{ $group }}"
+                    aria-controls="settings-group-{{ $group }}"
+                    aria-current="{{ $loop->first ? 'true' : 'false' }}"
                 >
                     <strong>{{ $meta['label'] }}</strong>
                     <span>{{ $meta['description'] }}</span>
@@ -181,8 +192,8 @@
             @foreach($settings as $group => $groupSettings)
                 @php
                     $meta = $groupMeta[$group] ?? [
-                        'label' => $group,
-                        'description' => '',
+                        'label' => 'إعدادات إضافية',
+                        'description' => 'إعدادات النظام الأخرى',
                     ];
                 @endphp
 
@@ -202,7 +213,7 @@
                             </div>
 
                             <span class="badge badge-grey">
-                                {{ $groupSettings->count() }} إعداد
+                                {{ $groupSettings->isEmpty() ? 'روابط الإعداد' : $groupSettings->count() . ' إعداد' }}
                             </span>
                         </div>
 
@@ -345,9 +356,42 @@
                                 </div>
                             @endif
 
-                            @include('admin.settings.partials.attendance-payroll-card')
-
-                            @include('admin.settings.partials.print-branding-card')
+                            @if($group === 'general')
+                                <div class="settings-related-links">
+                                    @include('admin.settings.partials.attendance-payroll-card')
+                                </div>
+                            @elseif($group === 'business')
+                                <div class="settings-related-links">
+                                    @if(\Illuminate\Support\Facades\Route::has('onboarding.index'))
+                                        <a class="settings-related-link" href="{{ route('onboarding.index') }}">
+                                            <strong>معالج إعداد العميل</strong>
+                                            <span>ابدأ أو راجع تجهيز النظام لعميل جديد.</span>
+                                        </a>
+                                    @endif
+                                    @if(\Illuminate\Support\Facades\Route::has('business-profiles.index'))
+                                        <a class="settings-related-link" href="{{ route('business-profiles.index') }}">
+                                            <strong>نوع النشاط والوحدات المقترحة</strong>
+                                            <span>غيّر ملف النشاط من صفحته المخصصة بدل تعديل الرمز يدويًا.</span>
+                                        </a>
+                                    @endif
+                                </div>
+                                @if($groupSettings->isEmpty())
+                                    <p class="settings-empty-note">لم تُسجّل بيانات المنشأة بعد؛ يمكنك إدخالها عبر معالج إعداد العميل.</p>
+                                @endif
+                            @elseif($group === 'branding')
+                                <div class="settings-related-links">
+                                    @include('admin.settings.partials.print-branding-card')
+                                </div>
+                            @elseif($group === 'modules')
+                                @if(\Illuminate\Support\Facades\Route::has('modules.index'))
+                                    <div class="settings-related-links">
+                                        <a class="settings-related-link" href="{{ route('modules.index') }}">
+                                            <strong>إدارة الوحدات والميزات</strong>
+                                            <span>تفعيل الوحدات أو إيقافها من لوحة الإدارة الخاصة بها.</span>
+                                        </a>
+                                    </div>
+                                @endif
+                            @endif
 
                             @if($group === 'chat')
                                 @php
@@ -812,7 +856,7 @@
                 <div>
                     <strong>حفظ التغييرات</strong>
                     <span>
-                        سيتم تطبيق الهوية والثيم بعد الحفظ مباشرة.
+                        ستُحفظ تغييرات التبويب الحالي وأي تبويبات أخرى عدّلتها.
                     </span>
                 </div>
 
@@ -845,6 +889,18 @@
         top: 84px;
         display: grid;
         gap: .45rem;
+        max-height: calc(100vh - 110px);
+        overflow-y: auto;
+        align-content: start;
+        padding: .1rem .25rem .35rem;
+        scrollbar-width: thin;
+    }
+
+    .settings-nav-heading {
+        margin: .9rem .3rem .15rem;
+        color: var(--text-muted);
+        font-size: .72rem;
+        font-weight: 800;
     }
 
     .settings-nav-item {
@@ -891,6 +947,41 @@
         color: var(--text-muted);
         font-size: .76rem;
         margin-top: .15rem;
+    }
+
+    .settings-related-links {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .settings-related-link {
+        display: block;
+        padding: 1rem;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--surface);
+        color: var(--text-main);
+        text-decoration: none;
+    }
+
+    .settings-related-link:hover {
+        border-color: var(--gold);
+        color: var(--text-main);
+    }
+
+    .settings-related-link strong,
+    .settings-related-link span {
+        display: block;
+    }
+
+    .settings-related-link span,
+    .settings-empty-note {
+        margin: .3rem 0 0;
+        color: var(--text-muted);
+        font-size: .78rem;
+        line-height: 1.7;
     }
 
     .settings-grid {
@@ -1682,9 +1773,25 @@
         .settings-nav {
             position: static;
             grid-template-columns: repeat(2, minmax(0, 1fr));
+            max-height: none;
+            overflow: visible;
+        }
+
+        .settings-nav-heading {
+            grid-column: 1 / -1;
         }
 
         .settings-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .settings-related-links {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    @media (max-width: 600px) {
+        .settings-nav {
             grid-template-columns: 1fr;
         }
     }
@@ -2016,24 +2123,32 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const navButtons = document.querySelectorAll('[data-settings-target]');
     const sections = document.querySelectorAll('.settings-section');
+    const activeGroupInput = document.getElementById('activeSettingsGroup');
+
+    function selectSettingsTab(button) {
+        const target = document.getElementById(button.dataset.settingsTarget);
+        if (!target) return;
+
+        navButtons.forEach(btn => {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-current', 'false');
+        });
+        sections.forEach(section => section.classList.remove('active'));
+
+        button.classList.add('active');
+        button.setAttribute('aria-current', 'true');
+        target.classList.add('active');
+        if (activeGroupInput) activeGroupInput.value = target.id.replace('settings-group-', '');
+    }
 
     navButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
-
-            navButtons.forEach(btn => btn.classList.remove('active'));
-            sections.forEach(section => section.classList.remove('active'));
-
-            button.classList.add('active');
-
-            const target = document.getElementById(
-                button.dataset.settingsTarget
-            );
-
-            if (target) {
-                target.classList.add('active');
-            }
-        });
+        button.addEventListener('click', () => selectSettingsTab(button));
     });
+
+    const savedTab = [...navButtons].find(button =>
+        button.dataset.settingsTarget === `settings-group-${activeGroupInput?.value}`
+    );
+    if (savedTab) selectSettingsTab(savedTab);
 
 
     /*
