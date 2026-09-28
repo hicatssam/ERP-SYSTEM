@@ -54,9 +54,9 @@
             'cake_orders'   => ['label' => 'طلبات الكيك الخاصة', 'description' => 'الموافقة والعربون وسير الطلب', 'category' => 'التشغيل والعمليات'],
             'invoices'      => ['label' => 'الفواتير', 'description' => 'الفواتير وترقيمها', 'category' => 'التشغيل والعمليات'],
             'inventory'     => ['label' => 'المخزون', 'description' => 'المخزون وحركاته', 'category' => 'التشغيل والعمليات'],
+            'kitchen'       => ['label' => 'شاشة المطبخ', 'description' => 'التحديث والتنبيهات وتسليم الطلبات', 'category' => 'التشغيل والعمليات'],
             'customer_menu' => ['label' => 'منيو QR وطلب العميل', 'description' => 'مظهر المنيو وخيارات الطلب', 'category' => 'واجهات العملاء'],
             'customer_display' => ['label' => 'شاشة طلبات العملاء', 'description' => 'تصميم شاشة عرض الطلبات', 'category' => 'واجهات العملاء'],
-            'kitchen'       => ['label' => 'شاشة المطبخ', 'description' => 'التحديث والتنبيهات وتسليم الطلبات', 'category' => 'واجهات العملاء'],
             'chat'          => ['label' => 'المحادثات', 'description' => 'خلفيات وألوان الرسائل', 'category' => 'التواصل والتنبيهات'],
             'notifications' => ['label' => 'الإشعارات', 'description' => 'الصوت والتنبيهات', 'category' => 'التواصل والتنبيهات'],
         ];
