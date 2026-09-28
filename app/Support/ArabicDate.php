@@ -137,7 +137,7 @@ class ArabicDate
              * delivery date from losing اليوم / غدًا / أمس labels merely
              * because it came from a date+optional-time pair.
              */
-            return self::date(
+            return self::formatDate(
                 $date,
                 $relativeDay
             );
@@ -150,7 +150,7 @@ class ArabicDate
                 $matches
             )
         ) {
-            return self::date(
+            return self::formatDate(
                 $date,
                 $relativeDay
             );
@@ -165,7 +165,7 @@ class ArabicDate
             || $minute < 0
             || $minute > 59
         ) {
-            return self::date(
+            return self::formatDate(
                 $date,
                 $relativeDay
             );
