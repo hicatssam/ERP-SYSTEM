@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AssistantUserSetting;
 use App\Models\User;
+use App\Services\Assistant\AssistantAccessService;
+use App\Services\Assistant\AssistantPlanner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -34,13 +37,26 @@ class UserController extends Controller
             ->with('info', 'أنشئ المستخدمين من صفحة الموظفين.');
     }
 
-    public function edit(User $user)
+    public function edit(User $user, AssistantAccessService $assistantAccess)
     {
         $roles = Role::orderBy('name')->get();
 
-        $user->load(['employee', 'roles']);
+        $user->load(['employee', 'roles', 'assistantSetting']);
 
-        return view('admin.users.edit', compact('user', 'roles'));
+        $assistantSetting = $user->assistantSetting ?: new AssistantUserSetting([
+            'enabled' => true,
+            'topic_mode' => 'inherit',
+            'allowed_intents' => null,
+            'allow_action_suggestions' => false,
+            'max_items' => 8,
+        ]);
+
+        return view('admin.users.edit', [
+            'user' => $user,
+            'roles' => $roles,
+            'assistantSetting' => $assistantSetting,
+            'assistantTopics' => $assistantAccess->topics(),
+        ]);
     }
 
     public function update(Request $request, User $user)
@@ -68,6 +84,33 @@ class UserController extends Controller
                 'nullable',
                 'boolean',
             ],
+            'assistant_enabled' => [
+                'nullable',
+                'boolean',
+            ],
+            'assistant_topic_mode' => [
+                'required',
+                Rule::in(['inherit', 'custom']),
+            ],
+            'assistant_allowed_intents' => [
+                'nullable',
+                'array',
+            ],
+            'assistant_allowed_intents.*' => [
+                'string',
+                'distinct',
+                Rule::in(AssistantPlanner::INTENTS),
+            ],
+            'assistant_allow_action_suggestions' => [
+                'nullable',
+                'boolean',
+            ],
+            'assistant_max_items' => [
+                'required',
+                'integer',
+                'min:3',
+                'max:20',
+            ],
         ], [
             'profile_image.image' => 'الملف المختار يجب أن يكون صورة.',
             'profile_image.mimes' => 'صيغة الصورة يجب أن تكون JPG أو JPEG أو PNG أو WEBP.',
@@ -94,6 +137,22 @@ class UserController extends Controller
         }
 
         $user->update($userData);
+
+        $topicMode = $request->input('assistant_topic_mode', 'inherit');
+        $allowedIntents = $topicMode === 'custom'
+            ? array_values(array_intersect(
+                $request->input('assistant_allowed_intents', []),
+                AssistantPlanner::INTENTS
+            ))
+            : null;
+
+        $user->assistantSetting()->updateOrCreate([], [
+            'enabled' => $request->boolean('assistant_enabled'),
+            'topic_mode' => $topicMode,
+            'allowed_intents' => $allowedIntents,
+            'allow_action_suggestions' => $request->boolean('assistant_allow_action_suggestions'),
+            'max_items' => (int) $request->input('assistant_max_items', 8),
+        ]);
 
         return redirect()
             ->route('users.index')
