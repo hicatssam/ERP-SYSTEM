@@ -9,6 +9,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
+        /*
+         * Disable Laravel's default /up Closure route.
+         * The application owns /up through System\\HealthController instead,
+         * keeping every registered route controller-backed and route-cache safe.
+         */
+        health: null,
     )
     ->withSchedule(function (Schedule $schedule) {
         // Check every hour for scheduled reports that are due.
