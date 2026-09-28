@@ -1,6 +1,9 @@
 <?php
 
-$provider = strtolower(trim((string) env('ERP_AI_PROVIDER', 'openai')));
+$configuredProvider = trim((string) env('ERP_AI_PROVIDER'));
+$provider = strtolower($configuredProvider !== ''
+    ? $configuredProvider
+    : (trim((string) env('GROQ_API_KEY')) !== '' ? 'groq' : 'openai'));
 
 return [
     'provider' => $provider,
