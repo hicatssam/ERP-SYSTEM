@@ -39,6 +39,7 @@ class AssistantReadService
             ['low_stock', 'شو المنتجات اللي قربت تخلص؟'],
             ['sales_compare', 'مبيعات اليوم مقارنة بالأمس'],
             ['transfers', 'كم حوالة تنتظر التحقق؟'],
+            ['payroll', 'ما صافي دورة الرواتب الأخيرة؟'],
             ['priorities', 'هل عندنا مشاكل تحتاج تدخل الآن؟'],
         ])->filter(fn (array $row) => $this->allowed($user, $row[0]))
             ->map(fn (array $row) => $row[1])->values()->all();
@@ -48,7 +49,7 @@ class AssistantReadService
     {
         $intent = $plan['intent'] ?? 'unknown';
         if ($intent === 'unknown' || ! in_array($intent, AssistantPlanner::INTENTS, true)) {
-            return $this->result('حاليًا أقدر أقرأ وأحلل بيانات النظام فقط. اسألني عن الطلبات، الكيك، المخزون، المبيعات أو الحوالات. أي تعديل يحتاج مرحلة إجراءات منفصلة.');
+            return $this->result('حاليًا أقدر أقرأ وأحلل بيانات النظام فقط. اسألني عن الطلبات، الكيك، المخزون، المبيعات، الرواتب أو التقارير. أي تعديل يحتاج مرحلة إجراءات منفصلة.');
         }
 
         abort_unless($this->allowed($user, $intent), 403, 'لا تملك صلاحية الاطلاع على هذه البيانات.');
@@ -56,6 +57,12 @@ class AssistantReadService
         $period = $plan['period'] ?? 'none';
         $focus = $plan['focus'] ?? 'summary';
         $hour = $plan['hour'] ?? null;
+        $payrollMonth = isset($plan['payroll_month'])
+            ? (int) $plan['payroll_month']
+            : null;
+        $payrollYear = isset($plan['payroll_year'])
+            ? (int) $plan['payroll_year']
+            : null;
 
         return match ($intent) {
             'cake_due' => $this->cakeDue($user, $period, $focus, $hour),
@@ -69,7 +76,7 @@ class AssistantReadService
             'invoices' => $this->invoices($user, $period),
             'transfers' => $this->transfers($user, $period),
             'attendance' => $this->attendance($user, $period),
-            'payroll' => $this->payroll($user),
+            'payroll' => $this->payroll($user, $payrollMonth, $payrollYear, $focus),
             'priorities' => $this->priorities($user),
             'reports' => $this->reportSummary($user, $period),
             default => $this->result('لم أفهم السؤال. جرّب صياغة أقصر.'),
@@ -330,21 +337,75 @@ class AssistantReadService
             [$this->item('فتح الحضور', route('attendance.index'))]);
     }
 
-    private function payroll(User $user): array
+    private function payroll(
+        User $user,
+        ?int $month = null,
+        ?int $year = null,
+        string $focus = 'summary'
+    ): array
     {
         $query = PayrollPeriod::query();
         if (! $user->isAdmin()) {
-            $query->where('location_id', $user->primaryLocation()?->id ?? -1);
+            $locationId = $user->primaryLocation()?->id;
+            $query->where(function (Builder $scope) use ($locationId): void {
+                $scope->whereNull('location_id');
+                if ($locationId) {
+                    $scope->orWhere('location_id', $locationId);
+                }
+            });
         }
+
+        if ($year !== null) {
+            $query->whereYear('start_date', $year);
+        }
+
+        if ($month !== null && $month >= 1 && $month <= 12) {
+            $target = Carbon::create($year ?: today()->year, $month, 1);
+            $query->whereDate('start_date', '<=', $target->copy()->endOfMonth()->toDateString())
+                ->whereDate('end_date', '>=', $target->copy()->startOfMonth()->toDateString());
+        }
+
         $period = $query->latest('start_date')->first();
         if (! $period) {
-            return $this->result('لا توجد دورة رواتب متاحة لك.', [$this->item('فتح الرواتب', route('payroll.index'))]);
+            $requested = $month !== null
+                ? ' لشهر '.sprintf('%02d', $month).($year ? ' '.$year : '')
+                : '';
+
+            return $this->result('لا توجد دورة رواتب'.$requested.' متاحة لك. أنشئ الدورة أولًا من صفحة الرواتب.', [
+                $this->item('فتح الرواتب', route('payroll.index')),
+            ]);
         }
         $items = PayrollItem::query()->where('payroll_period_id', $period->id);
+        if (! $user->isAdmin()) {
+            $items->whereHas('employee', fn (Builder $employee): Builder => $employee->accessibleBy($user));
+        }
 
         $currency = Currency::query()->whereKey($period->currency_id)->value('code');
-        return $this->result('آخر دورة رواتب متاحة: '.$period->name.'؛ الحالة: '.$period->status.'؛ الموظفون: '.(clone $items)->count().'؛ صافي الرواتب: '.$this->money((float) $items->sum('net_salary'), $currency).'.',
-            [$this->item('فتح دورة الرواتب', route('payroll.show', $period))]);
+        $itemCount = (clone $items)->count();
+        $net = (float) (clone $items)->sum('net_salary');
+        $payable = (float) (clone $items)->sum('payable_amount');
+        $status = \App\Support\ArabicDisplay::status($period->status);
+        $prefix = $month !== null || $year !== null ? 'دورة الرواتب المطلوبة' : 'آخر دورة رواتب متاحة';
+        $message = $prefix.': '.$period->name
+            .'؛ الفترة: '.$period->start_date?->format('Y-m-d').' إلى '.$period->end_date?->format('Y-m-d')
+            .'؛ الحالة: '.$status
+            .'؛ الموظفون: '.$itemCount
+            .'؛ صافي الرواتب: '.$this->money($net, $currency)
+            .'؛ المتبقي للدفع: '.$this->money($payable, $currency).'.';
+
+        if ($period->status === 'draft' || $itemCount === 0) {
+            $message .= ' الدورة لم تُحتسب بعد؛ افتحها واضغط «إعادة احتساب الرواتب» لإظهار تفاصيل الموظفين.';
+        }
+
+        $links = [$this->item('فتح دورة الرواتب', route('payroll.show', $period))];
+        if ($user->isAdmin() || $user->can('payroll.reports.view')) {
+            $links[] = $this->item('فتح تقرير الرواتب', route('payroll.reports.index', ['period_id' => $period->id]));
+        }
+        if ($focus === 'list') {
+            $links[] = $this->item('كشف الموظفين', route('payroll.reports.index', ['period_id' => $period->id]));
+        }
+
+        return $this->result($message, array_slice($links, 0, $this->access->maxItems($user)));
     }
 
     private function priorities(User $user): array
@@ -408,6 +469,11 @@ class AssistantReadService
         if ($this->allowed($user, 'low_stock')) {
             $answer = $this->lowStock($user);
             $messages[] = 'المخزون: '.rtrim($answer['message'], '.');
+        }
+
+        if ($this->allowed($user, 'payroll')) {
+            $answer = $this->payroll($user);
+            $messages[] = 'الرواتب: '.rtrim($answer['message'], '.');
         }
 
         if ($this->allowed($user, 'cake_due')) {
