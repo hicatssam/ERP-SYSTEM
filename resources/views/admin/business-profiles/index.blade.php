@@ -35,6 +35,13 @@
             <div class="card-body">
                 <p style="color:var(--text-muted);font-size:.78rem;margin-top:0">{{ $profile->description }}</p>
 
+                @if($profile->code === 'bakery_sweets')
+                    <p style="color:var(--text-muted);font-size:.76rem">
+                        خدمة الصالة اختيارية للمخبز الذي يوفر جلسات. فعّل وحدة المطعم ثم «الصالة والطاولات» من
+                        <a href="{{ route('modules.index') }}">إدارة الوحدات</a> عند الحاجة؛ لن تظهر لمخبز السفري فقط.
+                    </p>
+                @endif
+
                 <div style="display:flex;flex-wrap:wrap;gap:.3rem;margin:1rem 0">
                     @foreach($profile->modules->sortBy('pivot.sort_order') as $module)
                         <span class="badge {{ $module->isImplemented() ? ($module->is_active ? 'badge-active' : 'badge-pending') : 'badge-inactive' }}" title="{{ $module->isImplemented() ? 'منفذة' : 'مسجلة للمستقبل' }}">

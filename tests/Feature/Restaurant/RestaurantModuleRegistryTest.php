@@ -14,6 +14,7 @@ class RestaurantModuleRegistryTest extends TestCase
         $this->assertTrue($modules['restaurant']['implemented']);
         $this->assertTrue($modules['restaurant_pos']['implemented']);
         $this->assertTrue($modules['restaurant_tables']['implemented']);
+        $this->assertSame('الصالة والطاولات', $modules['restaurant_tables']['name']);
 
         $this->assertTrue($modules['kitchen']['implemented']);
         $this->assertTrue($modules['kds']['implemented']);

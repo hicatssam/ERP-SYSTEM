@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
-@section('title', 'تشغيل المطعم')
+@section('title', $tablesEnabled ? 'الصالة' : 'تشغيل الطلبات')
 
 @section('content')
 <div class="page-actions">
     <div>
-        <div class="page-actions-title">تشغيل المطعم</div>
+        <div class="page-actions-title">{{ $tablesEnabled ? 'الصالة' : 'تشغيل الطلبات' }}</div>
         <div style="margin-top:.25rem;color:var(--text-muted);font-size:.78rem">
-            {{ $location->name }} — تشغيل المطعم والطاولات والمطبخ من مكان واحد
+            {{ $location->name }} — نقطة البيع والطلبات{{ $tablesEnabled ? ' والطاولات' : '' }}{{ $kitchenEnabled ? ' والمطبخ' : '' }} من مكان واحد
         </div>
     </div>
 
@@ -52,11 +52,13 @@
             @endif
         @endcan
 
-        @can('restaurant_tables.view')
-            <a href="{{ route('restaurant.tables.index', ['location_id' => $location->id]) }}" class="btn btn-outline">
-                الطاولات
-            </a>
-        @endcan
+        @if($tablesEnabled)
+            @can('restaurant_tables.view')
+                <a href="{{ route('restaurant.tables.index', ['location_id' => $location->id]) }}" class="btn btn-outline">
+                    الصالة والطاولات
+                </a>
+            @endcan
+        @endif
     </div>
 </div>
 
@@ -81,7 +83,7 @@
     <div class="stat-card stat-gold">
         <div class="stat-info">
             <div class="stat-value">{{ number_format($todayOrderCount) }}</div>
-            <div class="stat-label">طلبات المطعم اليوم</div>
+            <div class="stat-label">طلبات اليوم</div>
         </div>
     </div>
 
@@ -92,12 +94,14 @@
         </div>
     </div>
 
-    <div class="stat-card">
-        <div class="stat-info">
-            <div class="stat-value">{{ $occupiedTables }} / {{ $totalTables }}</div>
-            <div class="stat-label">طاولات مشغولة</div>
+    @if($tablesEnabled)
+        <div class="stat-card">
+            <div class="stat-info">
+                <div class="stat-value">{{ $occupiedTables }} / {{ $totalTables }}</div>
+                <div class="stat-label">طاولات مشغولة</div>
+            </div>
         </div>
-    </div>
+    @endif
 
     <div class="stat-card">
         <div class="stat-info">
@@ -138,7 +142,7 @@
 
 <div class="card" style="margin-top:1rem">
     <div class="card-header">
-        <span class="card-title">آخر طلبات المطعم</span>
+        <span class="card-title">آخر الطلبات</span>
     </div>
 
     <div class="table-wrap">
@@ -147,7 +151,9 @@
                 <tr>
                     <th>الطلب</th>
                     <th>الخدمة</th>
-                    <th>الطاولة</th>
+                    @if($tablesEnabled)
+                        <th>الطاولة</th>
+                    @endif
                     <th>الموظف</th>
                     <th>الإجمالي</th>
                     <th>الحالة</th>
@@ -159,14 +165,16 @@
                     <tr>
                         <td><strong>{{ $order->order_number }}</strong></td>
                         <td>{{ $order->restaurant_service_type?->label() ?? '—' }}</td>
-                        <td>
-                            @if($order->restaurantTable)
-                                {{ $order->restaurantTable->area?->name ? $order->restaurantTable->area->name . ' — ' : '' }}
-                                {{ $order->restaurantTable->displayName() }}
-                            @else
-                                —
-                            @endif
-                        </td>
+                        @if($tablesEnabled)
+                            <td>
+                                @if($order->restaurantTable)
+                                    {{ $order->restaurantTable->area?->name ? $order->restaurantTable->area->name . ' — ' : '' }}
+                                    {{ $order->restaurantTable->displayName() }}
+                                @else
+                                    —
+                                @endif
+                            </td>
+                        @endif
                         <td>{{ $order->waiter?->employee?->full_name ?? $order->waiter?->display_name ?? '—' }}</td>
                         <td>₪{{ number_format((float) $order->total_amount, 2) }}</td>
                         <td>{{ $order->status?->label() ?? \App\Support\ArabicDisplay::status($order->status) }}</td>
@@ -176,8 +184,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7">
-                            <div class="empty-state-sm">لا توجد طلبات مطعم حتى الآن.</div>
+                        <td colspan="{{ $tablesEnabled ? 7 : 6 }}">
+                            <div class="empty-state-sm">لا توجد طلبات حتى الآن.</div>
                         </td>
                     </tr>
                 @endforelse

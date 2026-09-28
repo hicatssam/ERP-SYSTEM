@@ -106,6 +106,8 @@ $brandName =
 
     $moduleEnabled = static fn (string $code): bool => $moduleService->isEnabled($code);
 
+    $hallVisible = $moduleEnabled('restaurant_tables') && auth()->user()?->can('restaurant_tables.view');
+
     $chatEnabled = $moduleEnabled('chat');
 
     $notificationSoundEnabled = (bool) \App\Models\SystemSetting::get(
@@ -1586,7 +1588,7 @@ a.app-page-btn:hover {
 
                 <div class="nav-section">
 
-                    <div class="nav-section-title">تشغيل المطعم</div>
+                    <div class="nav-section-title">{{ $hallVisible ? 'الصالة' : 'تشغيل الطلبات' }}</div>
 
                     @can('restaurant.view')
 
@@ -1604,7 +1606,7 @@ a.app-page-btn:hover {
 
                                 </svg>
 
-                                <span>لوحة المطعم</span>
+                                <span>لوحة التشغيل</span>
 
                             </a>
 
@@ -1655,7 +1657,7 @@ a.app-page-btn:hover {
 
                                 </svg>
 
-                                <span>منيو المطعم</span>
+                                <span>المنيو</span>
 
                             </a>
 
@@ -1704,7 +1706,7 @@ a.app-page-btn:hover {
 
                                 </svg>
 
-                                <span>الطاولات والجلسات</span>
+                                <span>الصالة والطاولات</span>
 
                             </a>
 

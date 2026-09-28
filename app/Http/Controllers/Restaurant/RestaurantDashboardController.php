@@ -28,18 +28,25 @@ class RestaurantDashboardController extends Controller
 
         $locations = $this->context->selectableLocations($request->user());
 
-        $tablesQuery = RestaurantTable::query()
-            ->forLocation($location->id)
-            ->active();
+        $tablesEnabled = $this->modules->isEnabled('restaurant_tables')
+            && $request->user()->can('restaurant_tables.view');
+        $totalTables = 0;
+        $occupiedTables = 0;
 
-        $totalTables = (clone $tablesQuery)->count();
+        if ($tablesEnabled) {
+            $tablesQuery = RestaurantTable::query()
+                ->forLocation($location->id)
+                ->active();
 
-        $occupiedTables = (clone $tablesQuery)
-            ->whereHas('activeSession', fn ($query) => $query->where(
-                'status',
-                RestaurantTableSessionStatus::Open->value
-            ))
-            ->count();
+            $totalTables = (clone $tablesQuery)->count();
+
+            $occupiedTables = (clone $tablesQuery)
+                ->whereHas('activeSession', fn ($query) => $query->where(
+                    'status',
+                    RestaurantTableSessionStatus::Open->value
+                ))
+                ->count();
+        }
 
         $todayOrders = Order::query()
             ->where('location_id', $location->id)
@@ -93,8 +100,8 @@ class RestaurantDashboardController extends Controller
             ->whereNotNull('restaurant_service_type')
             ->with([
                 'customer',
-                'restaurantTable.area',
                 'waiter.employee',
+                ...($tablesEnabled ? ['restaurantTable.area'] : []),
             ])
             ->latest()
             ->limit(10)
@@ -105,6 +112,7 @@ class RestaurantDashboardController extends Controller
             'locations',
             'totalTables',
             'occupiedTables',
+            'tablesEnabled',
             'todayOrderCount',
             'todaySales',
             'openOrders',

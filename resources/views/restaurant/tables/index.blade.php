@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('title', 'طاولات المطعم')
+@section('title', 'الصالة والطاولات')
 
 @section('content')
 <div class="page-actions">
     <div>
-        <div class="page-actions-title">طاولات المطعم</div>
+        <div class="page-actions-title">الصالة والطاولات</div>
         <div style="margin-top:.25rem;color:var(--text-muted);font-size:.78rem">
             {{ $location->name }} — المناطق والطاولات والجلسات المفتوحة
         </div>

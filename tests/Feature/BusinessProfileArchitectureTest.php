@@ -34,5 +34,6 @@ class BusinessProfileArchitectureTest extends TestCase
         $this->assertContains('inventory', $codes);
         $this->assertContains('purchasing', $codes);
         $this->assertContains('finance', $codes);
+        $this->assertNotContains('restaurant_tables', $codes);
     }
 }
