@@ -65,7 +65,7 @@
             </div>
         @endif
         <div class="assistant-messages" id="assistantMessages" role="log" aria-live="polite">
-            <div class="assistant-message assistant-message--bot">أهلًا! اسألني عن طلباتك، المخزون، المبيعات، أو أي جزء مفعّل لديك في النظام.</div>
+            <div class="assistant-message assistant-message--bot">أهلًا! اسألني عن طلباتك، المخزون، المبيعات، الرواتب، التقارير، أو أي جزء مفعّل لديك في النظام.</div>
             @if(!$assistantAvailable)
                 <div class="assistant-message assistant-message--bot assistant-message--error">لا توجد موضوعات مفعّلة لهذا الحساب أو أن المساعد متوقف من إعدادات النظام. تواصل مع مدير النظام.</div>
             @elseif(!$configured)
