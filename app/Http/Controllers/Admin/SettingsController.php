@@ -19,6 +19,9 @@ class SettingsController extends Controller
         'notification_sound_enabled','chat_enabled','order_number_prefix','cake_order_prefix','stock_request_prefix','invoice_prefix',
         'system_name_en','brand_tagline_ar','brand_tagline_en','brand_footer_text',
 
+        // AI assistant
+        'assistant_enabled','assistant_show_suggestions','assistant_read_only','assistant_max_items',
+
         // Business
         'business_legal_name',
         'business_registration_number',
@@ -112,18 +115,19 @@ class SettingsController extends Controller
                 CASE `group`
                     WHEN 'branding' THEN 1
                     WHEN 'theme' THEN 2
-                    WHEN 'customer_display' THEN 3
-                    WHEN 'customer_menu' THEN 4
-                    WHEN 'chat' THEN 5
-                    WHEN 'modules' THEN 5
-                    WHEN 'general' THEN 6
-                    WHEN 'financial' THEN 7
-                    WHEN 'cake_orders' THEN 8
-                    WHEN 'cashier' THEN 9
-                    WHEN 'orders' THEN 10
-                    WHEN 'invoices' THEN 11
-                    WHEN 'inventory' THEN 12
-                    WHEN 'notifications' THEN 13
+                    WHEN 'assistant' THEN 3
+                    WHEN 'customer_display' THEN 4
+                    WHEN 'customer_menu' THEN 5
+                    WHEN 'chat' THEN 6
+                    WHEN 'modules' THEN 6
+                    WHEN 'general' THEN 7
+                    WHEN 'financial' THEN 8
+                    WHEN 'cake_orders' THEN 9
+                    WHEN 'cashier' THEN 10
+                    WHEN 'orders' THEN 11
+                    WHEN 'invoices' THEN 12
+                    WHEN 'inventory' THEN 13
+                    WHEN 'notifications' THEN 14
                     ELSE 99
                 END
             ")
@@ -140,6 +144,11 @@ class SettingsController extends Controller
 
         $request->validate([
             'chat_enabled' => ['nullable', 'boolean'],
+
+            'assistant_enabled' => ['nullable', 'boolean'],
+            'assistant_show_suggestions' => ['nullable', 'boolean'],
+            'assistant_read_only' => ['nullable', 'boolean'],
+            'assistant_max_items' => ['nullable', 'integer', 'min:3', 'max:20'],
 
             'system_name' => ['nullable', 'string', 'max:120'],
             'system_name_en' => ['nullable', 'string', 'max:120'],
