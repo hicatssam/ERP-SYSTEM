@@ -3,6 +3,7 @@
 namespace Tests\Feature\Assistant;
 
 use App\Models\Customer;
+use App\Models\AssistantUserSetting;
 use App\Models\Location;
 use App\Models\ShowroomCakeRequest;
 use App\Models\SpecialCakeOrder;
@@ -131,6 +132,50 @@ class AiAssistantAccessTest extends TestCase
             ->assertDontSee('كم طلب كيك لازم نجهز اليوم؟');
         $this->postJson(route('assistant.ask'), ['question' => 'كم طلب كيك اليوم؟'])
             ->assertForbidden();
+    }
+
+    #[Test]
+    public function a_custom_assistant_allowlist_can_narrow_a_users_existing_erp_permissions(): void
+    {
+        $branch = $this->branch('A');
+        $user = $this->branchUser($branch, ['cake_orders.view', 'inventory.view']);
+        AssistantUserSetting::query()->create([
+            'user_id' => $user->id,
+            'enabled' => true,
+            'topic_mode' => 'custom',
+            'allowed_intents' => ['cake_due'],
+            'allow_action_suggestions' => false,
+            'max_items' => 4,
+        ]);
+
+        $this->fakePlan('low_stock', 'today');
+
+        $this->actingAs($user)->get(route('assistant.index'))
+            ->assertOk()
+            ->assertSee('طلبات الكيك القادمة')
+            ->assertDontSee('المخزون والنواقص');
+
+        $this->actingAs($user)->postJson(route('assistant.ask'), [
+            'question' => 'شو المنتجات اللي قربت تخلص؟',
+        ])->assertForbidden();
+    }
+
+    #[Test]
+    public function assistant_can_be_disabled_for_one_user_without_disabling_the_system(): void
+    {
+        $user = $this->branchUser($this->branch('A'), ['cake_orders.view']);
+        AssistantUserSetting::query()->create([
+            'user_id' => $user->id,
+            'enabled' => false,
+            'topic_mode' => 'inherit',
+            'allowed_intents' => null,
+            'allow_action_suggestions' => false,
+            'max_items' => 8,
+        ]);
+
+        $this->actingAs($user)->postJson(route('assistant.ask'), [
+            'question' => 'كم طلب كيك اليوم؟',
+        ])->assertForbidden();
     }
 
     #[Test]
