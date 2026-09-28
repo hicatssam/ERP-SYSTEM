@@ -173,6 +173,14 @@ The seeder creates 12 roles:
 
 ## Notes
 
+### AI assistant (read-only sprint)
+
+Set `ERP_AI_API_KEY` on the server and optionally set `ERP_AI_MODEL` (default: `gpt-5-mini`). Clear the configuration cache after changing environment variables. The **المساعد الذكي** page appears in the ERP sidebar and uses the customer-specific `system_name` setting for its brand. Each installation should use its own server-side API key; never place it in frontend assets.
+
+The model receives the user's question and returns a structured intent. The server runs only predefined read queries, checks the user's existing permissions and branch scope again, and shows suggested questions only for enabled modules. ERP records are not sent to the model. This sprint does not create, confirm, edit, or delete records. Keep a separate installation and database per customer with the current architecture; shared-database SaaS requires tenant isolation before launch.
+
+---
+
 - **Charset:** All tables use `utf8mb4 / utf8mb4_unicode_ci` — required for Arabic text and emoji support.
 - **Timezone:** Set to `Asia/Jerusalem`. Change `APP_TIMEZONE` in `.env` if needed.
 - **Language:** Arabic RTL throughout. Validation messages in `lang/ar/`.

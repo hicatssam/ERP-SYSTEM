@@ -47,6 +47,7 @@ use App\Http\Controllers\Procurement\SupplierInvoiceController;
 use App\Http\Controllers\Procurement\SupplierPaymentController;
 use App\Http\Controllers\Admin\LocationPaymentAccountController;
 use App\Http\Controllers\System\HealthController;
+use App\Http\Controllers\Assistant\AiAssistantController;
 // Public customer-menu routes live only in routes/customer-ordering.php.
 // Keeping one owner prevents duplicate URIs, duplicate names and controller drift.
 
@@ -84,6 +85,12 @@ Route::middleware(['auth', 'location.scope'])->group(function () {
 
     // All routes below require password to be changed
     Route::middleware('password.changed')->group(function () {
+
+        Route::get('/assistant', [AiAssistantController::class, 'index'])
+            ->name('assistant.index');
+        Route::post('/assistant/ask', [AiAssistantController::class, 'ask'])
+            ->middleware('throttle:10,1')
+            ->name('assistant.ask');
 
       require __DIR__ . '/procurement.php';
 

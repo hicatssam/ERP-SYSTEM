@@ -1057,6 +1057,16 @@ a.app-page-btn:hover {
 
             @endif
 
+            <div class="nav-section">
+                <a href="{{ route('assistant.index') }}" class="nav-item {{ request()->routeIs('assistant.*') ? 'active' : '' }}">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="m12 2 1.7 6.3L20 10l-6.3 1.7L12 18l-1.7-6.3L4 10l6.3-1.7L12 2Z" />
+                        <path d="m20 17 .8 2.2L23 20l-2.2.8L20 23l-.8-2.2L17 20l2.2-.8L20 17Z" />
+                    </svg>
+                    <span>المساعد الذكي</span>
+                </a>
+            </div>
+
             @if(
 
                 $chatEnabled
