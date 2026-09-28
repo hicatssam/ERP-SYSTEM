@@ -23,6 +23,15 @@ class AssistantPlanner
         ?array $allowedIntents = null
     ): array
     {
+        // Payroll questions are deliberately handled deterministically. A short
+        // Arabic phrase such as "احسب لي دورة الرواتب لشهر 9" was previously
+        // easy for the model to classify as a generic report. The server knows
+        // this topic already, so it can route it without sending the question
+        // to the model and can preserve the requested month for the reader.
+        if ($payroll = $this->payrollPlan($question)) {
+            return $payroll;
+        }
+
         $key = trim((string) config('assistant.api_key'));
         $provider = config('assistant.provider', 'openai');
 
@@ -136,6 +145,83 @@ PROMPT;
             $plan['period'] = $previous['period'];
         }
 
+        // Keep the server-side payroll parser authoritative even when a model
+        // returns a different intent for a question containing payroll terms.
+        if ($payroll = $this->payrollPlan($question)) {
+            return $payroll;
+        }
+
         return $plan;
+    }
+
+    /**
+     * @return array{intent:string,period:string,focus:string,hour:null,payroll_month:int|null,payroll_year:int|null}|null
+     */
+    private function payrollPlan(string $question): ?array
+    {
+        $normalized = $this->normalizeDigits(mb_strtolower(trim($question), 'UTF-8'));
+        $normalized = preg_replace('/[\x{064B}-\x{065F}]/u', '', $normalized) ?: $normalized;
+
+        if (! preg_match('/(?:رواتب|راتب|أجور|اجور|دورة\s+الرواتب|payroll|salary)/u', $normalized)) {
+            return null;
+        }
+
+        $month = null;
+        $monthNames = [
+            'يناير' => 1, 'كانون الثاني' => 1,
+            'فبراير' => 2, 'شباط' => 2,
+            'مارس' => 3, 'آذار' => 3,
+            'أبريل' => 4, 'ابريل' => 4, 'نيسان' => 4,
+            'مايو' => 5, 'أيار' => 5,
+            'يونيو' => 6, 'حزيران' => 6,
+            'يوليو' => 7, 'تموز' => 7,
+            'أغسطس' => 8, 'اغسطس' => 8, 'آب' => 8,
+            'سبتمبر' => 9, 'أيلول' => 9,
+            'أكتوبر' => 10, 'اكتوبر' => 10, 'تشرين الأول' => 10,
+            'نوفمبر' => 11, 'تشرين الثاني' => 11,
+            'ديسمبر' => 12, 'كانون الأول' => 12,
+            'january' => 1, 'february' => 2, 'march' => 3,
+            'april' => 4, 'may' => 5, 'june' => 6,
+            'july' => 7, 'august' => 8, 'september' => 9,
+            'october' => 10, 'november' => 11, 'december' => 12,
+        ];
+        foreach ($monthNames as $name => $value) {
+            if (mb_stripos($normalized, $name, 0, 'UTF-8') !== false) {
+                $month = $value;
+                break;
+            }
+        }
+
+        if ($month === null
+            && preg_match('/(?:شهر|month)\s*([0-9]{1,2})/u', $normalized, $match)) {
+            $candidate = (int) $match[1];
+            $month = $candidate >= 1 && $candidate <= 12 ? $candidate : null;
+        }
+
+        $year = null;
+        if (preg_match('/\b((?:19|20)[0-9]{2})\b/u', $normalized, $match)) {
+            $year = (int) $match[1];
+        }
+
+        $focus = preg_match('/(?:اعرض|أعرض|عرض|اظهر|أظهر|تفاصيل|كشف|قسائم|list|show)/u', $normalized)
+            ? 'list'
+            : 'summary';
+
+        return [
+            'intent' => 'payroll',
+            'period' => 'none',
+            'focus' => $focus,
+            'hour' => null,
+            'payroll_month' => $month,
+            'payroll_year' => $year,
+        ];
+    }
+
+    private function normalizeDigits(string $value): string
+    {
+        return strtr($value, [
+            '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+            '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+        ]);
     }
 }
