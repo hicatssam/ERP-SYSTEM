@@ -1,4 +1,4 @@
-{{-- ضع هذا الرابط داخل قسم "تشغيل المطعم" في Sidebar الرئيسي --}}
+{{-- ضع هذا الرابط داخل قسم الصالة/تشغيل الطلبات في Sidebar الرئيسي --}}
 @can('restaurant_menu.view')
     <a
         href="{{ route('restaurant.menu.index', ['location_id' => request('location_id')]) }}"
@@ -8,6 +8,6 @@
             <path d="M4 5h7v14H4zM13 5h7v14h-7z"></path>
             <path d="M7 9h1M16 9h1M7 13h1M16 13h1"></path>
         </svg>
-        <span>منيو المطعم</span>
+        <span>المنيو</span>
     </a>
 @endcan

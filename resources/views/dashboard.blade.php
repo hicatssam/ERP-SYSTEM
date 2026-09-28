@@ -332,6 +332,9 @@
         static fn (string $code): bool =>
             $moduleService->isEnabled($code);
 
+    $hallVisible = $moduleEnabled('restaurant_tables')
+        && $dashboardUser->can('restaurant_tables.view');
+
     $routeExists =
         static fn (string $name): bool =>
             \Illuminate\Support\Facades\Route::has($name);
@@ -484,7 +487,7 @@
             href="{{ route('restaurant.dashboard') }}"
             class="btn btn-outline btn-sm"
         >
-            تشغيل المطعم
+            {{ $hallVisible ? 'الصالة' : 'تشغيل الطلبات' }}
         </a>
 
     @endif
@@ -500,7 +503,7 @@
             href="{{ route('restaurant.pos.index') }}"
             class="btn btn-gold btn-sm"
         >
-            POS المطعم
+            نقطة البيع
         </a>
 
     @endif
@@ -876,7 +879,7 @@
 
 
 {{-- =========================================================
-     تشغيل المطعم والمطبخ
+     الصالة والطلبات والمطبخ
 ========================================================= --}}
 
 @if(
@@ -896,11 +899,11 @@
 
             <div>
                 <div class="dashboard-module-title">
-                    تشغيل المطعم والمطبخ
+                    {{ $hallVisible ? 'الصالة' : 'تشغيل الطلبات' }}{{ $moduleEnabled('kitchen') && $dashboardUser->can('kitchen.view') ? ' والمطبخ' : '' }}
                 </div>
 
                 <div class="dashboard-module-subtitle">
-                    حالة الطلبات والطاولات وتذاكر التحضير حسب صلاحياتك ونطاق موقعك
+                    حالة الطلبات{{ $hallVisible ? ' والطاولات' : '' }}{{ $moduleEnabled('kitchen') && $dashboardUser->can('kitchen.view') ? ' وتذاكر التحضير' : '' }} حسب صلاحياتك ونطاق موقعك
                 </div>
             </div>
 
@@ -913,7 +916,7 @@
                     href="{{ route('restaurant.dashboard') }}"
                     class="card-action"
                 >
-                    لوحة المطعم
+                    لوحة التشغيل
                 </a>
             @endif
 
@@ -932,7 +935,7 @@
                     class="dashboard-module-card"
                 >
                     <div class="dashboard-module-card-label">
-                        طلبات المطعم اليوم
+                        طلبات اليوم
                     </div>
 
                     <div class="dashboard-module-card-value">
@@ -940,7 +943,7 @@
                     </div>
 
                     <div class="dashboard-module-card-action">
-                        عرض تشغيل المطعم
+                        عرض لوحة التشغيل
                     </div>
                 </a>
 
@@ -985,7 +988,7 @@
                     </div>
 
                     <div class="dashboard-module-card-action">
-                        إدارة الطاولات
+                        فتح الصالة والطاولات
                     </div>
                 </a>
 

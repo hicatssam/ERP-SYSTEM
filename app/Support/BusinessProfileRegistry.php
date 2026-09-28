@@ -303,8 +303,8 @@ final class BusinessProfileRegistry
             [
                 'code' => 'restaurant_operations',
                 'profile' => 'restaurant',
-                'name' => 'تشغيل المطعم',
-                'description' => 'المطعم وPOS والطاولات والمطبخ وKDS.',
+                'name' => 'تشغيل الصالة والمطبخ',
+                'description' => 'نقطة البيع والصالة والطاولات والمطبخ وKDS للمطعم أو المخبز الذي يقدم جلوسًا.',
                 'sort_order' => 20,
 
                 'modules' => [

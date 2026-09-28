@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Restaurant;
 
+use App\Support\BusinessProfileRegistry;
 use App\Support\ModuleRegistry;
 use Tests\TestCase;
 
@@ -29,5 +30,12 @@ class RestaurantModuleRegistryTest extends TestCase
         $this->assertContains('payments', $dependencies['restaurant_pos']);
         $this->assertContains('payment_methods', $dependencies['restaurant_pos']);
         $this->assertContains('sales_channels', $dependencies['restaurant_pos']);
+    }
+
+    public function test_dining_bundle_uses_the_hall_label(): void
+    {
+        $bundle = collect(BusinessProfileRegistry::bundles())->firstWhere('code', 'restaurant_operations');
+
+        $this->assertSame('تشغيل الصالة والمطبخ', $bundle['name']);
     }
 }
