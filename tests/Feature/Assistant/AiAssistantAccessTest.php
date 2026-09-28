@@ -25,7 +25,11 @@ class AiAssistantAccessTest extends TestCase
     {
         parent::setUp();
         Carbon::setTestNow(Carbon::parse('2026-09-28 12:00:00', config('app.timezone')));
-        config(['assistant.api_key' => 'test-only-key']);
+        config([
+            'assistant.provider' => 'openai',
+            'assistant.api_key' => 'test-only-key',
+            'assistant.model' => 'gpt-5-mini',
+        ]);
         $this->mock(ModuleService::class, fn ($mock) => $mock
             ->shouldReceive('isEnabled')->andReturn(true));
         app(PermissionRegistrar::class)->forgetCachedPermissions();
@@ -152,6 +156,59 @@ class AiAssistantAccessTest extends TestCase
             'status' => 'incomplete',
             'incomplete_details' => ['reason' => 'max_output_tokens'],
             'output' => [],
+        ])]);
+
+        $this->actingAs($user)->postJson(route('assistant.ask'), [
+            'question' => 'كم طلب كيك اليوم؟',
+        ])->assertStatus(503)
+            ->assertJsonPath('message', 'تعذر الاتصال بخدمة الذكاء الآن. حاول لاحقًا.');
+    }
+
+    #[Test]
+    public function groq_free_provider_uses_strict_json_without_sending_erp_records(): void
+    {
+        config([
+            'assistant.provider' => 'groq',
+            'assistant.api_key' => 'groq-test-only-key',
+            'assistant.model' => 'openai/gpt-oss-20b',
+        ]);
+        $branch = $this->branch('A');
+        $user = $this->branchUser($branch, ['cake_orders.view']);
+        $this->cake($branch, $user, 'LOCAL-CAKE-NUMBER');
+        Http::fake(['api.groq.com/openai/v1/chat/completions' => Http::response([
+            'choices' => [[
+                'finish_reason' => 'stop',
+                'message' => ['content' => json_encode([
+                    'intent' => 'cake_due',
+                    'period' => 'tomorrow',
+                    'focus' => 'summary',
+                    'hour' => null,
+                ])],
+            ]],
+        ])]);
+
+        $this->actingAs($user)->postJson(route('assistant.ask'), [
+            'question' => 'كم طلب كيك عندي بكرة؟',
+        ])->assertOk()->assertSee('LOCAL-CAKE-NUMBER');
+
+        Http::assertSentCount(1);
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.groq.com/openai/v1/chat/completions'
+            && $request->hasHeader('Authorization', 'Bearer groq-test-only-key')
+            && $request->data()['model'] === 'openai/gpt-oss-20b'
+            && $request->data()['response_format']['json_schema']['strict'] === true
+            && ! str_contains(json_encode($request->data()), 'LOCAL-CAKE-NUMBER'));
+    }
+
+    #[Test]
+    public function truncated_groq_response_is_not_used_to_answer(): void
+    {
+        config(['assistant.provider' => 'groq']);
+        $user = $this->branchUser($this->branch('A'), ['cake_orders.view']);
+        Http::fake(['api.groq.com/openai/v1/chat/completions' => Http::response([
+            'choices' => [[
+                'finish_reason' => 'length',
+                'message' => ['content' => '{"intent":"cake_due"}'],
+            ]],
         ])]);
 
         $this->actingAs($user)->postJson(route('assistant.ask'), [

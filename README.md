@@ -180,7 +180,16 @@ The seeder creates 12 roles:
 
 ### AI assistant (read-only sprint)
 
-Set `OPENAI_API_KEY` on the server, or use `ERP_AI_API_KEY` to override it for this ERP. Optionally set `ERP_AI_MODEL` (default: `gpt-5-mini`), then run `php artisan config:clear` or rebuild the configuration cache. The **المساعد الذكي** page appears in the ERP sidebar and uses the customer's `system_name` and theme settings. Each installation should use its own server-side API key; never place it in frontend assets or git.
+For Groq's limited free API tier, create a key in the [Groq console](https://console.groq.com/keys) and put these values in the installation's real `.env` file (never `.env.example`):
+
+```dotenv
+ERP_AI_PROVIDER=groq
+GROQ_API_KEY=your-own-groq-key
+```
+
+The default Groq model is `openai/gpt-oss-20b`, which supports strict structured JSON output. `ERP_AI_GROQ_MODEL` can override it with another Groq model that supports strict schema output. The free plan has per-organization request and token limits, so each customer installation should use that customer's own key; it is not an unlimited production allocation. For OpenAI instead, set `ERP_AI_PROVIDER=openai` and set `OPENAI_API_KEY` (or `ERP_AI_API_KEY` to override it), optionally with `ERP_AI_MODEL` (default: `gpt-5-mini`).
+
+After updating `.env`, run `php artisan config:clear` or rebuild the configuration cache. The **المساعد الذكي** page appears in the ERP sidebar and uses the customer's `system_name` and theme settings. Never place a live key in frontend assets, `.env.example`, or git. A key exposed in chat or source control must be revoked and replaced.
 
 The model receives the user's question and returns a structured intent. The server runs only predefined read queries, checks the user's existing permissions and branch scope again, and shows suggested questions only for enabled modules. ERP records are not sent to the model. This sprint does not create, confirm, edit, or delete records. With the current architecture, deploy a separate installation and database per customer; shared-database SaaS requires tenant isolation before launch.
 

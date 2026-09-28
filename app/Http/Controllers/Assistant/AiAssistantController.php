@@ -42,7 +42,7 @@ class AiAssistantController extends Controller
 
             return response()->json([
                 'message' => trim((string) config('assistant.api_key')) === ''
-                    ? 'المساعد غير مفعّل بعد. يلزم إعداد مفتاح OpenAI على الخادم.'
+                    ? 'المساعد غير مفعّل بعد. يلزم إعداد مفتاح مزود الذكاء على الخادم.'
                     : 'تعذر الاتصال بخدمة الذكاء الآن. حاول لاحقًا.',
             ], 503);
         }
