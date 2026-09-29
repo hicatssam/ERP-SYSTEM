@@ -56,6 +56,7 @@
                 <td style="width:{{ $cellWidth }}">
                     <div style="height:46px"></div>
 
+                    <div class="print-signature-line"></div>
                     <div class="print-signature-label">
                         {{ $rightLabel }}
                     </div>
@@ -74,6 +75,7 @@
                         <div style="height:46px"></div>
                     @endif
 
+                    <div class="print-signature-line"></div>
                     <div class="print-signature-label">
                         {{ $leftLabel }}
                     </div>

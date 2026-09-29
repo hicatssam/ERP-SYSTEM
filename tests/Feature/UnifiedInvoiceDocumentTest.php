@@ -114,31 +114,7 @@ class UnifiedInvoiceDocumentTest extends TestCase
             $this->assertStringContainsString('class="print-table"', $document);
             $this->assertStringNotContainsString('حلويات دهب', $document);
             if ($pdfMode) {
-                $variants = [
-                    'full' => $document,
-                    'no_styles' => preg_replace('/<style\b[^>]*>.*?<\/style>/su', '', $document),
-                    'no_borders' => preg_replace('/\bborder(?:-[\w-]+)?\s*:[^;]*;/u', '', $document),
-                    'no_receiving_styles' => preg_replace('/<style>\s*\.receiving-info.*?<\/style>/su', '', $document),
-                    'no_receiving_info' => preg_replace('/<table class="receiving-info".*?<\/table>/su', '', $document),
-                    'no_receiving_summary' => preg_replace('/<table class="receiving-summary".*?<\/table>/su', '', $document),
-                    'no_items_table' => preg_replace('/<table class="print-table".*?<\/table>/su', '', $document),
-                    'no_header' => preg_replace('/<table\s+class="print-header-table.*?<\/table>/su', '', $document),
-                    'no_signatures' => preg_replace('/<table\s+class="print-signature-table".*?<\/table>/su', '', $document),
-                    'no_footer' => preg_replace('/<table\s+class="print-footer".*?<\/table>/su', '', $document),
-                    'no_signature_line' => str_replace('border-top: 1px solid #9ca3af;', '', $document),
-                    'no_footer_border' => preg_replace('/(\.print-footer\s*\{[^}]*?)border-top\s*:[^;]*;/su', '$1', $document),
-                    'no_header_border' => preg_replace('/(\.print-header-table\s*\{[^}]*?)border-bottom\s*:[^;]*;/su', '$1', $document),
-                ];
-                $results = [];
-                foreach ($variants as $name => $html) {
-                    try {
-                        $this->assertCanGeneratePdf($html);
-                        $results[$name] = 'ok';
-                    } catch (\Throwable $exception) {
-                        $results[$name] = $exception->getMessage();
-                    }
-                }
-                $this->assertSame(array_fill_keys(array_keys($variants), 'ok'), $results);
+                $this->assertCanGeneratePdf($document);
             }
         }
     }

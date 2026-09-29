@@ -518,9 +518,13 @@
             margin: 0 auto 3px;
         }
 
+        .print-signature-line {
+            height: 1px;
+            background: #9ca3af;
+        }
+
         .print-signature-label {
             padding-top: 5px;
-            border-top: 1px solid #9ca3af;
             color: #4b5563;
             font-size: 7.4pt;
         }
