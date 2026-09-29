@@ -26,7 +26,6 @@
         width: 50%;
         padding: 9px;
         vertical-align: top;
-        border: 1px solid #e5e7eb;
         background: #f8fafc;
     }
     .receiving-info-label {
@@ -50,7 +49,7 @@
     .receiving-summary td {
         width: 33.33%;
         padding: 8px;
-        border: 1px solid #e5e7eb;
+        background: #f8fafc;
         text-align: center;
     }
     .receiving-summary span { display: block; color: #6b7280; font-size: 7.5pt; }

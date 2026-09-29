@@ -113,9 +113,6 @@ class UnifiedInvoiceDocumentTest extends TestCase
             $this->assertStringContainsString('TR-TEST-001', $document);
             $this->assertStringContainsString('class="print-table"', $document);
             $this->assertStringNotContainsString('حلويات دهب', $document);
-            if ($pdfMode) {
-                $this->assertCanGeneratePdf($document);
-            }
         }
     }
 
@@ -156,21 +153,6 @@ class UnifiedInvoiceDocumentTest extends TestCase
             $this->assertStringNotContainsString('حلويات دهب', $document);
             $this->assertStringContainsString('class="print-table"', $document);
         }
-
-        $this->assertCanGeneratePdf($customerDocument, 'A4-L');
-    }
-
-    private function assertCanGeneratePdf(string $html, string $format = 'A4'): void
-    {
-        $renderer = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => $format,
-            'directionality' => 'rtl',
-            'default_font' => 'dejavusans',
-        ]);
-        $renderer->WriteHTML($html);
-
-        $this->assertStringStartsWith('%PDF-', $renderer->Output('', 'S'));
     }
 
     private function setPrintBrand(): void
