@@ -72,35 +72,14 @@ class UnifiedInvoiceDocumentTest extends TestCase
             );
         }
 
-        $variants = [
-            'full' => $pdf,
-            'no_styles' => preg_replace('/<style\b[^>]*>.*?<\/style>/su', '', $pdf),
-            'no_currency' => str_replace('د.ع', 'IQD', $pdf),
-            'no_borders' => preg_replace('/\bborder(?:-[\w-]+)?\s*:[^;]*;/u', '', $pdf),
-            'no_details' => preg_replace('/<table\s+class="invoice-detail-table".*?<\/table>/su', '', $pdf),
-            'no_invoice_styles' => preg_replace('/<style>\s*\.invoice-statuses.*?<\/style>/su', '', $pdf),
-            'no_status_html' => preg_replace('/<div class="invoice-statuses">.*?<\/div>\s*<\/div>\s*<\/div>/su', '', $pdf),
-            'no_party_border' => preg_replace('/(\.invoice-party-box\s*\{[^}]*?)border:[^;]+;/su', '$1', $pdf),
-            'no_notes_border' => preg_replace('/(\.invoice-notes\s*\{[^}]*?)border:[^;]+;/su', '$1', $pdf),
-            'no_party_or_notes_border' => preg_replace('/(\.(?:invoice-party-box|invoice-notes)\s*\{[^}]*?)border:[^;]+;/su', '$1', $pdf),
-        ];
-        $renderResults = [];
-        foreach ($variants as $name => $html) {
-            try {
-                $renderer = new Mpdf([
-                    'mode' => 'utf-8',
-                    'format' => 'A4',
-                    'directionality' => 'rtl',
-                    'default_font' => 'dejavusans',
-                ]);
-                $renderer->WriteHTML($html);
-                $renderResults[$name] = str_starts_with($renderer->Output('', 'S'), '%PDF-')
-                    ? 'ok' : 'missing PDF header';
-            } catch (\Throwable $exception) {
-                $renderResults[$name] = $exception->getMessage();
-            }
-        }
-        $this->assertSame(array_fill_keys(array_keys($variants), 'ok'), $renderResults);
+        $renderer = new Mpdf([
+            'mode' => 'utf-8',
+            'format' => 'A4',
+            'directionality' => 'rtl',
+            'default_font' => 'dejavusans',
+        ]);
+        $renderer->WriteHTML($pdf);
+        $this->assertStringStartsWith('%PDF-', $renderer->Output('', 'S'));
     }
 
     #[Test]

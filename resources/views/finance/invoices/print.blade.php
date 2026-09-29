@@ -150,7 +150,6 @@
     .invoice-party-box {
         min-height: 108px;
         padding: 10px 11px;
-        border: 1px solid #e5e7eb;
         background: #f8fafc;
     }
 
@@ -229,7 +228,6 @@
     .invoice-notes {
         min-height: 122px;
         padding: 10px;
-        border: 1px dashed #d1d5db;
         background: #ffffff;
     }
 
