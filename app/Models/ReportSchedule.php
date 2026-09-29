@@ -48,10 +48,44 @@ class ReportSchedule extends Model
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    /** Returns recipients as an array of trimmed email strings. */
+    /**
+     * New schedules store comma-separated addresses. Older seeded schedules
+     * stored a JSON array, so accept both without ever treating JSON syntax
+     * as part of an email address.
+     *
+     * @return list<string>
+     */
     public function recipientList(): array
     {
-        return array_filter(array_map('trim', explode(',', $this->recipients)));
+        $raw = trim((string) $this->recipients);
+        $decoded = json_decode($raw, true);
+        $entries = is_array($decoded) && array_is_list($decoded)
+            ? $decoded
+            : explode(',', $raw);
+
+        $emails = [];
+        foreach ($entries as $entry) {
+            if (! is_string($entry)) {
+                throw new \InvalidArgumentException('قائمة مستلمي التقرير تحتوي على بريد إلكتروني غير صالح.');
+            }
+
+            $email = trim($entry);
+            if ($email === '') {
+                continue;
+            }
+
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                throw new \InvalidArgumentException('قائمة مستلمي التقرير تحتوي على بريد إلكتروني غير صالح.');
+            }
+
+            $emails[] = $email;
+        }
+
+        if ($emails === []) {
+            throw new \InvalidArgumentException('لا يوجد بريد إلكتروني صالح لاستلام التقرير.');
+        }
+
+        return $emails;
     }
 
     /** Human-readable frequency label (Arabic). */
@@ -80,6 +114,7 @@ class ReportSchedule extends Model
             'yesterday'  => 'أمس',
             'last_7_days'  => 'آخر 7 أيام',
             'last_30_days' => 'آخر 30 يوم',
+            'last_week'    => 'الأسبوع الماضي',
             'this_month'   => 'هذا الشهر',
             'last_month'   => 'الشهر الماضي',
             default        => $this->date_range,
@@ -100,6 +135,10 @@ class ReportSchedule extends Model
             'yesterday'    => [$now->copy()->subDay()->startOfDay(), $now->copy()->subDay()->endOfDay()],
             'last_7_days'  => [$now->copy()->subDays(6)->startOfDay(), $now->copy()->endOfDay()],
             'last_30_days' => [$now->copy()->subDays(29)->startOfDay(), $now->copy()->endOfDay()],
+            'last_week'    => [
+                $now->copy()->startOfWeek(Carbon::MONDAY)->subWeek()->startOfDay(),
+                $now->copy()->startOfWeek(Carbon::MONDAY)->subDay()->endOfDay(),
+            ],
             'this_month'   => [$now->copy()->startOfMonth(), $now->copy()->endOfDay()],
             'last_month'   => [$now->copy()->subMonth()->startOfMonth(), $now->copy()->subMonth()->endOfMonth()],
             default        => [$now->copy()->subDays(6)->startOfDay(), $now->copy()->endOfDay()],

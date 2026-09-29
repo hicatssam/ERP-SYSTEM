@@ -1966,38 +1966,38 @@ SVG;
         $schedules = [
             [
                 'name'        => 'تقرير المبيعات الأسبوعي',
-                'report_type' => 'sales_summary',
+                'report_type' => 'daily-sales',
                 'frequency'   => 'weekly',
                 'day_of_week' => 1, // Monday
                 'hour'        => 8,
-                'recipients'  => json_encode(['admin@dahabsweets.com', 'accountant@dahabsweets.com']),
+                'recipients'  => 'admin@dahabsweets.com, accountant@dahabsweets.com',
                 'location_id' => null,
                 'date_range'  => 'last_week',
-                'is_active'   => true,
+                'is_active'   => false, // Demo addresses must be confirmed before mailing.
                 'created_by'  => $admin->id,
             ],
             [
                 'name'        => 'تقرير المخزون اليومي',
-                'report_type' => 'inventory_levels',
+                'report_type' => 'inventory',
                 'frequency'   => 'daily',
                 'day_of_week' => null,
                 'hour'        => 7,
-                'recipients'  => json_encode(['inventory@dahabsweets.com', 'factory.mgr@dahabsweets.com']),
+                'recipients'  => 'inventory@dahabsweets.com, factory.mgr@dahabsweets.com',
                 'location_id' => null,
                 'date_range'  => 'today',
-                'is_active'   => true,
+                'is_active'   => false, // Demo addresses must be confirmed before mailing.
                 'created_by'  => $admin->id,
             ],
             [
                 'name'        => 'تقرير الفرع الشهري — رام الله',
-                'report_type' => 'branch_performance',
+                'report_type' => 'branch-sales',
                 'frequency'   => 'monthly',
                 'day_of_week' => null,
                 'hour'        => 9,
-                'recipients'  => json_encode(['branch.b01@dahabsweets.com', 'admin@dahabsweets.com']),
+                'recipients'  => 'branch.b01@dahabsweets.com, admin@dahabsweets.com',
                 'location_id' => $branchB1?->id,
                 'date_range'  => 'last_month',
-                'is_active'   => true,
+                'is_active'   => false, // Demo addresses must be confirmed before mailing.
                 'created_by'  => $admin->id,
             ],
         ];

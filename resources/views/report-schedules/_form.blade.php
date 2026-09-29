@@ -104,7 +104,7 @@ $old = fn(string $field, $fallback = null) => old($field, $schedule?->{$field} ?
         @endfor
     </select>
     <p style="font-size:.75rem;color:var(--text-muted);margin-top:.3rem">
-        يعمل المجدول بتوقيت الخادم (UTC). تأكد من ضبط الساعة وفق التوقيت المحلي المناسب.
+        يعمل المجدول بتوقيت النظام ({{ config('app.timezone') }}). تأكد من ضبط الساعة وفق التوقيت المحلي المناسب.
     </p>
     @error('hour')<div class="invalid-feedback">{{ $message }}</div>@enderror
 </div>

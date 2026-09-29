@@ -36,6 +36,7 @@ class SendScheduledReports extends Command
         $schedules = ReportSchedule::where('is_active', true)->get();
 
         $sent = 0;
+        $failed = 0;
 
         foreach ($schedules as $schedule) {
             if (! $schedule->isDue($now)) {
@@ -63,6 +64,7 @@ class SendScheduledReports extends Command
                 $sent++;
                 $this->info("Sent: [{$schedule->id}] {$schedule->name}");
             } catch (\Throwable $e) {
+                $failed++;
                 // Roll back last_run_at so the next hourly run retries.
                 DB::table('report_schedules')
                     ->where('id', $schedule->id)
@@ -75,9 +77,9 @@ class SendScheduledReports extends Command
             }
         }
 
-        $this->info("Done. {$sent} schedule(s) sent.");
+        $this->info("Done. {$sent} schedule(s) sent; {$failed} failed.");
 
-        return self::SUCCESS;
+        return $failed > 0 ? self::FAILURE : self::SUCCESS;
     }
 
     /**

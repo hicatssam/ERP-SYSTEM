@@ -123,6 +123,58 @@ class SendScheduledReportsTest extends TestCase
         }
     }
 
+    #[Test]
+    public function command_sends_to_legacy_json_recipients_without_json_punctuation(): void
+    {
+        Mail::fake();
+        Carbon::setTestNow(Carbon::create(2026, 8, 3, 9, 0, 0));
+
+        try {
+            $this->dueSchedule([
+                'hour' => 9,
+                'recipients' => '["alice@example.com","bob@example.com"]',
+            ]);
+
+            $this->artisan('reports:send-scheduled')->assertExitCode(0);
+
+            Mail::assertSent(ScheduledReportMail::class, 2);
+            Mail::assertSent(ScheduledReportMail::class, fn (ScheduledReportMail $mail) => $mail->hasTo('alice@example.com'));
+            Mail::assertSent(ScheduledReportMail::class, fn (ScheduledReportMail $mail) => $mail->hasTo('bob@example.com'));
+        } finally {
+            Carbon::setTestNow(null);
+        }
+    }
+
+    #[Test]
+    public function service_rejects_an_invalid_recipient_before_sending_to_anyone(): void
+    {
+        Mail::fake();
+        $schedule = $this->dueSchedule([
+            'recipients' => '["good@example.com","not-an-email"]',
+        ]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            app(ReportScheduleService::class)->send($schedule);
+        } finally {
+            Mail::assertNothingSent();
+        }
+    }
+
+    #[Test]
+    public function service_rejects_unknown_legacy_type_instead_of_emailing_an_empty_report(): void
+    {
+        Mail::fake();
+        $schedule = $this->dueSchedule(['report_type' => 'sales_summary']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        try {
+            app(ReportScheduleService::class)->send($schedule);
+        } finally {
+            Mail::assertNothingSent();
+        }
+    }
+
     // =========================================================================
     //  Command does NOT send mail for schedules that are not due
     // =========================================================================
@@ -234,9 +286,14 @@ class SendScheduledReportsTest extends TestCase
         // Capture attachment bytes eagerly during the send() call while the
         // temp file still exists (before the service's finally-block deletes it).
         $capturedXlsxBytes = null;
-        Event::listen(MessageSending::class, function (MessageSending $event) use (&$capturedXlsxBytes) {
+        $capturedRecipients = [];
+        Event::listen(MessageSending::class, function (MessageSending $event) use (&$capturedXlsxBytes, &$capturedRecipients) {
             $message = $event->message;
-            if (!$message instanceof SymfonyEmail || $capturedXlsxBytes !== null) {
+            if (!$message instanceof SymfonyEmail) {
+                return;
+            }
+            $capturedRecipients = array_map(fn ($address) => $address->getAddress(), $message->getTo());
+            if ($capturedXlsxBytes !== null) {
                 return;
             }
             $parts = $message->getAttachments();
@@ -260,7 +317,7 @@ class SendScheduledReportsTest extends TestCase
             $schedule = $this->dueSchedule([
                 'report_type' => 'activity-logs',
                 'hour'        => 8,
-                'recipients'  => 'manager@example.com',
+                'recipients'  => '["manager@example.com"]',
             ]);
 
             // Drive the service directly so the real export pipeline runs.
@@ -274,6 +331,8 @@ class SendScheduledReportsTest extends TestCase
             'MessageSending event must have fired and captured attachment bytes.');
         $this->assertNotEmpty($capturedXlsxBytes,
             'Captured attachment bytes must not be empty.');
+        $this->assertSame(['manager@example.com'], $capturedRecipients,
+            'The real MIME message must contain a plain email address, not JSON punctuation.');
 
         // Parse with PhpSpreadsheet to confirm the file is a valid OpenXML document.
         $tmpPath = tempnam(sys_get_temp_dir(), 'test_sched_xlsx_') . '.xlsx';
@@ -349,7 +408,7 @@ class SendScheduledReportsTest extends TestCase
                 return $mock;
             });
 
-            $this->artisan('reports:send-scheduled')->assertExitCode(0);
+            $this->artisan('reports:send-scheduled')->assertExitCode(1);
 
             $schedule->refresh();
             $this->assertNull($schedule->last_run_at,

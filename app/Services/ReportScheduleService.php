@@ -13,12 +13,37 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class ReportScheduleService
 {
+    private const REPORT_TYPE_NAMES = [
+        'orders'          => 'تقرير الطلبات',
+        'cake-orders'     => 'تقرير طلبات الكيك الخاصة',
+        'inventory'       => 'تقرير المخزون',
+        'stock-movements' => 'تقرير حركات المخزون',
+        'low-stock'       => 'تقرير المخزون المنخفض',
+        'stock-transfers' => 'تقرير التحويلات',
+        'payments'        => 'تقرير الدفعات',
+        'invoices'        => 'تقرير الفواتير',
+        'cash-sessions'   => 'تقرير جلسات الكاشير',
+        'daily-sales'     => 'تقرير المبيعات اليومية',
+        'monthly-sales'   => 'تقرير المبيعات الشهرية',
+        'branch-sales'    => 'تقرير أداء الفروع',
+        'product-sales'   => 'تقرير مبيعات المنتجات',
+        'collections'     => 'تقرير التحصيلات',
+        'outstanding'     => 'تقرير الأرصدة المعلقة',
+        'activity-logs'   => 'سجل النشاطات',
+    ];
+
     /**
      * Generate the Excel attachment and send the report email(s) for
      * a given schedule. Throws on failure — callers should handle exceptions.
      */
     public function send(ReportSchedule $schedule): void
     {
+        if (! isset(self::REPORT_TYPE_NAMES[$schedule->report_type])) {
+            throw new \InvalidArgumentException('نوع التقرير المجدول غير مدعوم؛ يرجى تعديل الجدول قبل إرساله.');
+        }
+
+        // Validate all addresses before exporting or sending to any recipient.
+        $recipients = $schedule->recipientList();
         ['date_from' => $dateFrom, 'date_to' => $dateTo] = $schedule->resolveDateRange();
 
         // Resolve location IDs — never escalate to all locations unless the
@@ -34,7 +59,7 @@ class ReportScheduleService
             $schedule->report_type, $locationIds, $dateFrom, $dateTo,
         ]);
 
-        $title  = $this->reportTypeName($schedule->report_type);
+        $title  = self::REPORT_TYPE_NAMES[$schedule->report_type];
         $mapper = fn ($row) => $this->callProtected($controller, 'formatRowForExport', [
             $schedule->report_type, $row,
         ]);
@@ -68,10 +93,7 @@ class ReportScheduleService
         file_put_contents($tmpPath, $content);
 
         try {
-            foreach (
-                $schedule->recipientList()
-                as $email
-            ) {
+            foreach ($recipients as $email) {
                 /*
                  * Use a fresh Mailable per recipient. Reusing one Mailable
                  * instance can retain recipient state between sends and is not
@@ -110,27 +132,5 @@ class ReportScheduleService
         return (int) DB::query()
             ->fromSub($base->reorder(), 'sub')
             ->count();
-    }
-
-    private function reportTypeName(string $type): string
-    {
-        return [
-            'orders'          => 'تقرير الطلبات',
-            'cake-orders'     => 'تقرير طلبات الكيك الخاصة',
-            'inventory'       => 'تقرير المخزون',
-            'stock-movements' => 'تقرير حركات المخزون',
-            'low-stock'       => 'تقرير المخزون المنخفض',
-            'stock-transfers' => 'تقرير التحويلات',
-            'payments'        => 'تقرير الدفعات',
-            'invoices'        => 'تقرير الفواتير',
-            'cash-sessions'   => 'تقرير جلسات الكاشير',
-            'daily-sales'     => 'تقرير المبيعات اليومية',
-            'monthly-sales'   => 'تقرير المبيعات الشهرية',
-            'branch-sales'    => 'تقرير أداء الفروع',
-            'product-sales'   => 'تقرير مبيعات المنتجات',
-            'collections'     => 'تقرير التحصيلات',
-            'outstanding'     => 'تقرير الأرصدة المعلقة',
-            'activity-logs'   => 'سجل النشاطات',
-        ][$type] ?? $type;
     }
 }

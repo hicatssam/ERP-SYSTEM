@@ -35,6 +35,41 @@ class ReportScheduleTest extends TestCase
         ], $attrs));
     }
 
+    #[Test]
+    public function recipient_list_accepts_comma_separated_and_legacy_json_addresses(): void
+    {
+        $expected = ['first@example.com', 'second@example.com'];
+
+        $this->assertSame($expected, $this->schedule([
+            'recipients' => ' first@example.com, second@example.com ',
+        ])->recipientList());
+
+        $this->assertSame($expected, $this->schedule([
+            'recipients' => '["first@example.com","second@example.com"]',
+        ])->recipientList());
+    }
+
+    /** @return array<string, array{string}> */
+    public static function invalidRecipientsProvider(): array
+    {
+        return [
+            'empty' => [''],
+            'empty JSON array' => ['[]'],
+            'malformed CSV' => ['first@example.com, not-an-email'],
+            'malformed legacy JSON' => ['["first@example.com","not-an-email"]'],
+            'JSON object' => ['{"email":"first@example.com"}'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('invalidRecipientsProvider')]
+    public function recipient_list_rejects_invalid_addresses(string $recipients): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->schedule(['recipients' => $recipients])->recipientList();
+    }
+
     // =========================================================================
     //  isDue() — inactive schedule
     // =========================================================================
@@ -166,6 +201,7 @@ class ReportScheduleTest extends TestCase
             'yesterday'    => ['yesterday',     '2026-08-01', '2026-08-01'],
             'last_7_days'  => ['last_7_days',   '2026-07-27', '2026-08-02'],
             'last_30_days' => ['last_30_days',  '2026-07-04', '2026-08-02'],
+            'last_week'    => ['last_week',     '2026-07-20', '2026-07-26'],
             'this_month'   => ['this_month',    '2026-08-01', '2026-08-02'],
             'last_month'   => ['last_month',    '2026-07-01', '2026-07-31'],
             'unknown_key'  => ['unknown_key',   '2026-07-27', '2026-08-02'], // falls to default (last_7_days)

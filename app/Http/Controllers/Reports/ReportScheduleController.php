@@ -36,6 +36,7 @@ class ReportScheduleController extends Controller
         'yesterday'    => 'أمس',
         'last_7_days'  => 'آخر 7 أيام',
         'last_30_days' => 'آخر 30 يوم',
+        'last_week'    => 'الأسبوع الماضي',
         'this_month'   => 'هذا الشهر',
         'last_month'   => 'الشهر الماضي',
     ];
