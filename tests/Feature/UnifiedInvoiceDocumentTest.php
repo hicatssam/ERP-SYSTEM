@@ -72,14 +72,30 @@ class UnifiedInvoiceDocumentTest extends TestCase
             );
         }
 
-        $renderer = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'directionality' => 'rtl',
-            'default_font' => 'dejavusans',
-        ]);
-        $renderer->WriteHTML($pdf);
-        $this->assertStringStartsWith('%PDF-', $renderer->Output('', 'S'));
+        $variants = [
+            'full' => $pdf,
+            'no_styles' => preg_replace('/<style\b[^>]*>.*?<\/style>/su', '', $pdf),
+            'no_currency' => str_replace('د.ع', 'IQD', $pdf),
+            'no_borders' => preg_replace('/\bborder(?:-[\w-]+)?\s*:[^;]*;/u', '', $pdf),
+            'no_details' => preg_replace('/<table\s+class="invoice-detail-table".*?<\/table>/su', '', $pdf),
+        ];
+        $renderResults = [];
+        foreach ($variants as $name => $html) {
+            try {
+                $renderer = new Mpdf([
+                    'mode' => 'utf-8',
+                    'format' => 'A4',
+                    'directionality' => 'rtl',
+                    'default_font' => 'dejavusans',
+                ]);
+                $renderer->WriteHTML($html);
+                $renderResults[$name] = str_starts_with($renderer->Output('', 'S'), '%PDF-')
+                    ? 'ok' : 'missing PDF header';
+            } catch (\Throwable $exception) {
+                $renderResults[$name] = $exception->getMessage();
+            }
+        }
+        $this->assertSame(array_fill_keys(array_keys($variants), 'ok'), $renderResults);
     }
 
     #[Test]
