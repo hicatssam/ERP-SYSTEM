@@ -114,27 +114,23 @@
         display: inline-block;
         margin-right: 5px;
         padding: 3px 8px;
-        border: 1px solid #d7dde4;
         font-size: 7.5pt;
         font-weight: 800;
     }
 
     .invoice-status-active,
     .invoice-status-paid {
-        border-color: #b9ddc7;
         color: #08783e;
         background: #edf8f1;
     }
 
     .invoice-status-inactive,
     .invoice-status-unpaid {
-        border-color: #e6c1bb;
         color: #b42318;
         background: #fff3f1;
     }
 
     .invoice-status-partial {
-        border-color: #ead29d;
         color: #946716;
         background: #fff8e6;
     }
