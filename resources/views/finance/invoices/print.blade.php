@@ -255,13 +255,13 @@
 
 @section('print_content')
     <div class="invoice-statuses">
-        <span class="invoice-status {{ $invoiceStatusClass }}">
+        <div class="invoice-status {{ $invoiceStatusClass }}">
             {{ $invoice->statusLabel() }}
-        </span>
+        </div>
 
-        <span class="invoice-status {{ $paymentStatusClass }}">
+        <div class="invoice-status {{ $paymentStatusClass }}">
             {{ $invoice->paymentStatusLabel() }}
-        </span>
+        </div>
     </div>
 
     <table

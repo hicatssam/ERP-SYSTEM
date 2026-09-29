@@ -1,10 +1,11 @@
+@php($menuCurrencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<title>المنيو - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
+<title>المنيو - {{ $branding['name'] ?? config('app.name') }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
@@ -48,9 +49,9 @@
    <h4>نطاق السعر</h4>
    <div class="chip-row" id="priceChips">
     <button class="chip active" type="button" data-price="all">الكل</button>
-    <button class="chip" type="button" data-price="0-20">أقل من 20 ₪</button>
-    <button class="chip" type="button" data-price="20-50">20 - 50 ₪</button>
-    <button class="chip" type="button" data-price="50-999999">أكثر من 50 ₪</button>
+    <button class="chip" type="button" data-price="0-20">أقل من 20 {{ $menuCurrencySymbol }}</button>
+    <button class="chip" type="button" data-price="20-50">20 - 50 {{ $menuCurrencySymbol }}</button>
+    <button class="chip" type="button" data-price="50-999999">أكثر من 50 {{ $menuCurrencySymbol }}</button>
    </div>
   </div>
 

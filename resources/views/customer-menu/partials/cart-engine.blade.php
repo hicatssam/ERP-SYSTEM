@@ -150,7 +150,8 @@ window.CustomerMenu = (function () {
         return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
-    function money(value) { return Number(value || 0).toFixed(2) + ' ₪'; }
+    const currencySymbol = @json(app(\App\Services\PrintThemeService::class)->settings()['currency_symbol']);
+    function money(value) { return Number(value || 0).toFixed(2) + ' ' + currencySymbol; }
 
     function product(id) { return PRODUCTS.find(p => String(p.id) === String(id)); }
 
@@ -314,4 +315,3 @@ window.CustomerMenu = (function () {
 })();
 </script>
 <div class="toast" id="toast"></div>
-

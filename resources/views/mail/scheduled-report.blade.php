@@ -1,10 +1,11 @@
+@php($mailTheme = app(\App\Services\PrintThemeService::class)->settings())
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <style>
         body { font-family: Arial, sans-serif; color: #333; direction: rtl; }
-        .header { background: #b8860b; color: #fff; padding: 20px 24px; border-radius: 6px 6px 0 0; }
+        .header { background: {{ $mailTheme['primary_color'] }}; color: #fff; padding: 20px 24px; border-radius: 6px 6px 0 0; }
         .header h1 { margin: 0; font-size: 1.2rem; }
         .body { padding: 24px; background: #fafafa; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 6px 6px; }
         .meta { background: #fff; border: 1px solid #e8e8e8; border-radius: 4px; padding: 16px; margin-bottom: 16px; }
@@ -15,7 +16,7 @@
 </head>
 <body>
 <div class="header">
-    <h1>حلويات دهب — تقرير مجدول</h1>
+    <h1>{{ $mailTheme['business_name'] }} — تقرير مجدول</h1>
 </div>
 <div class="body">
     <p>مرحباً،</p>
@@ -40,6 +41,6 @@
 
     <p>ملاحظة: يرجى عدم الرد على هذا البريد. إن كنت لا تريد تلقي هذه التقارير، يرجى التواصل مع المسؤول لإزالة بريدك من القائمة.</p>
 </div>
-<div class="footer">نظام إدارة حلويات دهب — تم الإرسال تلقائياً</div>
+<div class="footer">{{ $mailTheme['business_name'] }} — تم الإرسال تلقائياً</div>
 </body>
 </html>

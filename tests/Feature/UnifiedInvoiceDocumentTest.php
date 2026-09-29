@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\Currency;
+use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Location;
 use App\Models\StockReceivingInvoice;
 use App\Models\StockTransfer;
+use App\Models\Supplier;
 use App\Models\SystemSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mpdf\Mpdf;
@@ -111,6 +113,45 @@ class UnifiedInvoiceDocumentTest extends TestCase
             $this->assertStringContainsString('TR-TEST-001', $document);
             $this->assertStringContainsString('class="print-table"', $document);
             $this->assertStringNotContainsString('حلويات دهب', $document);
+        }
+    }
+
+    #[Test]
+    public function supplier_and_customer_statements_use_the_same_brand_and_currency(): void
+    {
+        $this->setPrintBrand();
+
+        $currency = Currency::query()->where('is_base', true)->firstOrFail();
+        $supplierDocument = view('procurement.suppliers.statement-print', [
+            'supplier' => Supplier::make(['name' => 'مورد التجربة', 'supplier_code' => 'SUP-001']),
+            'selectedCurrency' => $currency,
+            'from' => null,
+            'to' => null,
+            'rows' => [],
+            'totalDebit' => 12,
+            'totalCredit' => 3,
+            'finalBalance' => 9,
+        ])->render();
+
+        $customerDocument = view('pdf.customers.statement', [
+            'customer' => Customer::make(['name' => 'عميل التجربة', 'customer_type' => 'individual']),
+            'selectedLocation' => null,
+            'statement' => [
+                'opening_balance' => 0,
+                'period_debit' => 12,
+                'period_credit' => 3,
+                'closing_balance' => 9,
+                'rows' => [],
+            ],
+            'summary' => ['overdue' => 0],
+        ])->render();
+
+        foreach ([$supplierDocument, $customerDocument] as $document) {
+            $this->assertStringContainsString('مخبز الريحان', $document);
+            $this->assertStringContainsString('#123456', $document);
+            $this->assertStringContainsString('د.ع', $document);
+            $this->assertStringNotContainsString('حلويات دهب', $document);
+            $this->assertStringContainsString('class="print-table"', $document);
         }
     }
 

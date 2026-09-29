@@ -51,6 +51,28 @@ class PrintThemeService
             ->where('is_base', true)
             ->first();
 
+        $legalName = trim((string) SystemSetting::get('business_legal_name', ''));
+        $businessName = $legalName !== ''
+            ? $legalName
+            : trim((string) SystemSetting::get('system_name', config('app.name')));
+        $customBusiness = $legalName !== '' && $legalName !== 'حلويات دهب';
+        $englishName = trim((string) SystemSetting::get('system_name_en', ''));
+        $footerText = trim((string) SystemSetting::get(
+            'print_footer_text',
+            SystemSetting::get('brand_footer_text', SystemSetting::get('invoice_footer_ar', ''))
+        ));
+
+        // Demo branding must not appear on documents for a new business.
+        if ($customBusiness && $englishName === 'Dahab Sweets') {
+            $englishName = '';
+        }
+        if ($customBusiness && in_array($footerText, [
+            'حلويات دهب - Dahab Sweets',
+            'شكراً لاختياركم حلويات دهب',
+        ], true)) {
+            $footerText = '';
+        }
+
         return [
             'template' => in_array(
                 $template,
@@ -111,29 +133,9 @@ class PrintThemeService
                 )
             ),
 
-            'footer_text' => trim((string) SystemSetting::get(
-                'print_footer_text',
-                SystemSetting::get(
-                    'brand_footer_text',
-                    SystemSetting::get(
-                        'invoice_footer_ar',
-                        ''
-                    )
-                )
-            )),
-
-            'business_name' => trim((string) SystemSetting::get(
-                'business_legal_name',
-                SystemSetting::get(
-                    'system_name',
-                    config('app.name')
-                )
-            )),
-
-            'business_name_en' => trim((string) SystemSetting::get(
-                'system_name_en',
-                ''
-            )),
+            'footer_text' => $footerText,
+            'business_name' => $businessName,
+            'business_name_en' => $englishName,
 
             'business_tagline' => trim((string) SystemSetting::get(
                 'brand_tagline_ar',

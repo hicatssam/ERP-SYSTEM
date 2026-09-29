@@ -1,10 +1,11 @@
+@php($menuCurrencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<title>سلة الطلب - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
+<title>سلة الطلب - {{ $branding['name'] ?? config('app.name') }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
@@ -19,7 +20,7 @@
 
   <div class="order-summary">
    <div class="summary-row"><span>عدد الأصناف</span><span id="itemCount">0</span></div>
-   <div class="cart-total"><span>الإجمالي</span><span id="cartTotal">0.00 ₪</span></div>
+   <div class="cart-total"><span>الإجمالي</span><span id="cartTotal">0.00 {{ $menuCurrencySymbol }}</span></div>
    <div class="cart-note">قد تُضاف رسوم توصيل حسب نوع الطلب — تظهر بعد اختيار طريقة الاستلام بالخطوة التالية.</div>
   </div>
   <button class="checkout-start" id="checkoutStart" type="button">إتمام الطلب</button>

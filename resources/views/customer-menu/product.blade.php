@@ -1,10 +1,11 @@
+@php($menuCurrencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<title>{{ $product['name'] }} - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
+<title>{{ $product['name'] }} - {{ $branding['name'] ?? config('app.name') }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
@@ -32,7 +33,7 @@
    <div id="pickerContainer"></div>
 
    <div class="detail-meta">
-    <div class="detail-price" id="detailPrice">{{ number_format($product['price'], 2) }} ₪</div>
+    <div class="detail-price" id="detailPrice">{{ number_format($product['price'], 2) }} {{ $menuCurrencySymbol }}</div>
     <div class="qty">
      <button type="button" id="detailMinus">−</button>
      <strong id="detailQty">1</strong>
@@ -60,7 +61,7 @@
       </div>
       <div class="product-body">
        <h3>{{ $related['name'] }}</h3>
-       <div class="product-foot"><span class="price">{{ number_format($related['price'], 2) }} ₪</span></div>
+       <div class="product-foot"><span class="price">{{ number_format($related['price'], 2) }} {{ $menuCurrencySymbol }}</span></div>
       </div>
      </a>
     @endforeach
@@ -126,7 +127,7 @@ function currentPrice() {
 }
 
 function updatePriceDisplay() {
-    document.getElementById('detailPrice').textContent = currentPrice().toFixed(2) + ' ₪';
+    document.getElementById('detailPrice').textContent = CM.money(currentPrice());
     updateMedia();
 }
 
@@ -140,7 +141,7 @@ function renderPicker() {
             <div class="option-row ${String(v.id) === String(selectedVariantId) ? 'selected' : ''}" data-variant="${v.id}">
               <span class="mark round"></span>
               <span class="opt-copy">${CM.esc(v.name)}</span>
-              <span class="opt-price">${Number(v.price).toFixed(2)} ₪</span>
+              <span class="opt-price">${CM.money(v.price)}</span>
             </div>`).join('')}
         </div>`;
     }
@@ -168,7 +169,7 @@ function renderPicker() {
                     <span>${qtyNow}</span>
                     <button type="button" data-qty-plus="${m.id}" data-max="${m.max_quantity}">+</button>
                   </span>` : ''}
-                <span class="opt-price ${Number(m.price_delta) ? 'has-cost' : ''}">${Number(m.price_delta) ? '+' + Number(m.price_delta).toFixed(2) + ' ₪' : ''}</span>
+                <span class="opt-price ${Number(m.price_delta) ? 'has-cost' : ''}">${Number(m.price_delta) ? '+' + CM.money(m.price_delta) : ''}</span>
               </div>`;
           }).join('')}
         </div>`;

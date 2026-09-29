@@ -1,10 +1,11 @@
+@php($menuCurrencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="csrf-token" content="{{ csrf_token() }}">
-<title>إتمام الطلب - {{ $branding['name'] ?? 'حلويات دهب' }}</title>
+<title>إتمام الطلب - {{ $branding['name'] ?? config('app.name') }}</title>
 @if(!empty($branding['favicon']))<link rel="icon" href="{{ $branding['favicon'] }}">@endif
 @include('customer-menu.partials.styles')
 @include('customer-menu.partials.pwa-head')
@@ -22,7 +23,7 @@
 
   <div class="order-summary">
    <div id="summaryItems"></div>
-   <div class="cart-total"><span>الإجمالي</span><span id="summaryTotal">0.00 ₪</span></div>
+   <div class="cart-total"><span>الإجمالي</span><span id="summaryTotal">0.00 {{ $menuCurrencySymbol }}</span></div>
   </div>
 
   <form id="checkoutForm" enctype="multipart/form-data">

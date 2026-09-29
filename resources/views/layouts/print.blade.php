@@ -8,6 +8,18 @@
         )
     );
 
+    if (($printTheme['business_name'] ?? '') !== 'حلويات دهب') {
+        if (($printTheme['business_name_en'] ?? '') === 'Dahab Sweets') {
+            $printTheme['business_name_en'] = '';
+        }
+        if (in_array($printTheme['footer_text'] ?? '', [
+            'حلويات دهب - Dahab Sweets',
+            'شكراً لاختياركم حلويات دهب',
+        ], true)) {
+            $printTheme['footer_text'] = '';
+        }
+    }
+
     $documentTitle = trim(
         $__env->yieldContent('document_title', 'مستند')
     );

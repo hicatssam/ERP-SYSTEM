@@ -1,3 +1,4 @@
+@php($menuCurrencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
@@ -313,13 +314,13 @@
                             {{ $item->product_name }}
                             <small>الكمية: {{ $item->quantity }}</small>
                         </span>
-                        <b>{{ number_format($item->line_total,2) }} ₪</b>
+                        <b>{{ number_format($item->line_total,2) }} {{ $menuCurrencySymbol }}</b>
                     </div>
                 @endforeach
             </div>
             <div class="total">
                 <span>الإجمالي</span>
-                <span>{{ number_format($order->total_amount,2) }} ₪</span>
+                <span>{{ number_format($order->total_amount,2) }} {{ $menuCurrencySymbol }}</span>
             </div>
 
             <div class="footerActions">

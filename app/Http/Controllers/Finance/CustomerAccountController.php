@@ -8,6 +8,7 @@ use App\Models\CustomerPayment;
 use App\Models\Location;
 use App\Models\PaymentMethod;
 use App\Services\Customers\CustomerAccountService;
+use App\Services\PrintThemeService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Mpdf\Mpdf;
@@ -129,13 +130,14 @@ class CustomerAccountController extends Controller
             'selectedLocation'
         ))->render();
 
+        $printService = app(PrintThemeService::class);
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_top' => 10,
-            'margin_bottom' => 10,
-            'margin_left' => 10,
-            'margin_right' => 10,
+            'format' => $printService->pdfFormat($printService->settings(), 'landscape'),
+            'margin_top' => 0,
+            'margin_bottom' => 0,
+            'margin_left' => 0,
+            'margin_right' => 0,
             'directionality' => 'rtl',
             'default_font' => 'dejavusans',
         ]);

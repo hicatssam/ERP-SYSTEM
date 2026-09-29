@@ -11,6 +11,7 @@ use App\Models\Location;
 use App\Models\LocationPaymentAccount;
 use App\Models\PaymentMethod;
 use App\Models\User;
+use App\Services\PrintThemeService;
 use App\Services\ActivityLogger;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -236,8 +237,13 @@ class IncomingBankTransferController extends Controller
             'التحقق',
         ];
 
+        $printService = app(PrintThemeService::class);
+        $printTheme = $printService->settings();
+        $baseCode = $printTheme['currency_code'];
+        $baseSymbol = $printTheme['currency_symbol'];
+
         $formattedRows = $transfers->map(
-            function (IncomingBankTransfer $transfer): array {
+            function (IncomingBankTransfer $transfer) use ($baseCode, $baseSymbol): array {
                 $account = $transfer->locationPaymentAccount;
 
                 $accountLabel = $account
@@ -268,8 +274,8 @@ class IncomingBankTransferController extends Controller
                     $transfer->sender_name ?: '—',
                     $transfer->reference_number ?: '—',
                     (
-                        $transfer->currency_code === 'ILS'
-                            ? '₪'
+                        ($transfer->currency_code ?: $baseCode) === $baseCode
+                            ? $baseSymbol
                             : $transfer->currency_code
                     )
                     . number_format((float) $transfer->amount, 2),
@@ -283,15 +289,21 @@ class IncomingBankTransferController extends Controller
         $reportSummary = [
             'عدد الحوالات' =>
                 number_format((int) ($summary->transfers_count ?? 0)),
-            'إجمالي الحوالات' =>
-                '₪' . number_format((float) ($summary->total_amount ?? 0), 2),
-            'المعتمد' =>
-                '₪' . number_format((float) ($summary->confirmed_total ?? 0), 2),
-            'بانتظار التحقق' =>
-                '₪' . number_format((float) ($summary->pending_total ?? 0), 2),
-            'المرفوض' =>
-                '₪' . number_format((float) ($summary->rejected_total ?? 0), 2),
         ];
+
+        // Amounts from different currencies must never be presented as one sum.
+        foreach ($transfers->groupBy(fn ($transfer) => $transfer->currency_code ?: $baseCode) as $code => $group) {
+            $unit = $code === $baseCode ? $baseSymbol : $code;
+            $reportSummary["الإجمالي ({$code})"] = number_format((float) $group->sum('amount'), 2) . ' ' . $unit;
+            foreach ([
+                'confirmed' => 'المعتمد',
+                'pending_verification' => 'بانتظار التحقق',
+                'rejected' => 'المرفوض',
+            ] as $status => $label) {
+                $amount = $group->filter(fn ($transfer) => $transfer->statusValue() === $status)->sum('amount');
+                $reportSummary["{$label} ({$code})"] = number_format((float) $amount, 2) . ' ' . $unit;
+            }
+        }
 
         foreach ($filters as $label => $value) {
             if (
@@ -314,7 +326,7 @@ class IncomingBankTransferController extends Controller
         $cap = $total;
 
         $html = view(
-            'pdf.reports.template',
+            'reports.print',
             [
                 'type' => 'incoming-bank-transfers',
                 'title' => $title,
@@ -326,6 +338,7 @@ class IncomingBankTransferController extends Controller
                 'truncated' => $truncated,
                 'cap' => $cap,
                 'total' => $total,
+                'pdfMode' => true,
             ]
         )->render();
 
@@ -337,11 +350,11 @@ class IncomingBankTransferController extends Controller
 
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
-            'format' => 'A4-L',
-            'margin_top' => 10,
-            'margin_bottom' => 10,
-            'margin_left' => 8,
-            'margin_right' => 8,
+            'format' => $printService->pdfFormat($printTheme, 'landscape'),
+            'margin_top' => 0,
+            'margin_bottom' => 0,
+            'margin_left' => 0,
+            'margin_right' => 0,
             'directionality' => 'rtl',
             'default_font' => 'dejavusans',
             'autoScriptToLang' => true,
