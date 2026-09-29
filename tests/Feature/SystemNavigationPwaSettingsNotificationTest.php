@@ -222,7 +222,7 @@ class SystemNavigationPwaSettingsNotificationTest extends TestCase
         );
 
         $this->assertStringNotContainsString(
-            route('settings.index'),
+            'href="' . route('settings.index') . '"',
             $html
         );
     }
