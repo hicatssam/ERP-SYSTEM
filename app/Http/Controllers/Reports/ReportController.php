@@ -17,6 +17,7 @@ use App\Models\Location;
 use App\Models\User;
 use App\Models\ActivityLog;
 use App\Support\ArabicDate;
+use App\Services\PrintThemeService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -26,6 +27,13 @@ use Mpdf\Mpdf;
 
 class ReportController extends Controller
 {
+    private ?string $reportCurrencySymbol = null;
+
+    private function currencySymbol(): string
+    {
+        return $this->reportCurrencySymbol ??= app(PrintThemeService::class)->settings()['currency_symbol'];
+    }
+
     private array $reportTypes = [
         'orders'                => 'تقرير الطلبات',
         'cake-orders'           => 'تقرير طلبات الكيك الخاصة',
@@ -269,9 +277,10 @@ class ReportController extends Controller
         $tempDir = storage_path('app/mpdf');
         \Illuminate\Support\Facades\File::ensureDirectoryExists($tempDir);
 
+        $printService = app(PrintThemeService::class);
         $mpdf = new Mpdf([
             'mode'             => 'utf-8',
-            'format'           => 'A4-L',
+            'format'           => $printService->pdfFormat($printService->settings(), 'landscape'),
             'margin_top'       => 0,
             'margin_bottom'    => 0,
             'margin_left'      => 0,
@@ -726,7 +735,7 @@ class ReportController extends Controller
 
             case 'daily-sales':
                 // Grouped by unique date — no tiebreaker needed; group key is deterministic.
-                $columns = ['التاريخ', 'عدد الفواتير', 'إجمالي المبيعات ₪', 'إجمالي التحصيلات ₪'];
+                $columns = ['التاريخ', 'عدد الفواتير', ('إجمالي المبيعات ' . $this->currencySymbol()), ('إجمالي التحصيلات ' . $this->currencySymbol())];
                 $query   = Invoice::whereIn('location_id', $locationIds)
                     ->where('status', 'active')
                     ->whereBetween('issued_at', [$dateFrom, $end])
@@ -742,7 +751,7 @@ class ReportController extends Controller
 
             case 'monthly-sales':
                 // Grouped by unique year-month — no tiebreaker needed.
-                $columns = ['الشهر', 'عدد الفواتير', 'إجمالي المبيعات ₪', 'إجمالي التحصيلات ₪'];
+                $columns = ['الشهر', 'عدد الفواتير', ('إجمالي المبيعات ' . $this->currencySymbol()), ('إجمالي التحصيلات ' . $this->currencySymbol())];
                 $query   = Invoice::whereIn('location_id', $locationIds)
                     ->where('status', 'active')
                     ->whereBetween('issued_at', [$dateFrom, $end])
@@ -758,7 +767,7 @@ class ReportController extends Controller
 
             case 'branch-sales':
                 // Grouped by location_id (unique per group); tiebreaker on branch name.
-                $columns = ['الفرع', 'عدد الفواتير', 'إجمالي المبيعات ₪', 'إجمالي التحصيلات ₪'];
+                $columns = ['الفرع', 'عدد الفواتير', ('إجمالي المبيعات ' . $this->currencySymbol()), ('إجمالي التحصيلات ' . $this->currencySymbol())];
                 $query   = Invoice::whereIn('location_id', $locationIds)
                     ->where('status', 'active')
                     ->whereBetween('issued_at', [$dateFrom, $end])
@@ -776,7 +785,7 @@ class ReportController extends Controller
 
             case 'product-sales':
                 // Grouped by product_id (unique per group); tiebreaker on product name.
-                $columns = ['المنتج', 'الكمية المباعة', 'إجمالي المبيعات ₪'];
+                $columns = ['المنتج', 'الكمية المباعة', ('إجمالي المبيعات ' . $this->currencySymbol())];
                 $query   = DB::table('order_items')
                     ->join('orders', 'orders.id', '=', 'order_items.order_id')
                     ->whereIn('orders.location_id', $locationIds->toArray())
@@ -1099,12 +1108,12 @@ class ReportController extends Controller
             ],
             'invoices' => [
                 'إجمالي الفواتير'    => Invoice::whereIn('location_id', $locationIds)->whereBetween('issued_at', [$dateFrom, $end])->count(),
-                'إجمالي المبيعات ₪' => number_format(Invoice::whereIn('location_id', $locationIds)->whereBetween('issued_at', [$dateFrom, $end])->where('status', 'active')->sum('total_amount'), 2),
-                'إجمالي المتبقي ₪'  => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->sum('remaining_amount'), 2),
+                ('إجمالي المبيعات ' . $this->currencySymbol()) => number_format(Invoice::whereIn('location_id', $locationIds)->whereBetween('issued_at', [$dateFrom, $end])->where('status', 'active')->sum('total_amount'), 2),
+                ('إجمالي المتبقي ' . $this->currencySymbol())  => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->sum('remaining_amount'), 2),
             ],
             'payments' => [
                 'عدد الدفعات'       => Payment::whereIn('location_id', $locationIds)->whereBetween('paid_at', [$dateFrom, $end])->count(),
-                'إجمالي المحصّل ₪' => number_format(Payment::whereIn('location_id', $locationIds)->where('status', 'confirmed')->whereBetween('paid_at', [$dateFrom, $end])->sum('amount'), 2),
+                ('إجمالي المحصّل ' . $this->currencySymbol()) => number_format(Payment::whereIn('location_id', $locationIds)->where('status', 'confirmed')->whereBetween('paid_at', [$dateFrom, $end])->sum('amount'), 2),
             ],
             'daily-sales' => (function () use ($locationIds, $dateFrom, $end): array {
                 $sales = Invoice::query()
@@ -1114,19 +1123,19 @@ class ReportController extends Controller
 
                 return [
                     'عدد الفواتير' => (clone $sales)->count(),
-                    'إجمالي المبيعات ₪' => number_format((clone $sales)->sum('total_amount'), 2),
-                    'إجمالي التحصيلات ₪' => number_format((clone $sales)->sum('paid_amount'), 2),
-                    'إجمالي المتبقي ₪' => number_format((clone $sales)->sum('remaining_amount'), 2),
+                    ('إجمالي المبيعات ' . $this->currencySymbol()) => number_format((clone $sales)->sum('total_amount'), 2),
+                    ('إجمالي التحصيلات ' . $this->currencySymbol()) => number_format((clone $sales)->sum('paid_amount'), 2),
+                    ('إجمالي المتبقي ' . $this->currencySymbol()) => number_format((clone $sales)->sum('remaining_amount'), 2),
                 ];
             })(),
             'low-stock' => [
                 'منتجات منخفضة' => Inventory::whereIn('location_id', $locationIds)->whereRaw('quantity <= (SELECT minimum_stock_level FROM location_products WHERE location_products.location_id = inventories.location_id AND location_products.product_id = inventories.product_id LIMIT 1)')->count(),
             ],
             'collections' => [
-                'إجمالي التحصيلات ₪' => number_format(Payment::whereIn('location_id', $locationIds)->where('status', 'confirmed')->whereBetween('paid_at', [$dateFrom, $end])->sum('amount'), 2),
+                ('إجمالي التحصيلات ' . $this->currencySymbol()) => number_format(Payment::whereIn('location_id', $locationIds)->where('status', 'confirmed')->whereBetween('paid_at', [$dateFrom, $end])->sum('amount'), 2),
             ],
             'outstanding' => [
-                'إجمالي المستحقات ₪' => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->where('remaining_amount', '>', 0)->sum('remaining_amount'), 2),
+                ('إجمالي المستحقات ' . $this->currencySymbol()) => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->where('remaining_amount', '>', 0)->sum('remaining_amount'), 2),
                 'عدد الفواتير'         => Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->where('remaining_amount', '>', 0)->count(),
             ],
             'cake-production' => $this->cakeProductionSummary(
@@ -1180,8 +1189,8 @@ class ReportController extends Controller
                     ->latest('issued_at');
                 $summary = [
                     'إجمالي الفواتير'    => (clone $query)->count(),
-                    'إجمالي المبيعات ₪' => number_format(Invoice::whereIn('location_id', $locationIds)->whereBetween('issued_at', [$dateFrom, $end])->where('status', 'active')->sum('total_amount'), 2),
-                    'إجمالي المتبقي ₪'  => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->sum('remaining_amount'), 2),
+                    ('إجمالي المبيعات ' . $this->currencySymbol()) => number_format(Invoice::whereIn('location_id', $locationIds)->whereBetween('issued_at', [$dateFrom, $end])->where('status', 'active')->sum('total_amount'), 2),
+                    ('إجمالي المتبقي ' . $this->currencySymbol())  => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->sum('remaining_amount'), 2),
                 ];
                 $data = $paginate ? $query->paginate(25)->withQueryString() : $query->get();
                 break;
@@ -1198,7 +1207,7 @@ class ReportController extends Controller
 
                 $summary = [
                     'عدد الدفعات' => (clone $query)->count(),
-                    'إجمالي المحصّل ₪' => number_format(
+                    ('إجمالي المحصّل ' . $this->currencySymbol()) => number_format(
                         Payment::query()
                             ->whereIn('location_id', $locationIds)
                             ->where('status', 'confirmed')
@@ -1214,7 +1223,7 @@ class ReportController extends Controller
                 break;
 
             case 'daily-sales':
-                $columns = ['التاريخ', 'عدد الفواتير', 'إجمالي المبيعات ₪', 'إجمالي التحصيلات ₪'];
+                $columns = ['التاريخ', 'عدد الفواتير', ('إجمالي المبيعات ' . $this->currencySymbol()), ('إجمالي التحصيلات ' . $this->currencySymbol())];
                 $query = Invoice::whereIn('location_id', $locationIds)
                     ->where('status', 'active')
                     ->whereBetween('issued_at', [$dateFrom, $end])
@@ -1236,7 +1245,7 @@ class ReportController extends Controller
                 break;
 
             case 'monthly-sales':
-                $columns = ['الشهر', 'عدد الفواتير', 'إجمالي المبيعات ₪', 'إجمالي التحصيلات ₪'];
+                $columns = ['الشهر', 'عدد الفواتير', ('إجمالي المبيعات ' . $this->currencySymbol()), ('إجمالي التحصيلات ' . $this->currencySymbol())];
                 $query = Invoice::whereIn('location_id', $locationIds)
                     ->where('status', 'active')
                     ->whereBetween('issued_at', [$dateFrom, $end])
@@ -1252,7 +1261,7 @@ class ReportController extends Controller
                 break;
 
             case 'branch-sales':
-                $columns = ['الفرع', 'عدد الفواتير', 'إجمالي المبيعات ₪', 'إجمالي التحصيلات ₪'];
+                $columns = ['الفرع', 'عدد الفواتير', ('إجمالي المبيعات ' . $this->currencySymbol()), ('إجمالي التحصيلات ' . $this->currencySymbol())];
                 $query = Invoice::whereIn('location_id', $locationIds)
                     ->where('status', 'active')
                     ->whereBetween('issued_at', [$dateFrom, $end])
@@ -1269,7 +1278,7 @@ class ReportController extends Controller
                 break;
 
             case 'product-sales':
-                $columns = ['المنتج', 'الكمية المباعة', 'إجمالي المبيعات ₪'];
+                $columns = ['المنتج', 'الكمية المباعة', ('إجمالي المبيعات ' . $this->currencySymbol())];
                 $query = DB::table('order_items')
                     ->join('orders', 'orders.id', '=', 'order_items.order_id')
                     ->whereIn('orders.location_id', $locationIds->toArray())
@@ -1332,7 +1341,7 @@ class ReportController extends Controller
                     ->orderByDesc('payments.id');
 
                 $summary = [
-                    'إجمالي التحصيلات ₪' => number_format(
+                    ('إجمالي التحصيلات ' . $this->currencySymbol()) => number_format(
                         Payment::query()
                             ->whereIn('location_id', $locationIds)
                             ->where('status', 'confirmed')
@@ -1355,7 +1364,7 @@ class ReportController extends Controller
                     ->where('remaining_amount', '>', 0)
                     ->latest('issued_at');
                 $summary = [
-                    'إجمالي المستحقات ₪' => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->where('remaining_amount', '>', 0)->sum('remaining_amount'), 2),
+                    ('إجمالي المستحقات ' . $this->currencySymbol()) => number_format(Invoice::whereIn('location_id', $locationIds)->where('status', 'active')->where('remaining_amount', '>', 0)->sum('remaining_amount'), 2),
                     'عدد الفواتير'         => (clone $query)->count(),
                 ];
                 $data = $paginate ? $query->paginate(25)->withQueryString() : $query->get();
@@ -1589,4 +1598,3 @@ class ReportController extends Controller
         };
     }
 }
-

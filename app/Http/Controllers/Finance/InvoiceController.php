@@ -6,9 +6,11 @@ use App\Enums\OrderType;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Invoice;
+use App\Models\Order;
 use App\Models\Payment;
 use App\Services\Invoices\InvoiceService;
 use App\Services\Finance\FinancialPostingService;
+use App\Services\PrintThemeService;
 use App\Notifications\InvoiceCancelledNotification;
 use App\Services\Notifications\NotificationDispatcher;
 use BackedEnum;
@@ -80,8 +82,11 @@ class InvoiceController extends Controller
         $this->ensureInvoiceAccess($invoice);
         $this->syncInvoicePaymentAmounts($invoice);
         $invoice->load(['location', 'customer', 'issuedBy', 'items.product']);
+        $sourceOrder = $invoice->orderTypeValue() === 'order'
+            ? Order::query()->with('salesChannel')->find($invoice->order_id)
+            : null;
 
-        return view('finance.invoices.print', compact('invoice'));
+        return view('finance.invoices.print', compact('invoice', 'sourceOrder'));
     }
 
     public function downloadPdf(Invoice $invoice)
@@ -89,17 +94,27 @@ class InvoiceController extends Controller
         $this->ensureInvoiceAccess($invoice);
         $this->syncInvoicePaymentAmounts($invoice);
         $invoice->load(['location', 'customer', 'issuedBy', 'items.product']);
+        $sourceOrder = $invoice->orderTypeValue() === 'order'
+            ? Order::query()->with('salesChannel')->find($invoice->order_id)
+            : null;
 
-        $html = view('pdf.invoices.template', compact('invoice'))->render();
+        // The browser and PDF must render the exact same invoice document.
+        $html = view('finance.invoices.print', [
+            'invoice' => $invoice,
+            'sourceOrder' => $sourceOrder,
+            'pdfMode' => true,
+        ])->render();
 
+        $printService = app(PrintThemeService::class);
         $mpdf = new Mpdf([
             'mode' => 'utf-8',
-            'format' => 'A4',
-            'margin_top' => 10,
-            'margin_bottom' => 10,
-            'margin_left' => 12,
-            'margin_right' => 12,
+            'format' => $printService->pdfFormat($printService->settings()),
+            'margin_top' => 0,
+            'margin_bottom' => 0,
+            'margin_left' => 0,
+            'margin_right' => 0,
             'directionality' => 'rtl',
+            'default_font' => 'dejavusans',
         ]);
 
         $mpdf->SetTitle($invoice->invoice_number);

@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('title', 'فاتورة: ' . $invoice->invoice_number)
+@php($currencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 
 @section('content')
 <div class="page-actions">
@@ -46,20 +47,20 @@
                 </tr>
                 <tr>
                     <td style="color:var(--text-muted)">النوع</td>
-                    <td>{{ $invoice->invoiceTypeValue() }}</td>
+                    <td>{{ $invoice->invoice_type?->label() ?? '—' }}</td>
                 </tr>
                 <tr>
                     <td style="color:var(--text-muted)">الإجمالي</td>
-                    <td><strong>₪{{ number_format((float) $invoice->total_amount, 2) }}</strong></td>
+                    <td><strong>{{ $currencySymbol }}{{ number_format((float) $invoice->total_amount, 2) }}</strong></td>
                 </tr>
                 <tr>
                     <td style="color:var(--text-muted)">المدفوع</td>
-                    <td>₪{{ number_format((float) $invoice->paid_amount, 2) }}</td>
+                    <td>{{ $currencySymbol }}{{ number_format((float) $invoice->paid_amount, 2) }}</td>
                 </tr>
                 <tr>
                     <td style="color:var(--text-muted)">المتبقي</td>
                     <td style="color: {{ (float) $invoice->remaining_amount > 0 ? 'var(--error)' : 'var(--success)' }}">
-                        ₪{{ number_format((float) $invoice->remaining_amount, 2) }}
+                        {{ $currencySymbol }}{{ number_format((float) $invoice->remaining_amount, 2) }}
                     </td>
                 </tr>
                 <tr>
@@ -114,8 +115,8 @@
                     <tr>
                         <td>{{ $item->description }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>₪{{ number_format((float) $item->unit_price, 2) }}</td>
-                        <td>₪{{ number_format((float) $item->line_total, 2) }}</td>
+                        <td>{{ $currencySymbol }}{{ number_format((float) $item->unit_price, 2) }}</td>
+                        <td>{{ $currencySymbol }}{{ number_format((float) $item->line_total, 2) }}</td>
                     </tr>
                 @endforeach
                 </tbody>

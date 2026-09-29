@@ -195,6 +195,19 @@ class PrintThemeService
         };
     }
 
+    /** Match mPDF page dimensions to the centrally configured print document. */
+    public function pdfFormat(array $settings, string $orientation = 'portrait'): string|array
+    {
+        if (($settings['paper_size'] ?? 'A4') === '80mm') {
+            // mPDF needs a finite page height; longer receipts continue on a new page.
+            return [80, 297];
+        }
+
+        $size = ($settings['paper_size'] ?? 'A4') === 'A5' ? 'A5' : 'A4';
+
+        return $orientation === 'landscape' ? $size . '-L' : $size;
+    }
+
     private function bool(
         string $key,
         bool $default

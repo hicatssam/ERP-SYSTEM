@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('title', 'المنتجات')
+@php($currencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 
 @push('styles')
 <style>
@@ -88,7 +89,7 @@
                 <td>
                     @if($product->image)
                         @php
-                            $productImageUrl = IlluminateSupportStr::startsWith(
+                            $productImageUrl = \Illuminate\Support\Str::startsWith(
                                 (string) $product->image,
                                 ['http://', 'https://', '//']
                             )
@@ -128,7 +129,7 @@
                     @endif
                 </td>
                 <td>{{ $product->unitDefinition?->displayName() ?? $product->unit }}</td>
-                <td>₪{{ number_format($product->base_selling_price, 2) }}</td>
+                <td>{{ $currencySymbol }}{{ number_format($product->base_selling_price, 2) }}</td>
                 <td><span class="badge {{ $product->is_active ? 'badge-active' : 'badge-inactive' }}">{{ $product->is_active ? 'نشط' : 'معطل' }}</span></td>
                 <td>
                     <div class="actions">

@@ -2,6 +2,47 @@
     $invoicePrintTheme = app(
         \App\Services\PrintThemeService::class
     )->settings();
+    $invoicePrintTheme = array_replace(
+        $invoicePrintTheme,
+        array_intersect_key(
+            $printThemeOverrides ?? [],
+            array_flip(['business_name', 'business_name_en', 'logo_src'])
+        )
+    );
+
+    $publicOrder = $order ?? null;
+    $sourceOrder = $sourceOrder ?? $publicOrder;
+    $paymentMethod = (string) ($invoice->payment_method ?? '');
+    $paymentMethodLabel = match ($paymentMethod) {
+        'cash' => 'نقدي',
+        'card', 'credit_card' => 'بطاقة',
+        'bank', 'bank_transfer' => 'تحويل بنكي',
+        'wallet', 'e_wallet' => 'محفظة إلكترونية',
+        'mixed' => 'دفع مختلط',
+        default => '',
+    };
+    $customerName = $invoice->customer?->name
+        ?? $publicOrder?->customer?->name
+        ?? $publicOrder?->guest_name
+        ?? 'عميل نقدي';
+    $customerPhone = $invoice->customer?->phone
+        ?? $publicOrder?->customer?->phone
+        ?? $publicOrder?->guest_phone;
+
+    $invoiceRows = $invoice->items->map(fn ($item) => [
+        'description' => $item->description ?: ($item->product?->name_ar ?: $item->product?->name ?: 'صنف'),
+        'quantity' => (float) $item->quantity,
+        'unit_price' => (float) $item->unit_price,
+        'line_total' => (float) $item->line_total,
+    ]);
+    if ($invoiceRows->isEmpty() && $publicOrder) {
+        $invoiceRows = $publicOrder->items->map(fn ($item) => [
+            'description' => $item->product_name ?: 'صنف',
+            'quantity' => (float) $item->quantity,
+            'unit_price' => (float) $item->unit_price,
+            'line_total' => (float) $item->line_total,
+        ]);
+    }
 
     $currencySymbol =
         $invoice->currency?->symbol
@@ -33,14 +74,15 @@
         ?? ('INV-' . $invoice->id);
 
     $documentSubtitle =
-        ($invoice->customer?->name ?? 'عميل نقدي')
+        $customerName
         . ' · '
         . $invoice->paymentStatusLabel();
 @endphp
 
 @extends('layouts.print')
 
-@section('document_title', 'فاتورة بيع')
+@section('pdf_mode', ($pdfMode ?? false) ? '1' : '0')
+@section('document_title', $invoice->invoiceTypeValue() === 'special_cake' ? 'فاتورة طلب كيك' : 'فاتورة بيع')
 @section('document_number', $documentNumber)
 @section('document_date', $issuedAt?->format('Y-m-d') ?? now()->format('Y-m-d'))
 @section('document_subtitle', $documentSubtitle)
@@ -53,6 +95,13 @@
 {{-- فواتير البيع لا تحتاج اعتمادًا إداريًا أو ختمًا رسميًا. --}}
 @section('show_signatures', '0')
 @section('show_stamp', '0')
+
+@if($publicOrder)
+    @section('print_toolbar')
+        <a class="print-screen-btn" href="{{ route('customer-menu.track', ['token' => $publicOrder->public_token]) }}">تتبع الطلب</a>
+        <a class="print-screen-btn" href="{{ route('customer-menu.show', $publicOrder->location->code) }}">المنيو</a>
+    @endsection
+@endif
 
 @push('print_styles')
 <style>
@@ -228,16 +277,20 @@
                     </div>
 
                     <div class="invoice-party-name">
-                        {{ $invoice->customer?->name ?? 'عميل نقدي' }}
+                        {{ $customerName }}
                     </div>
 
-                    @if($invoice->customer?->phone)
+                    @if($customerPhone)
                         <div class="print-muted">
                             الهاتف:
                             <strong dir="ltr">
-                                {{ $invoice->customer->phone }}
+                                {{ $customerPhone }}
                             </strong>
                         </div>
+                    @endif
+
+                    @if($publicOrder?->delivery_address)
+                        <div class="print-muted">{{ $publicOrder->delivery_address }}</div>
                     @endif
 
                     @if($invoice->notes)
@@ -262,6 +315,19 @@
                         cellpadding="0"
                         cellspacing="0"
                     >
+                        @if($sourceOrder)
+                            <tr>
+                                <td>
+                                    <span class="invoice-detail-label">رقم الطلب</span>
+                                    <span class="invoice-detail-value">{{ $sourceOrder->order_number }}</span>
+                                </td>
+                                <td>
+                                    <span class="invoice-detail-label">وقت الإصدار</span>
+                                    <span class="invoice-detail-value" dir="ltr">{{ $issuedAt?->format('H:i') }}</span>
+                                </td>
+                            </tr>
+                        @endif
+
                         <tr>
                             <td>
                                 <span class="invoice-detail-label">
@@ -287,6 +353,28 @@
                             </td>
                         </tr>
 
+                        @if($paymentMethodLabel !== '' || $sourceOrder?->salesChannel)
+                            <tr>
+                                <td>
+                                    <span class="invoice-detail-label">طريقة الدفع</span>
+                                    <span class="invoice-detail-value">{{ $paymentMethodLabel ?: '—' }}</span>
+                                </td>
+                                <td>
+                                    <span class="invoice-detail-label">قناة البيع</span>
+                                    <span class="invoice-detail-value">{{ $sourceOrder?->salesChannel?->name_ar ?? $sourceOrder?->salesChannel?->name ?? '—' }}</span>
+                                </td>
+                            </tr>
+                        @endif
+
+                        @if(! $publicOrder && $invoice->issuedBy)
+                            <tr>
+                                <td>
+                                    <span class="invoice-detail-label">الموظف / الكاشير</span>
+                                    <span class="invoice-detail-value">{{ $invoice->issuedBy->employee?->full_name ?? $invoice->issuedBy->display_name ?? '—' }}</span>
+                                </td>
+                            </tr>
+                        @endif
+
                         <tr>
                             <td>
                                 <span class="invoice-detail-label">
@@ -309,9 +397,9 @@
                             </td>
                         </tr>
 
-                        @if($invoice->due_at)
-                            <tr>
-                                <td>
+                        <tr>
+                            <td>
+                                @if($invoice->due_at)
                                     <span class="invoice-detail-label">
                                         تاريخ الاستحقاق
                                     </span>
@@ -322,9 +410,12 @@
                                     >
                                         {{ $invoice->due_at->format('Y-m-d') }}
                                     </span>
-                                </td>
-
-                                <td>
+                                @else
+                                    <span class="invoice-detail-label">وقت الإصدار</span>
+                                    <span class="invoice-detail-value" dir="ltr">{{ $issuedAt?->format('H:i') }}</span>
+                                @endif
+                            </td>
+                            <td>
                                     <span class="invoice-detail-label">
                                         العملة
                                     </span>
@@ -332,9 +423,8 @@
                                     <span class="invoice-detail-value">
                                         {{ $currencyCode }}
                                     </span>
-                                </td>
-                            </tr>
-                        @endif
+                            </td>
+                        </tr>
                     </table>
                 </div>
             </td>
@@ -361,15 +451,15 @@
             </thead>
 
             <tbody>
-                @forelse($invoice->items as $item)
+                @forelse($invoiceRows as $item)
                     <tr>
                         <td class="description">
-                            {{ $item->description }}
+                            {{ $item['description'] }}
                         </td>
 
                         <td style="text-align:center">
                             {{ number_format(
-                                (float) $item->quantity,
+                                $item['quantity'],
                                 3
                             ) }}
                         </td>
@@ -380,7 +470,7 @@
                         >
                             {{ $currencySymbol }}
                             {{ number_format(
-                                (float) $item->unit_price,
+                                $item['unit_price'],
                                 2
                             ) }}
                         </td>
@@ -391,7 +481,7 @@
                         >
                             {{ $currencySymbol }}
                             {{ number_format(
-                                (float) $item->line_total,
+                                $item['line_total'],
                                 2
                             ) }}
                         </td>
@@ -533,6 +623,7 @@
 @endsection
 
 @push('print_scripts')
+@unless($pdfMode ?? false)
 <script>
     window.addEventListener('load', function () {
         window.setTimeout(function () {
@@ -540,4 +631,5 @@
         }, 350);
     });
 </script>
+@endunless
 @endpush

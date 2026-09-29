@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('title', 'توفر المنتج في الفروع')
+@php($currencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 @section('content')
 <div class="page-header">
     <h1 class="page-heading">توفر: {{ $product->name_ar ?? $product->name }}</h1>
@@ -15,7 +16,7 @@
                 <tr>
                     <td>{{ $lp->location?->name }}</td>
                     <td><span class="badge {{ $lp->is_available ? 'badge-active' : 'badge-inactive' }}">{{ $lp->is_available ? 'نعم' : 'لا' }}</span></td>
-                    <td>{{ $lp->local_selling_price ? '₪' . number_format($lp->local_selling_price, 2) : '—' }}</td>
+                    <td>{{ $lp->local_selling_price !== null ? $currencySymbol . number_format((float) $lp->local_selling_price, 2) : '—' }}</td>
                     <td>{{ $lp->minimum_stock_level ?? '—' }}</td>
                     <td>
                         <form action="{{ route('location-products.update', $lp) }}" method="POST" style="display:inline-flex;gap:.5rem">

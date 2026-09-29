@@ -7,6 +7,7 @@
 @section('content')
 
 @php
+    $currencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'];
     $enumValue = static function ($value) {
         return $value instanceof \BackedEnum
             ? $value->value
@@ -453,7 +454,7 @@
 
                     <td>{{ $row->location?->name ?? '—' }}</td>
 
-                    <td>₪ {{ number_format($row->total_amount ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_amount ?? 0, 2) }}</td>
 
                     @php
                         $orderStatus = (string) $enumValue($row->status ?? '');
@@ -476,11 +477,11 @@
 
                     <td>{{ $row->location?->name ?? '—' }}</td>
 
-                    <td>₪ {{ number_format($row->total_amount ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_amount ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->paid_amount ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->paid_amount ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->remaining_amount ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->remaining_amount ?? 0, 2) }}</td>
 
                     @php
                         $invoiceStatus = (string) $enumValue($row->status ?? '');
@@ -503,7 +504,7 @@
 
                     <td>{{ $row->location?->name ?? '—' }}</td>
 
-                    <td>₪ {{ number_format($row->amount ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->amount ?? 0, 2) }}</td>
 
                     <td>{{ $row->payment_method ?? '—' }}</td>
 
@@ -526,9 +527,9 @@
 
                     <td>{{ number_format($row->invoice_count ?? 0) }}</td>
 
-                    <td>₪ {{ number_format($row->total_sales ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_sales ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->total_paid ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_paid ?? 0, 2) }}</td>
 
                 {{-- ── Branch Sales ── --}}
 
@@ -538,9 +539,9 @@
 
                     <td>{{ number_format($row->invoice_count ?? 0) }}</td>
 
-                    <td>₪ {{ number_format($row->total_sales ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_sales ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->total_paid ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_paid ?? 0, 2) }}</td>
 
                 {{-- ── Product Sales ── --}}
 
@@ -550,7 +551,7 @@
 
                     <td>{{ number_format($row->total_qty ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->total_revenue ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_revenue ?? 0, 2) }}</td>
 
                 {{-- ── Low Stock ── --}}
 
@@ -607,13 +608,13 @@
 
                     <td>{{ $row->employee?->full_name ?? '—' }}</td>
 
-                    <td>₪ {{ number_format($row->opening_balance ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->opening_balance ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->cash_received ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->cash_received ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->actual_cash ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->actual_cash ?? 0, 2) }}</td>
 
-                    <td style="color:{{ ($row->variance ?? 0) < 0 ? 'var(--error)' : 'var(--success)' }}">₪ {{ number_format($row->variance ?? 0, 2) }}</td>
+                    <td style="color:{{ ($row->variance ?? 0) < 0 ? 'var(--error)' : 'var(--success)' }}">{{ $currencySymbol }} {{ number_format($row->variance ?? 0, 2) }}</td>
 
                     @php
                         $cashStatus = (string) $enumValue($row->status ?? '');
@@ -634,11 +635,11 @@
 
                     <td>#{{ $row->id }}</td>
 
-                    <td>₪ {{ number_format($row->total_amount ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->total_amount ?? 0, 2) }}</td>
 
-                    <td>₪ {{ number_format($row->paid_amount ?? 0, 2) }}</td>
+                    <td>{{ $currencySymbol }} {{ number_format($row->paid_amount ?? 0, 2) }}</td>
 
-                    <td style="color:var(--error);font-weight:700">₪ {{ number_format($row->remaining_amount ?? 0, 2) }}</td>
+                    <td style="color:var(--error);font-weight:700">{{ $currencySymbol }} {{ number_format($row->remaining_amount ?? 0, 2) }}</td>
 
                     <td>{{ \Carbon\Carbon::parse($row->issued_at)->format('Y/m/d') }}</td>
 

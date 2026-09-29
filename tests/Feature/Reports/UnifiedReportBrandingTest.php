@@ -4,6 +4,7 @@ namespace Tests\Feature\Reports;
 
 use App\Exports\ChunkedQueryReportExport;
 use App\Models\Employee;
+use App\Models\Currency;
 use App\Models\Location;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -135,6 +136,28 @@ class UnifiedReportBrandingTest extends TestCase
                 'data:image/png;base64,U1RBTVA=',
                 false
             );
+    }
+
+    #[Test]
+    public function report_headers_and_summary_use_the_configured_base_currency(): void
+    {
+        Currency::query()->create([
+            'code' => 'IQD',
+            'name' => 'Iraqi Dinar',
+            'symbol' => 'د.ع',
+            'is_base' => true,
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('reports.print', [
+                'type' => 'daily-sales',
+                'date_from' => '2026-09-26',
+                'date_to' => '2026-09-26',
+            ]))
+            ->assertOk()
+            ->assertSee('إجمالي المبيعات د.ع')
+            ->assertDontSee('إجمالي المبيعات ₪');
     }
 
     #[Test]

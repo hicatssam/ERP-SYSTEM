@@ -1,6 +1,12 @@
 @php
     $printService = app(\App\Services\PrintThemeService::class);
-    $printTheme = $printService->settings();
+    $printTheme = array_replace(
+        $printService->settings(),
+        array_intersect_key(
+            $printThemeOverrides ?? [],
+            array_flip(['business_name', 'business_name_en', 'logo_src'])
+        )
+    );
 
     $documentTitle = trim(
         $__env->yieldContent('document_title', 'مستند')
@@ -650,6 +656,7 @@
 <body>
     @unless($pdfMode)
         <div class="print-screen-toolbar">
+            @yield('print_toolbar')
             <button
                 type="button"
                 class="print-screen-btn primary"

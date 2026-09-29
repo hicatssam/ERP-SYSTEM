@@ -307,11 +307,34 @@ class CustomerMenuController extends Controller
             404
         );
 
-        return view('customer-menu.invoice', [
+        $branding = $this->branding($order->location);
+        $logoCandidates = [
+            $branding['logo'] ?? null,
+            data_get($branding, 'assets.logo.url'),
+            data_get($branding, 'assets.logo.public_url'),
+            data_get($branding, 'logos.primary.url'),
+            data_get($branding, 'logos.primary'),
+        ];
+        $brandLogo = collect($logoCandidates)
+            ->map(fn ($candidate) => is_array($candidate)
+                ? ($candidate['url'] ?? $candidate['src'] ?? $candidate['path'] ?? $candidate['public_url'] ?? null)
+                : $candidate)
+            ->first(fn ($candidate) => filled($candidate));
+
+        if (is_string($brandLogo) && $brandLogo !== ''
+            && ! preg_match('/^(https?:|data:|blob:|\/\/|\/)/i', $brandLogo)) {
+            $brandLogo = '/' . ltrim($brandLogo, '/');
+        }
+
+        $printThemeOverrides = array_filter([
+            'business_name' => $branding['name'] ?? $branding['brand_name'] ?? null,
+            'logo_src' => $brandLogo,
+        ], fn ($value) => filled($value));
+
+        return view('finance.invoices.print', [
             'order' => $order,
             'invoice' => $invoice,
-            'branding' => $this->branding($order->location),
-            'theme' => $this->theme(),
+            'printThemeOverrides' => $printThemeOverrides,
         ]);
     }
 

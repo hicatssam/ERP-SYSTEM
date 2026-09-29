@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('title', $product->name_ar ?? $product->name)
+@php($currencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 
 @push('styles')
 <style>
@@ -104,7 +105,7 @@
         <div class="card-body" style="display:grid;gap:1rem">
             @if($product->image)
             @php
-                $productImageUrl = IlluminateSupportStr::startsWith(
+                $productImageUrl = \Illuminate\Support\Str::startsWith(
                     (string) $product->image,
                     ['http://', 'https://', '//']
                 )
@@ -128,7 +129,7 @@
                 <tr><td style="color:var(--text-muted)">الوحدة</td><td>{{ $product->unitDefinition?->displayName() ?? $product->unit }}</td></tr>
                 <tr><td style="color:var(--text-muted)">تتبع الدفعات</td><td>{{ $product->tracks_batch ? 'نعم' : 'لا' }}</td></tr>
                 <tr><td style="color:var(--text-muted)">تتبع الصلاحية</td><td>{{ $product->tracks_expiry ? 'نعم' : 'لا' }}</td></tr>
-                <tr><td style="color:var(--text-muted)">السعر الأساسي</td><td>₪{{ number_format($product->base_selling_price, 2) }}</td></tr>
+                <tr><td style="color:var(--text-muted)">السعر الأساسي</td><td>{{ $currencySymbol }}{{ number_format($product->base_selling_price, 2) }}</td></tr>
                 @if($product->description)
                 <tr><td style="color:var(--text-muted)">الوصف</td><td>{{ $product->description }}</td></tr>
                 @endif
@@ -214,7 +215,7 @@
                     <td>{{ $variant->color?->displayName() ?? '—' }}</td>
                     <td><code>{{ $variant->sku }}</code></td>
                     <td dir="ltr">{{ $variant->barcode ?: '—' }}</td>
-                    <td>₪{{ number_format((float)$variant->effectivePrice(),2) }}</td>
+                    <td>{{ $currencySymbol }}{{ number_format((float)$variant->effectivePrice(),2) }}</td>
                     <td><span class="badge {{ $variant->is_active?'badge-active':'badge-inactive' }}">{{ $variant->is_active?'فعال':'معطل' }}</span></td>
                 </tr>
             @empty

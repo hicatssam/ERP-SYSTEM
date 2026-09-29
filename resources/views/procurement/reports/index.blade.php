@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('title', 'تقارير المشتريات')
+@php($baseCurrencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 @section('content')
     <div class="page-actions">
         <div class="page-actions-title">تقارير المشتريات والموردين</div><a class="btn btn-ghost"
@@ -41,7 +42,7 @@
                                 <tr>
                                     <td>{{ $row->name }}</td>
                                     <td>{{ number_format($row->accepted_quantity, 3) }}</td>
-                                    <td>{{ number_format($row->base_total, 2) }}</td>
+                                    <td>{{ number_format($row->base_total, 2) }} {{ $baseCurrencySymbol }}</td>
                             </tr>@empty<tr>
                                     <td colspan="3">لا توجد بيانات.</td>
                                 </tr>
@@ -67,8 +68,8 @@
                             @forelse($purchasesBySupplier as $row)
                                 <tr>
                                     <td>{{ $row->name }}</td>
-                                    <td>{{ number_format($row->base_total, 2) }}</td>
-                                    <td>{{ number_format($row->base_outstanding_total, 2) }}</td>
+                                    <td>{{ number_format($row->base_total, 2) }} {{ $baseCurrencySymbol }}</td>
+                                    <td>{{ number_format($row->base_outstanding_total, 2) }} {{ $baseCurrencySymbol }}</td>
                             </tr>@empty<tr>
                                     <td colspan="3">لا توجد بيانات.</td>
                                 </tr>
@@ -101,7 +102,7 @@
                                             href="{{ route('supplier-invoices.show', $row['invoice']) }}">{{ $row['invoice']->invoice_number }}</a>
                                     </td>
                                     <td>{{ $row['invoice']->supplier?->name }}</td>
-                                    <td>{{ number_format($row['invoice']->remaining_amount, 2) }}</td>
+                                    <td>{{ number_format($row['invoice']->remaining_amount, 2) }} {{ $row['invoice']->currency?->symbol ?? $baseCurrencySymbol }}</td>
                                     <td>{{ $row['days_overdue'] }} يوم</td>
                                     <td>{{ $row['bucket'] }}</td>
                             </tr>@empty<tr>
@@ -132,7 +133,7 @@
                                             href="{{ route('suppliers.statement', $row['supplier']) }}">{{ $row['supplier']->name }}</a>
                                     </td>
                                     <td>{{ $row['supplier']->currency?->displayName() }}</td>
-                                    <td>{{ number_format($row['summary']['outstanding_balance'], 2) }}</td>
+                                    <td>{{ number_format($row['summary']['outstanding_balance'], 2) }} {{ $row['supplier']->currency?->symbol ?? $baseCurrencySymbol }}</td>
                             </tr>@empty<tr>
                                     <td colspan="3">لا توجد أرصدة.</td>
                                 </tr>

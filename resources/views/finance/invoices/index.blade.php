@@ -1,5 +1,6 @@
 @extends('layouts.app')
 @section('title', 'الفواتير')
+@php($currencySymbol = app(\App\Services\PrintThemeService::class)->settings()['currency_symbol'])
 
 @section('content')
 <div class="page-actions">
@@ -60,9 +61,9 @@
                 <td><strong>{{ $inv->invoice_number }}</strong></td>
                 <td>{{ $inv->location?->name ?? '—' }}</td>
                 <td>{{ $inv->customer?->name ?? 'عميل نقدي' }}</td>
-                <td>₪{{ number_format((float) $inv->total_amount, 2) }}</td>
-                <td>₪{{ number_format((float) $inv->paid_amount, 2) }}</td>
-                <td>₪{{ number_format((float) $inv->remaining_amount, 2) }}</td>
+                <td>{{ $currencySymbol }}{{ number_format((float) $inv->total_amount, 2) }}</td>
+                <td>{{ $currencySymbol }}{{ number_format((float) $inv->paid_amount, 2) }}</td>
+                <td>{{ $currencySymbol }}{{ number_format((float) $inv->remaining_amount, 2) }}</td>
                 <td>
                     <span class="badge {{ $inv->paymentStatusBadgeClass() }}">
                         {{ $inv->paymentStatusLabel() }}
