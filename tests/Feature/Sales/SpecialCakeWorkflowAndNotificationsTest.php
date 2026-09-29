@@ -34,7 +34,7 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
     }
 
     #[Test]
-    public function pending_factory_review_notifies_factory_reviewer_only(): void
+    public function pending_review_notifies_factory_reviewer_and_admin(): void
     {
         Notification::fake();
 
@@ -52,19 +52,19 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
 
         app(SpecialCakeStatusTransitionService::class)->transition(
             $order,
-            'pending_factory_review',
+            'pending',
             $actor,
             'اختبار إرسال الطلب للمصنع'
         );
 
         $order->refresh();
 
-        $this->assertSame('pending_factory_review', $order->status->value);
+        $this->assertSame('pending', $order->status->value);
 
         $this->assertDatabaseHas('cake_order_status_histories', [
             'special_cake_order_id' => $order->id,
             'from_status' => 'draft',
-            'to_status' => 'pending_factory_review',
+            'to_status' => 'pending',
             'changed_by' => $actor->id,
         ]);
 
@@ -73,7 +73,7 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($factoryReviewer)['to_status']
-                === 'pending_factory_review'
+                === 'pending'
         );
 
         Notification::assertNotSentTo(
@@ -81,14 +81,14 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             SpecialCakeOrderTransitionedNotification::class
         );
 
-        Notification::assertNotSentTo(
+        Notification::assertSentTo(
             $actor,
             SpecialCakeOrderTransitionedNotification::class
         );
     }
 
     #[Test]
-    public function modification_request_returns_notification_to_branch_editor(): void
+    public function production_start_notifies_branch_editor(): void
     {
         Notification::fake();
 
@@ -109,14 +109,14 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             $branch,
             $factory,
             $actor,
-            'pending_factory_review'
+            'pending'
         );
 
         app(SpecialCakeStatusTransitionService::class)->transition(
             $order,
-            'modification_requested',
+            'in_progress',
             $actor,
-            'يرجى تعديل النص على الكيك'
+            'بدأ تنفيذ طلب الكيك'
         );
 
         Notification::assertSentTo(
@@ -124,7 +124,7 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($branchEditor)['to_status']
-                === 'modification_requested'
+                === 'in_progress'
         );
 
         Notification::assertNotSentTo(
@@ -154,16 +154,9 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
         $order = $this->cakeOrder($branch, $factory, $actor);
 
         $sequence = [
-            'pending_factory_review',
-            'accepted',
-            'scheduled',
-            'in_preparation',
-            'decorating',
-            'quality_check',
+            'pending',
+            'in_progress',
             'ready',
-            'sent_to_branch',
-            'received_by_branch',
-            'ready_for_customer',
             'completed',
         ];
 
@@ -181,7 +174,6 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
         $order->refresh();
 
         $this->assertSame('completed', $order->status->value);
-        $this->assertNotNull($order->scheduled_at);
         $this->assertNotNull($order->completed_at);
         $this->assertSame(
             count($sequence),
@@ -193,7 +185,7 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($factoryManager)['to_status']
-                === 'pending_factory_review'
+                === 'pending'
         );
 
         Notification::assertSentTo(
@@ -201,7 +193,7 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($branchManager)['to_status']
-                === 'pending_factory_review'
+                === 'pending'
         );
 
         Notification::assertSentTo(
@@ -209,15 +201,15 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($branchManager)['to_status']
-                === 'sent_to_branch'
+                === 'ready'
         );
 
-        Notification::assertNotSentTo(
+        Notification::assertSentTo(
             $factoryManager,
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($factoryManager)['to_status']
-                === 'sent_to_branch'
+                === 'ready'
         );
 
         Notification::assertSentTo(
@@ -233,7 +225,7 @@ class SpecialCakeWorkflowAndNotificationsTest extends TestCase
             ->first();
 
         $this->assertNotNull($lastHistory);
-        $this->assertSame('ready_for_customer', $lastHistory->from_status);
+        $this->assertSame('ready', $lastHistory->from_status);
     }
 
     #[Test]

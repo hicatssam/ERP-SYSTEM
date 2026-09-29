@@ -1343,7 +1343,7 @@ class ReportExportTest extends TestCase
             'CakeOrderStatus::Accepted label "مقبول" must appear in the PDF template.');
 
         // required_date must appear (not delivery_date which was the pre-fix field)
-        $expectedDate = now()->addDays(7)->format('Y/m/d');
+        $expectedDate = \App\Support\ArabicDate::date($order->required_date, false);
         $this->assertStringContainsString($expectedDate, $html,
             'required_date must appear in the cake-orders PDF template (not the stale delivery_date field).');
     }

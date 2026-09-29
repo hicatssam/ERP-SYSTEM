@@ -796,13 +796,13 @@ class NotificationRoutingTest extends TestCase
 
         app(SpecialCakeStatusTransitionService::class)->transition(
             $order,
-            'pending_factory_review',
+            'pending',
             $actor,
             'تم إرسال الطلب إلى المصنع للمراجعة.'
         );
 
         $this->assertSame(
-            'pending_factory_review',
+            'pending',
             $order->fresh()->status->value
         );
         $this->assertCount(1, $manager->fresh()->notifications);

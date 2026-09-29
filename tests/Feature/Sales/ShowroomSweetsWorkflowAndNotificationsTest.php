@@ -58,7 +58,7 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
                 === 'showroom_sweets_request_created'
         );
 
-        Notification::assertNotSentTo(
+        Notification::assertSentTo(
             $branchViewer,
             ShowroomSweetsRequestNotification::class
         );
@@ -84,11 +84,6 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
         $readyUser = $this->userAt($factory, [
             'showroom_sweets_requests.view',
             'showroom_sweets_requests.ready',
-        ]);
-
-        $dispatcher = $this->userAt($factory, [
-            'showroom_sweets_requests.view',
-            'showroom_sweets_requests.dispatch',
         ]);
 
         $factoryObserver = $this->userAt($factory, [
@@ -157,50 +152,19 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
                     $showroomRequest
                 ),
                 [
-                    'status' => 'ready_for_dispatch',
+                    'status' => 'ready',
                 ]
             )
             ->assertRedirect($showUrl);
 
         $showroomRequest->refresh();
-
-        Notification::assertSentTo(
-            $dispatcher,
-            ShowroomSweetsRequestNotification::class,
-            fn ($notification) =>
-                $notification->toDatabase($dispatcher)['to_status']
-                === 'ready_for_dispatch'
-        );
-
-        $this->actingAs($dispatcher)
-            ->from($showUrl)
-            ->patch(
-                route(
-                    'showroom-sweets-requests.status',
-                    $showroomRequest
-                ),
-                [
-                    'status' => 'out_for_delivery',
-                ]
-            )
-            ->assertRedirect($showUrl);
-
-        $showroomRequest->refresh();
-
-        $this->assertSame(
-            $dispatcher->id,
-            $showroomRequest->dispatched_by
-        );
-        $this->assertNotNull(
-            $showroomRequest->dispatched_at
-        );
 
         Notification::assertSentTo(
             $branchReceiver,
             ShowroomSweetsRequestNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($branchReceiver)['to_status']
-                === 'out_for_delivery'
+                === 'ready'
         );
 
         $this->actingAs($branchReceiver)
@@ -211,7 +175,7 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
                     $showroomRequest
                 ),
                 [
-                    'status' => 'received_at_branch',
+                    'status' => 'completed',
                 ]
             )
             ->assertRedirect($showUrl);
@@ -219,7 +183,7 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
         $showroomRequest->refresh();
 
         $this->assertSame(
-            'received_at_branch',
+            'completed',
             $showroomRequest->status->value
         );
         $this->assertSame(
@@ -238,7 +202,7 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
             ShowroomSweetsRequestNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($factoryObserver)['to_status']
-                === 'received_at_branch'
+                === 'completed'
         );
     }
 
@@ -321,7 +285,7 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
             $branch,
             $factory,
             $creator,
-            'out_for_delivery'
+            'ready'
         );
 
         $this->actingAs($factoryReceiver)
@@ -331,13 +295,13 @@ class ShowroomSweetsWorkflowAndNotificationsTest extends TestCase
                     $request
                 ),
                 [
-                    'status' => 'received_at_branch',
+                    'status' => 'completed',
                 ]
             )
             ->assertForbidden();
 
         $this->assertSame(
-            'out_for_delivery',
+            'ready',
             $request->fresh()->status->value
         );
     }

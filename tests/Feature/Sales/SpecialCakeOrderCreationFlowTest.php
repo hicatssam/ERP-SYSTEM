@@ -8,6 +8,7 @@ use App\Models\LocationPaymentMethod;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\SpecialCakeOrder;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Notifications\SpecialCakeOrderTransitionedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -26,6 +27,7 @@ class SpecialCakeOrderCreationFlowTest extends TestCase
     public function branch_can_create_cash_cake_order_and_factory_receives_review_notification(): void
     {
         Notification::fake();
+        SystemSetting::set('special_cake_auto_approval', 0);
 
         $branch = Location::query()->create([
             'name' => 'فرع إنشاء الكيك',
@@ -100,13 +102,13 @@ class SpecialCakeOrderCreationFlowTest extends TestCase
             ->assertRedirect(route('cake-orders.show', $order))
             ->assertSessionHas(
                 'success',
-                'تم إنشاء طلب الكيك وإرساله إلى المصنع للمراجعة.'
+                'تم إنشاء طلب الكيك ووضعه قيد المراجعة.'
             );
 
         $order->refresh();
 
         $this->assertSame(
-            'pending_factory_review',
+            'pending',
             $order->status->value
         );
 
@@ -128,7 +130,7 @@ class SpecialCakeOrderCreationFlowTest extends TestCase
         $this->assertDatabaseHas('cake_order_status_histories', [
             'special_cake_order_id' => $order->id,
             'from_status' => 'draft',
-            'to_status' => 'pending_factory_review',
+            'to_status' => 'pending',
             'changed_by' => $creator->id,
         ]);
 
@@ -145,7 +147,7 @@ class SpecialCakeOrderCreationFlowTest extends TestCase
             SpecialCakeOrderTransitionedNotification::class,
             fn ($notification) =>
                 $notification->toDatabase($factoryReviewer)['to_status']
-                === 'pending_factory_review'
+                === 'pending'
         );
 
         Notification::assertNotSentTo(

@@ -571,6 +571,7 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
                 'name_ar' => 'كلاج',
                 'sku' =>
                     'KOL-TEST',
+                'barcode' => 'KOL-TEST',
                 'unit' => 'صدر',
                 'base_selling_price' =>
                     0,
@@ -653,6 +654,7 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
                 'name' => 'Baklava',
                 'name_ar' => 'بقلاوة',
                 'sku' => 'BAK-LIMIT',
+                'barcode' => 'BAK-LIMIT',
                 'unit' => 'صدر',
                 'base_selling_price' => 0,
                 'product_type' => 'standard',
@@ -857,6 +859,10 @@ class CakeUrgencyAndCustomerReservationTest extends TestCase
             [
                 'customer_id' =>
                     $this->customer->id,
+                'origin_branch_id' =>
+                    $this->branch->id,
+                'factory_location_id' =>
+                    $this->factory->id,
                 'required_date' =>
                     today()
                         ->addDay()

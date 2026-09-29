@@ -49,6 +49,7 @@ use App\Http\Controllers\Procurement\SupplierInvoiceController;
 use App\Http\Controllers\Procurement\SupplierPaymentController;
 use App\Http\Controllers\Admin\LocationPaymentAccountController;
 use App\Http\Controllers\System\HealthController;
+use App\Http\Controllers\System\HomeController;
 use App\Http\Controllers\Assistant\AiAssistantController;
 // Public customer-menu routes live only in routes/customer-ordering.php.
 // Keeping one owner prevents duplicate URIs, duplicate names and controller drift.
@@ -66,11 +67,7 @@ Route::middleware('guest')->group(function (): void {
 });
 
 
-Route::get('/', function () {
-    return auth()->check()
-        ? redirect()->route('dashboard')
-        : redirect()->route('login');
-})->name('home');
+Route::get('/', HomeController::class)->name('home');
 Route::view('/about', 'pages.about')->name('about');
 Route::view('/services', 'pages.services')->name('services');
 Route::view('/details', 'pages.details')->name('details');

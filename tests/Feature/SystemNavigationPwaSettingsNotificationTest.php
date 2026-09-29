@@ -4,11 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Employee;
 use App\Models\Location;
+use App\Models\Module;
 use App\Models\PaymentMethod;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Services\Notifications\NotificationDispatcher;
+use App\Services\ModuleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\Notification as LaravelNotification;
 use Illuminate\Support\Facades\Notification;
@@ -193,6 +195,7 @@ class SystemNavigationPwaSettingsNotificationTest extends TestCase
     #[Test]
     public function sales_channel_view_permission_no_longer_requires_settings_manage(): void
     {
+        $this->enableModule('sales_channels');
         $viewer = $this->makeUser(
             $this->branch,
             ['sales_channels.view']
@@ -338,8 +341,10 @@ class SystemNavigationPwaSettingsNotificationTest extends TestCase
     #[Test]
     public function main_layout_contains_install_prompt_service_worker_and_global_sound_policy(): void
     {
+        $this->enableModule('reports');
         $user = $this->makeUser(
-            $this->branch
+            $this->branch,
+            ['reports.view']
         );
 
         $html = $this->actingAs($user)
@@ -486,6 +491,18 @@ class SystemNavigationPwaSettingsNotificationTest extends TestCase
             $adminActor,
             SystemAuditTestNotification::class
         );
+    }
+
+    private function enableModule(string $code): void
+    {
+        Module::query()->create([
+            'code' => $code,
+            'name' => $code,
+            'type' => 'core',
+            'is_active' => true,
+        ]);
+
+        app(ModuleService::class)->invalidate();
     }
 
     private function makeLocation(
