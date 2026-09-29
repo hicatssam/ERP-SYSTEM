@@ -24,8 +24,9 @@ class ReportExportTest extends TestCase
     private function userWithReportAccess(): User
     {
         Permission::firstOrCreate(['name' => 'reports.view', 'guard_name' => 'web']);
+        Permission::firstOrCreate(['name' => 'reports.export', 'guard_name' => 'web']);
         $role = Role::firstOrCreate(['name' => 'TestReporter', 'guard_name' => 'web']);
-        $role->givePermissionTo('reports.view');
+        $role->givePermissionTo(['reports.view', 'reports.export']);
         $user = User::factory()->create(['username' => 'tester_' . uniqid()]);
         $user->assignRole($role);
 
@@ -559,7 +560,7 @@ class ReportExportTest extends TestCase
     }
 
     #[Test]
-    public function xlsx_no_after_sheet_event_when_not_truncated(): void
+    public function xlsx_non_truncated_sheet_keeps_formatting_without_warning_row(): void
     {
         $export = new ChunkedQueryReportExport(
             ActivityLog::orderBy('id'),
@@ -570,10 +571,22 @@ class ReportExportTest extends TestCase
             truncated: false,
         );
 
-        $this->assertEmpty(
-            $export->registerEvents(),
-            'registerEvents() must return an empty array when truncated=false.'
+        $events = $export->registerEvents();
+        $this->assertArrayHasKey(\Maatwebsite\Excel\Events\AfterSheet::class, $events);
+
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'العنوان');
+        $sheet->setCellValue('A2', 'البيانات');
+        ($events[\Maatwebsite\Excel\Events\AfterSheet::class])(
+            new \Maatwebsite\Excel\Events\AfterSheet(
+                new \Maatwebsite\Excel\Sheet($sheet),
+                $export
+            )
         );
+
+        $this->assertSame(2, $sheet->getHighestRow());
+        $this->assertTrue($sheet->getRightToLeft());
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1119,8 +1132,8 @@ class ReportExportTest extends TestCase
 
         $dataRow = $rows[1];
         // Column 3 = status label (enum path: $row->status?->label())
-        $this->assertSame('مسودة', $dataRow[3],
-            'CakeOrderStatus::Draft must produce the Arabic label "مسودة" in column 3.');
+        $this->assertSame(\App\Enums\CakeOrderStatus::Draft->label(), $dataRow[3],
+            'The exported cake status must use the current Arabic enum label.');
         // Column 2 = origin branch name
         $this->assertSame('Test Branch', $dataRow[2],
             'Origin branch name must appear in column 2.');
