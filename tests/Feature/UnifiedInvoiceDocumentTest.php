@@ -114,7 +114,25 @@ class UnifiedInvoiceDocumentTest extends TestCase
             $this->assertStringContainsString('class="print-table"', $document);
             $this->assertStringNotContainsString('حلويات دهب', $document);
             if ($pdfMode) {
-                $this->assertCanGeneratePdf($document);
+                $variants = [
+                    'full' => $document,
+                    'no_styles' => preg_replace('/<style\b[^>]*>.*?<\/style>/su', '', $document),
+                    'no_borders' => preg_replace('/\bborder(?:-[\w-]+)?\s*:[^;]*;/u', '', $document),
+                    'no_receiving_styles' => preg_replace('/<style>\s*\.receiving-info.*?<\/style>/su', '', $document),
+                    'no_receiving_info' => preg_replace('/<table class="receiving-info".*?<\/table>/su', '', $document),
+                    'no_receiving_summary' => preg_replace('/<table class="receiving-summary".*?<\/table>/su', '', $document),
+                    'no_items_table' => preg_replace('/<table class="print-table".*?<\/table>/su', '', $document),
+                ];
+                $results = [];
+                foreach ($variants as $name => $html) {
+                    try {
+                        $this->assertCanGeneratePdf($html);
+                        $results[$name] = 'ok';
+                    } catch (\Throwable $exception) {
+                        $results[$name] = $exception->getMessage();
+                    }
+                }
+                $this->assertSame(array_fill_keys(array_keys($variants), 'ok'), $results);
             }
         }
     }
