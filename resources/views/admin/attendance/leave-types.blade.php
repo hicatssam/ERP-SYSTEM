@@ -7,7 +7,7 @@
     <div class="page-actions">
         <div>
             <h1 class="page-heading">إعداد أنواع الإجازات</h1>
-            <p class="page-subheading">حدد سياسات الإجازات المناسبة لنشاطك. الحد السنوي يُحسب بالأيام التقويمية، وتركه فارغًا يعني عدم تحديد سقف.</p>
+            <p class="page-subheading">حدد سياسات الإجازات المناسبة لنشاطك. الحد السنوي يُحسب بالأيام التقويمية، وتركه فارغًا يعني عدم تحديد سقف. أيام الدوام في الإجازات غير المدفوعة تُخصم عند مزامنة الحضور مع الراتب.</p>
         </div>
         @can('attendance.leaves.view')
             <a class="btn btn-outline" href="{{ route('attendance.leaves.index') }}">العودة إلى الطلبات</a>

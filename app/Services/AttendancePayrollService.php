@@ -4,10 +4,12 @@ namespace App\Services;
 
 use App\Models\AttendanceRecord;
 use App\Models\EmployeeCompensationProfile;
+use App\Models\EmployeeLeaveRequest;
 use App\Models\EmployeePayrollAdjustment;
 use App\Models\PayrollPeriod;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 class AttendancePayrollService
@@ -32,11 +34,20 @@ class AttendancePayrollService
                 ->delete();
 
             $records = AttendanceRecord::query()
-                ->whereBetween('work_date', [
-                    $period->start_date->toDateString(),
-                    $period->end_date->toDateString(),
-                ])
+                ->whereDate('work_date', '>=', $period->start_date->toDateString())
+                ->whereDate('work_date', '<=', $period->end_date->toDateString())
                 ->whereNotNull('approved_at')
+                ->get()
+                ->groupBy('employee_id');
+
+            // Older approved leave records predate the payment snapshot on
+            // attendance_records. Resolve those against exactly one request.
+            $legacyLeaveRequests = EmployeeLeaveRequest::query()
+                ->with('leaveType')
+                ->whereIn('employee_id', $records->keys()->all())
+                ->where('status', 'approved')
+                ->whereDate('start_date', '<=', $period->end_date->toDateString())
+                ->whereDate('end_date', '>=', $period->start_date->toDateString())
                 ->get()
                 ->groupBy('employee_id');
 
@@ -68,6 +79,14 @@ class AttendancePayrollService
                 $earlyMinutes = (int) $employeeRecords->sum('early_leave_minutes');
                 $overtimeMinutes = (int) $employeeRecords->sum('overtime_minutes');
                 $absenceDays = $employeeRecords->where('status', 'absent')->count();
+                $unpaidLeaveDays = $employeeRecords
+                    ->where('status', 'leave')
+                    ->where('source', 'leave')
+                    ->filter(fn (AttendanceRecord $record) => $this->isUnpaidLeave(
+                        $record,
+                        $legacyLeaveRequests->get($employeeId, collect())
+                    ))
+                    ->count();
 
                 $deductionAmount = 0.0;
 
@@ -78,6 +97,8 @@ class AttendancePayrollService
                 if ($this->features->absenceDeductionEnabled()) {
                     $deductionAmount += $absenceDays * $dailyRate;
                 }
+
+                $deductionAmount += $unpaidLeaveDays * $dailyRate;
 
                 $overtimeMultiplier =
                     $this->features->overtimeMultiplier();
@@ -96,7 +117,7 @@ class AttendancePayrollService
                         'employee_id' => $employeeId,
                         'payroll_period_id' => $period->id,
                         'kind' => 'deduction',
-                        'name' => 'خصم الحضور والانضباط',
+                        'name' => 'خصم الحضور والإجازات غير المدفوعة',
                         'amount' => round($deductionAmount, 4),
                         'is_recurring' => false,
                         'status' => 'active',
@@ -107,6 +128,7 @@ class AttendancePayrollService
                             'late_minutes' => $lateMinutes,
                             'early_leave_minutes' => $earlyMinutes,
                             'absence_days' => $absenceDays,
+                            'unpaid_leave_days' => $unpaidLeaveDays,
                             'hourly_rate' => $hourlyRate,
                             'daily_rate' => $dailyRate,
                         ],
@@ -143,6 +165,22 @@ class AttendancePayrollService
                 'adjustments' => $created,
             ];
         });
+    }
+
+    private function isUnpaidLeave(AttendanceRecord $record, Collection $legacyRequests): bool
+    {
+        $metadata = $record->verification_metadata ?? [];
+
+        if (array_key_exists('is_paid', $metadata)) {
+            return $metadata['is_paid'] === false;
+        }
+
+        $matching = $legacyRequests->filter(fn (EmployeeLeaveRequest $leave) =>
+            $leave->start_date->lte($record->work_date)
+            && $leave->end_date->gte($record->work_date));
+
+        return $matching->count() === 1
+            && $matching->first()->leaveType?->is_paid === false;
     }
 
     private function hourlyRate(EmployeeCompensationProfile $profile): float

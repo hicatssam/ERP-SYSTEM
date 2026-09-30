@@ -195,7 +195,11 @@ class AttendanceService
                             'verification_provider' => null,
                             'verification_reference' => null,
                             'verification_location_id' => null,
-                            'verification_metadata' => null,
+                            'verification_metadata' => [
+                                'leave_request_id' => $leave->id,
+                                'leave_type_id' => $leave->leave_type_id,
+                                'is_paid' => (bool) $leave->leaveType->is_paid,
+                            ],
                             'notes' => $leave->leaveType->name,
                             'approved_by' => $actor->id,
                             'approved_at' => now(),
