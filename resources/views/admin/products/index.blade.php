@@ -87,15 +87,7 @@
         @forelse($products as $product)
             <tr>
                 <td>
-                    @if($product->image)
-                        @php
-                            $productImageUrl = \Illuminate\Support\Str::startsWith(
-                                (string) $product->image,
-                                ['http://', 'https://', '//']
-                            )
-                                ? $product->image
-                                : Storage::url($product->image);
-                        @endphp
+                    @if($productImageUrl = \App\Support\PublicImageUrl::url($product->image))
                         <img src="{{ $productImageUrl }}" alt="{{ $product->name }}" style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--border)">
                     @else
                         <div style="width:44px;height:44px;border-radius:8px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center">

@@ -51,10 +51,8 @@
                 @forelse($methods as $method)
                 <tr style="{{ $method->trashed() ? 'opacity:.5' : '' }}">
                     <td>
-                        @if($method->logo_path)
-                            <img src="{{ Storage::url($method->logo_path) }}" alt="{{ $method->name }}" style="width:38px;height:38px;object-fit:contain;border-radius:6px;border:1px solid var(--border)">
-                        @elseif($method->logo)
-                            <img src="{{ $method->logo }}" alt="{{ $method->name }}" style="width:38px;height:38px;object-fit:contain;border-radius:6px;border:1px solid var(--border)">
+                        @if($logoUrl = \App\Support\PublicImageUrl::url($method->logo_path ?: $method->logo))
+                            <img src="{{ $logoUrl }}" alt="{{ $method->name }}" style="width:38px;height:38px;object-fit:contain;border-radius:6px;border:1px solid var(--border)">
                         @else
                             <div style="width:38px;height:38px;background:var(--gold-ultra);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--gold)">
                                 {{ mb_substr($method->name_ar, 0, 2) }}

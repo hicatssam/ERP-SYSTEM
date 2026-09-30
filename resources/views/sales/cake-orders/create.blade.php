@@ -332,14 +332,8 @@
                         <label class="form-label">طريقة الدفع</label>
                         @php
                             $selectedPaymentMethodId = (string) old('payment_method_id', '');
-                            $paymentLogoUrl = function ($method) {
-                                $logo = $method->logo_path ?: $method->logo;
-                                if (!$logo) return null;
-                                $logo = str_replace('\\', '/', trim($logo));
-                                if (str_starts_with($logo, 'http://') || str_starts_with($logo, 'https://') || str_starts_with($logo, 'data:image/')) return $logo;
-                                $logo = preg_replace('#^/?(?:public/|storage/)+#', '', $logo);
-                                return asset('storage/' . ltrim($logo, '/'));
-                            };
+                            $paymentLogoUrl = static fn ($method): ?string =>
+                                \App\Support\PublicImageUrl::url($method->logo_path ?: $method->logo);
                         @endphp
 
                         @if($paymentMethods->isNotEmpty())

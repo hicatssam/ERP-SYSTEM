@@ -25,17 +25,7 @@
                 return null;
             }
 
-            $raw = $method->logo_path ?: $method->logo;
-
-            if (!$raw) {
-                return null;
-            }
-
-            if (preg_match('#^https?://#i', $raw)) {
-                return $raw;
-            }
-
-            return asset('storage/' . ltrim($raw, '/'));
+            return \App\Support\PublicImageUrl::url($method->logo_path ?: $method->logo);
         }
     }
 @endphp

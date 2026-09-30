@@ -34,7 +34,7 @@
                     <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
                         <div style="width:100px;height:100px;border:2px dashed var(--border);border-radius:10px;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--surface);flex-shrink:0">
                             @if($category->image)
-                                <img id="imgPreview" src="{{ Storage::url($category->image) }}" alt="" style="width:100%;height:100%;object-fit:cover">
+                                <img id="imgPreview" src="{{ \App\Support\PublicImageUrl::url($category->image) }}" alt="" style="width:100%;height:100%;object-fit:cover">
                             @else
                                 <img id="imgPreview" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none">
                                 <svg id="imgIcon" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" style="width:36px;height:36px"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>

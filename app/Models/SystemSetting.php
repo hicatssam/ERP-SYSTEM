@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PublicImageUrl;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
@@ -50,11 +51,8 @@ class SystemSetting extends Model
     {
         $value = static::get($key);
 
-        if (is_string($value) && trim($value) !== '') {
-            return asset($value);
-        }
-
-        return $fallback ? asset($fallback) : null;
+        return PublicImageUrl::url(is_string($value) ? $value : null)
+            ?? PublicImageUrl::url($fallback);
     }
 
     public function typedValue(): mixed

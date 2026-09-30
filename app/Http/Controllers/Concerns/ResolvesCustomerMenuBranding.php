@@ -10,9 +10,9 @@ use App\Models\PaymentMethod;
 use App\Models\RestaurantMenuItem;
 use App\Models\RestaurantTable;
 use App\Models\SystemSetting;
+use App\Support\PublicImageUrl;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Single source of truth for the customer-menu branding/theme tokens and
@@ -564,58 +564,6 @@ trait ResolvesCustomerMenuBranding
 
     protected function assetFromPath(?string $path): ?string
     {
-        $path = trim((string) $path);
-
-        if ($path === '') {
-            return null;
-        }
-
-        if (
-            str_starts_with($path, 'http://')
-            || str_starts_with($path, 'https://')
-            || str_starts_with($path, '//')
-            || str_starts_with($path, 'data:')
-        ) {
-            return $path;
-        }
-
-        $normalized = ltrim(str_replace('\\', '/', $path), '/');
-
-        foreach (['storage/app/public/', 'public/storage/', 'storage/'] as $prefix) {
-            if (str_starts_with($normalized, $prefix)) {
-                $normalized = substr($normalized, strlen($prefix));
-                break;
-            }
-        }
-
-        if (file_exists(public_path($normalized))) {
-            return asset($normalized);
-        }
-
-        /*
-         * The public customer menu must not depend on the public/storage
-         * symlink. On Windows/WAMP, especially over the LAN, that symlink
-         * can return 403 even though the file exists. Serve only the known
-         * sweets-menu image prefix through a dedicated read-only route.
-         */
-        if (
-            str_starts_with(
-                $normalized,
-                'images/sweets-menu/'
-            )
-            && Storage::disk('public')
-                ->exists($normalized)
-        ) {
-            return route(
-                'customer-menu.assets.show',
-                ['path' => $normalized]
-            );
-        }
-
-        if (file_exists(public_path('storage/' . $normalized))) {
-            return asset('storage/' . $normalized);
-        }
-
-        return asset('storage/' . $normalized);
+        return PublicImageUrl::url($path);
     }
 }

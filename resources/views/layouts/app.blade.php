@@ -48,39 +48,14 @@ $brandName =
 
     );
 
-    $brandLogoUrl = $brandLogoPath
+    $brandLogoUrl = \App\Models\SystemSetting::assetUrl('brand_logo')
+        ?: \App\Models\SystemSetting::assetUrl('brand_logo_small')
+        ?: (is_file(public_path('assets/images/logo.png')) ? asset('assets/images/logo.png') : null);
 
-        ? asset($brandLogoPath)
+    $brandLogoSmallUrl = \App\Models\SystemSetting::assetUrl('brand_logo_small')
+        ?: $brandLogoUrl;
 
-        : (
-
-            $brandLogoSmallPath
-
-                ? asset($brandLogoSmallPath)
-
-                : (
-
-                    file_exists(public_path('assets/images/logo.png'))
-
-                        ? asset('assets/images/logo.png')
-
-                        : null
-
-                )
-
-        );
-
-    $brandLogoSmallUrl = $brandLogoSmallPath
-
-        ? asset($brandLogoSmallPath)
-
-        : $brandLogoUrl;
-
-    $brandFaviconUrl = $brandFaviconPath
-
-        ? asset($brandFaviconPath)
-
-        : null;
+    $brandFaviconUrl = \App\Models\SystemSetting::assetUrl('brand_favicon');
 
     $pwaBrandVersion = substr(
         sha1(implode('|', [

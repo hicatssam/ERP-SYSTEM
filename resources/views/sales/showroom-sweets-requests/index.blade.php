@@ -1310,17 +1310,7 @@
                             @foreach($req->items->take(4) as $item)
 
                                 @php
-                                    $productImage = $item->product?->image;
-
-                                    $productImageUrl = null;
-
-                                    if ($productImage) {
-                                        if (\Illuminate\Support\Str::startsWith($productImage, ['http://', 'https://'])) {
-                                            $productImageUrl = $productImage;
-                                        } else {
-                                            $productImageUrl = \Illuminate\Support\Facades\Storage::url($productImage);
-                                        }
-                                    }
+                                    $productImageUrl = \App\Support\PublicImageUrl::url($item->product?->image);
                                 @endphp
 
 

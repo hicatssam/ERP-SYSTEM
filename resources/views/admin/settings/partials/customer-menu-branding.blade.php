@@ -8,15 +8,7 @@
         ->orderBy('id')
         ->first();
 
-    $cmAsset = static function (?string $path): ?string {
-        $path = trim((string) $path);
-        if ($path === '') return null;
-        if (str_starts_with($path,'http://') || str_starts_with($path,'https://') || str_starts_with($path,'//')) return $path;
-        $normalized = ltrim(str_replace('\\','/',$path),'/');
-        if (str_starts_with($normalized,'storage/')) return asset($normalized);
-        if (file_exists(public_path($normalized))) return asset($normalized);
-        return asset('storage/'.$normalized);
-    };
+    $cmAsset = static fn (?string $path): ?string => \App\Support\PublicImageUrl::url($path);
 
     $brandName = (string) \App\Models\SystemSetting::get('system_name','اسم المطعم');
     $brandLogo = $cmAsset((string)\App\Models\SystemSetting::get('brand_logo',''))

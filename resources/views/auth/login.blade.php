@@ -15,22 +15,6 @@
         'Dahab Sweets'
     );
 
-    $brandLogoPath = \App\Models\SystemSetting::get(
-        'brand_logo'
-    );
-
-    $brandReportLogoPath = \App\Models\SystemSetting::get(
-        'brand_report_logo'
-    );
-
-    $brandFaviconPath = \App\Models\SystemSetting::get(
-        'brand_favicon'
-    );
-
-    $loginBackgroundPath = \App\Models\SystemSetting::get(
-        'brand_login_background'
-    );
-
     /*
     |--------------------------------------------------------------------------
     | الثيم
@@ -63,30 +47,19 @@
     |--------------------------------------------------------------------------
     */
 
-    $brandLogoUrl = $brandLogoPath
-        ? asset($brandLogoPath)
-        : (
-            $brandReportLogoPath
-                ? asset($brandReportLogoPath)
-                : (
-                    file_exists(public_path('images/pdf-assets/logo.png'))
-                        ? asset('images/pdf-assets/logo.png')
-                        : (
-                            file_exists(public_path('assets/images/logo.png'))
-                                ? asset('assets/images/logo.png')
-                                : null
-                        )
-                )
-        );
+    $brandLogoUrl = \App\Models\SystemSetting::assetUrl('brand_logo')
+        ?: \App\Models\SystemSetting::assetUrl('brand_report_logo')
+        ?: (is_file(public_path('images/pdf-assets/logo.png'))
+            ? asset('images/pdf-assets/logo.png')
+            : (is_file(public_path('assets/images/logo.png'))
+                ? asset('assets/images/logo.png')
+                : null));
 
-    $brandFaviconUrl = $brandFaviconPath
-        ? asset($brandFaviconPath)
-        : null;
+    $brandFaviconUrl = \App\Models\SystemSetting::assetUrl('brand_favicon');
 
-    $loginBackgroundUrl = $loginBackgroundPath
-        ? asset($loginBackgroundPath)
-        : (
-            file_exists(public_path('images/hero-bg-cake.png'))
+    $loginBackgroundUrl = \App\Models\SystemSetting::assetUrl('brand_login_background')
+        ?: (
+            is_file(public_path('images/hero-bg-cake.png'))
                 ? asset('images/hero-bg-cake.png')
                 : null
         );

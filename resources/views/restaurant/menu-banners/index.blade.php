@@ -5,23 +5,7 @@
 
 @section('content')
 @php
-    $resolveImage = static function (?string $image): ?string {
-        if (blank($image)) {
-            return null;
-        }
-        $image = trim($image);
-        if (str_starts_with($image, 'http://') || str_starts_with($image, 'https://') || str_starts_with($image, '//')) {
-            return $image;
-        }
-        $normalized = ltrim($image, '/');
-        if (str_starts_with($normalized, 'storage/')) {
-            return asset($normalized);
-        }
-        if (file_exists(public_path($normalized))) {
-            return asset($normalized);
-        }
-        return asset('storage/' . $normalized);
-    };
+    $resolveImage = static fn (?string $image): ?string => \App\Support\PublicImageUrl::url($image);
 @endphp
 
 <div class="mb-page">

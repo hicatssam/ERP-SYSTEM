@@ -357,34 +357,7 @@ class CustomerOrderDisplayController extends Controller
     private function assetFromSetting(
         ?string $path
     ): ?string {
-        $path = trim(
-            (string) $path
-        );
-
-        if ($path === '') {
-            return null;
-        }
-
-        if (
-            str_starts_with(
-                $path,
-                'http://'
-            )
-            || str_starts_with(
-                $path,
-                'https://'
-            )
-            || str_starts_with(
-                $path,
-                '//'
-            )
-        ) {
-            return $path;
-        }
-
-        return asset(
-            ltrim($path, '/')
-        );
+        return \App\Support\PublicImageUrl::url($path);
     }
 
     private function boundedInt(

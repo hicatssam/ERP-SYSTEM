@@ -1542,26 +1542,7 @@
                                         $item->availableQuantity()
                                     );
 
-                                $productImage = $item->product?->image;
-
-                                $productImageUrl = null;
-
-                                if ($productImage) {
-
-                                    if (
-                                        \Illuminate\Support\Str::startsWith(
-                                            $productImage,
-                                            ['http://', 'https://']
-                                        )
-                                    ) {
-                                        $productImageUrl = $productImage;
-                                    } else {
-                                        $productImageUrl =
-                                            \Illuminate\Support\Facades\Storage::url(
-                                                $productImage
-                                            );
-                                    }
-                                }
+                                $productImageUrl = \App\Support\PublicImageUrl::url($item->product?->image);
                             @endphp
 
 

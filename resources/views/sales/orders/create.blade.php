@@ -11,21 +11,8 @@
     $selectedPaymentMethodId = (string) old('payment_method_id', '');
     $initialQuickSale = (bool) old('quick_sale', request('mode') === 'quick');
 
-    $paymentLogoUrl = function ($method) {
-        $logo = $method->logo_path ?: $method->logo;
-        if (!$logo) return null;
-
-        $logo = str_replace('\\\\', '/', trim($logo));
-
-        if (str_starts_with($logo, 'http://') ||
-            str_starts_with($logo, 'https://') ||
-            str_starts_with($logo, 'data:image/')) {
-            return $logo;
-        }
-
-        $logo = preg_replace('#^/?(?:public/|storage/)+#', '', $logo);
-        return asset('storage/' . ltrim($logo, '/'));
-    };
+    $paymentLogoUrl = static fn ($method): ?string =>
+        \App\Support\PublicImageUrl::url($method->logo_path ?: $method->logo);
 
     // أخطاء المخزون تظهر في Popup مستقل، وباقي الأخطاء تبقى أعلى النموذج.
     $stockErrors = $errors->get('stock');

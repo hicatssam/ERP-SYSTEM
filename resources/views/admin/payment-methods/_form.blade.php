@@ -39,7 +39,7 @@
         <input type="file" name="logo" class="form-input" accept="image/*" onchange="previewLogo(this)">
         @if($m?->logo_path || $m?->logo)
         <div style="margin-top:.5rem">
-            <img id="logoPreview" src="{{ $m->logo_path ? Storage::url($m->logo_path) : $m->logo }}" style="width:60px;height:60px;object-fit:contain;border:1px solid var(--border);border-radius:6px">
+            <img id="logoPreview" src="{{ \App\Support\PublicImageUrl::url($m->logo_path ?: $m->logo) }}" style="width:60px;height:60px;object-fit:contain;border:1px solid var(--border);border-radius:6px">
         </div>
         @else
         <img id="logoPreview" style="display:none;width:60px;height:60px;object-fit:contain;border:1px solid var(--border);border-radius:6px;margin-top:.5rem">
