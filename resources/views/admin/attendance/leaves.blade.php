@@ -28,6 +28,22 @@
     flex-wrap:wrap;
 }
 
+.leave-filters{
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:.75rem;
+    align-items:end;
+    margin-bottom:1rem;
+}
+.leave-filters .form-group{margin:0;min-width:0}
+.leave-filters .form-input{width:100%}
+.leave-filter-actions{display:flex;gap:.4rem;align-items:center}
+.leave-balance-table{width:100%;border-collapse:collapse}
+.leave-balance-table th,.leave-balance-table td{
+    text-align:right;padding:.65rem;border-bottom:1px solid var(--border)
+}
+.leave-balance-table th{color:var(--text-muted);font-size:.75rem}
+
 /* ─────────────────────────────────────────────
    Stats
 ───────────────────────────────────────────── */
@@ -447,12 +463,14 @@
 
 /* Responsive */
 @media(max-width:1050px){
+    .leave-filters{grid-template-columns:repeat(3,minmax(0,1fr))}
     .leave-stats{
         grid-template-columns:repeat(3,1fr);
     }
 }
 
 @media(max-width:760px){
+    .leave-filters{grid-template-columns:repeat(2,minmax(0,1fr))}
     .leave-head{
         flex-direction:column;
         align-items:stretch;
@@ -481,6 +499,7 @@
 }
 
 @media(max-width:480px){
+    .leave-filters{grid-template-columns:1fr}
     .leave-stats{
         grid-template-columns:1fr 1fr;
     }
@@ -497,32 +516,11 @@
 </style>
 
 @php
-    /*
-     * Stats are based on the currently loaded result set/page,
-     * so this view does not require controller changes.
-     */
-    $leaveRows = method_exists($requests, 'getCollection')
-        ? $requests->getCollection()
-        : collect($requests);
-
-    $pendingCount = $leaveRows
-        ->where('status', 'pending')
-        ->count();
-
-    $approvedCount = $leaveRows
-        ->where('status', 'approved')
-        ->count();
-
-    $rejectedCount = $leaveRows
-        ->where('status', 'rejected')
-        ->count();
-
-    $totalLeaveDays = $leaveRows
-        ->sum(fn ($leave) => (float) ($leave->total_days ?? 0));
-
-    $totalRequests = method_exists($requests, 'total')
-        ? $requests->total()
-        : $leaveRows->count();
+    $pendingCount = (int) ($totals->get('pending')?->request_count ?? 0);
+    $approvedCount = (int) ($totals->get('approved')?->request_count ?? 0);
+    $rejectedCount = (int) ($totals->get('rejected')?->request_count ?? 0);
+    $totalLeaveDays = (float) $totals->sum('days');
+    $totalRequests = (int) $totals->sum('request_count');
 @endphp
 
 <div class="leave-page">
@@ -537,12 +535,17 @@
         </div>
 
         <div class="leave-head-actions">
+            @can('settings.manage')
+                <a class="btn btn-outline" href="{{ route('attendance.leave-types.index') }}">إعداد أنواع الإجازات</a>
+            @endcan
+            @can('attendance.view')
             <a
                 class="btn btn-outline"
                 href="{{ route('attendance.index') }}"
             >
                 العودة للحضور
             </a>
+            @endcan
 
             @can('attendance.leaves.manage')
                 <button
@@ -556,6 +559,81 @@
         </div>
     </div>
 
+    @if($errors->any())
+        <div class="alert alert-danger" role="alert">
+            <ul>
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form method="GET" action="{{ route('attendance.leaves.index') }}" class="card card-body leave-filters" aria-label="تصفية طلبات الإجازات">
+        <div class="form-group">
+            <label class="form-label" for="filterLeaveEmployee">الموظف</label>
+            <select class="form-input" name="employee_id" id="filterLeaveEmployee">
+                <option value="">جميع الموظفين المسموحين</option>
+                @foreach($employees as $employee)
+                    <option value="{{ $employee->id }}" @selected(($filters['employee_id'] ?? '') == $employee->id)>{{ $employee->full_name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="filterLeaveType">النوع</label>
+            <select class="form-input" name="leave_type_id" id="filterLeaveType">
+                <option value="">كل الأنواع</option>
+                @foreach($leaveTypes as $type)
+                    <option value="{{ $type->id }}" @selected(($filters['leave_type_id'] ?? '') == $type->id)>{{ $type->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="filterLeaveStatus">الحالة</label>
+            <select class="form-input" name="status" id="filterLeaveStatus">
+                <option value="">كل الحالات</option>
+                <option value="pending" @selected(($filters['status'] ?? '') === 'pending')>قيد الانتظار</option>
+                <option value="approved" @selected(($filters['status'] ?? '') === 'approved')>معتمدة</option>
+                <option value="rejected" @selected(($filters['status'] ?? '') === 'rejected')>مرفوضة</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label" for="filterLeaveYear">السنة</label>
+            <input class="form-input" type="number" name="year" id="filterLeaveYear" min="2000" max="2100" value="{{ $filters['year'] ?? '' }}" placeholder="كل السنوات">
+        </div>
+        <div class="leave-filter-actions">
+            <button type="submit" class="btn btn-outline">بحث</button>
+            <a href="{{ route('attendance.leaves.index') }}" class="btn btn-ghost">مسح</a>
+        </div>
+    </form>
+
+    @if($selectedEmployee)
+        <div class="card" style="margin-bottom:1rem">
+            <div class="card-header">
+                <span class="card-title">رصيد إجازات {{ $selectedEmployee->full_name }} لعام {{ $balanceYear }}</span>
+            </div>
+            <div class="card-body leave-table-wrap">
+                <table class="leave-balance-table">
+                    <thead><tr><th>نوع الإجازة</th><th>الحد السنوي</th><th>معتمد</th><th>قيد الانتظار</th><th>متاح</th></tr></thead>
+                    <tbody>
+                        @foreach($leaveTypes as $type)
+                            @if($type->is_active || $balances[$type->id]['approved'] || $balances[$type->id]['pending'])
+                                <tr>
+                                    <td>{{ $type->name }}</td>
+                                    <td>{{ $type->annual_days === null ? 'غير محدد' : $type->annual_days }}</td>
+                                    <td>{{ $balances[$type->id]['approved'] }}</td>
+                                    <td>{{ $balances[$type->id]['pending'] }}</td>
+                                    <td>{{ $balances[$type->id]['available'] === null ? 'غير محدد' : number_format($balances[$type->id]['available'], 2) }}</td>
+                                </tr>
+                            @endif
+                        @endforeach
+                    </tbody>
+                </table>
+                <small>الحساب بالأيام التقويمية ضمن السنة المحددة. الطلبات قيد الانتظار تحجز من الرصيد حتى يُتخذ قرار بشأنها.</small>
+            </div>
+        </div>
+    @endif
+
     {{-- Stats --}}
     <div class="leave-stats">
 
@@ -568,7 +646,7 @@
             </div>
 
             <strong>{{ number_format($totalRequests) }}</strong>
-            <small>جميع طلبات الإجازة</small>
+            <small>حسب نطاق البحث والفروع المسموحة</small>
         </div>
 
         <div class="leave-stat">
@@ -619,7 +697,7 @@
                 {{ number_format($totalLeaveDays, 0) }}
             </strong>
 
-            <small>ضمن السجلات المعروضة</small>
+            <small>ضمن نتائج البحث كاملة</small>
         </div>
 
     </div>
@@ -882,9 +960,7 @@
                                     لا توجد طلبات إجازة
                                 </strong>
 
-                                <span>
-                                    عند إضافة أول طلب سيظهر هنا.
-                                </span>
+                                <span>عند إضافة أول طلب سيظهر هنا.</span>
                             </td>
                         </tr>
 
@@ -1010,7 +1086,7 @@
                                 اختر نوع الإجازة
                             </option>
 
-                            @foreach($leaveTypes as $type)
+                            @foreach($leaveTypes->where('is_active', true) as $type)
                                 <option
                                     value="{{ $type->id }}"
                                     @selected(
@@ -1172,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', function () {
          * If Laravel returns validation errors,
          * reopen the form automatically.
          */
-        @if($errors->any())
+        @if($errors->hasAny(['employee_id', 'leave_type_id', 'start_date', 'end_date', 'reason']))
             openModal();
         @endif
     }

@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\AttendancePayrollController;
 use App\Http\Controllers\Admin\LeaveController;
+use App\Http\Controllers\Admin\LeaveTypeController;
 use App\Http\Controllers\Admin\WorkShiftController;
 use App\Http\Controllers\Admin\AttendanceDeviceController;
 use App\Http\Controllers\Admin\FaceAttendanceController;
@@ -120,6 +121,18 @@ Route::middleware([
             Route::get('/leaves', [LeaveController::class, 'index'])
                 ->middleware('can:attendance.leaves.view')
                 ->name('leaves.index');
+
+            Route::get('/leave-types', [LeaveTypeController::class, 'index'])
+                ->middleware('can:settings.manage')
+                ->name('leave-types.index');
+
+            Route::post('/leave-types', [LeaveTypeController::class, 'store'])
+                ->middleware('can:settings.manage')
+                ->name('leave-types.store');
+
+            Route::put('/leave-types/{leaveType}', [LeaveTypeController::class, 'update'])
+                ->middleware('can:settings.manage')
+                ->name('leave-types.update');
 
             Route::post('/leaves', [LeaveController::class, 'store'])
                 ->middleware('can:attendance.leaves.manage')

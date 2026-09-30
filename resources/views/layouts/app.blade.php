@@ -1094,7 +1094,7 @@ a.app-page-btn:hover {
 
             @endif
 
-            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage'])
+            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage', 'attendance.view', 'attendance.leaves.view'])
 
                 <div class="nav-section">
 

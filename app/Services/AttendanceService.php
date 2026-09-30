@@ -14,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class AttendanceService
 {
+    public function __construct(private readonly EmployeeLeaveService $leaves)
+    {
+    }
+
     public function shiftFor(Employee $employee, Carbon|string $date): ?WorkShift
     {
         $date = Carbon::parse($date)->toDateString();
@@ -118,14 +122,43 @@ class AttendanceService
         User $actor,
         ?string $decisionNote = null
     ): EmployeeLeaveRequest {
-        if ($leave->status !== 'pending') {
-            throw ValidationException::withMessages([
-                'leave' => 'تم اتخاذ قرار على طلب الإجازة مسبقًا.',
-            ]);
-        }
-
         return DB::transaction(function () use ($leave, $actor, $decisionNote): EmployeeLeaveRequest {
-            $leave->loadMissing('employee', 'leaveType');
+            $employee = Employee::query()->whereKey($leave->employee_id)->lockForUpdate()->firstOrFail();
+            $leave = EmployeeLeaveRequest::query()->whereKey($leave->id)->lockForUpdate()->firstOrFail();
+
+            if ($leave->status !== 'pending') {
+                throw ValidationException::withMessages([
+                    'leave' => 'تم اتخاذ قرار على طلب الإجازة مسبقًا.',
+                ]);
+            }
+
+            $leave->loadMissing('leaveType');
+            $this->leaves->assertAvailable(
+                $employee,
+                $leave->leaveType,
+                $leave->start_date,
+                $leave->end_date,
+                $leave->id,
+                approval: true
+            );
+
+            // A leave must never silently erase an actual shift or biometric punch.
+            $workedDay = AttendanceRecord::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('work_date', '>=', $leave->start_date->toDateString())
+                ->whereDate('work_date', '<=', $leave->end_date->toDateString())
+                ->where(fn ($query) => $query
+                    ->where('status', 'present')
+                    ->orWhereNotNull('check_in_at')
+                    ->orWhereNotNull('check_out_at'))
+                ->first();
+
+            if ($workedDay) {
+                throw ValidationException::withMessages([
+                    'leave' => 'لا يمكن اعتماد الإجازة: يوجد حضور مسجل بتاريخ '
+                        . $workedDay->work_date->format('Y-m-d') . '.',
+                ]);
+            }
 
             $leave->update([
                 'status' => 'approved',
@@ -138,7 +171,7 @@ class AttendanceService
             $end = $leave->end_date->copy()->startOfDay();
 
             while ($cursor->lte($end)) {
-                $shift = $this->shiftFor($leave->employee, $cursor);
+                $shift = $this->shiftFor($employee, $cursor);
 
                 if ($this->isScheduledWorkDay($shift, $cursor)) {
                     [$start, $finish] = $this->scheduledWindow($shift, $cursor);
@@ -150,6 +183,8 @@ class AttendanceService
                             'work_shift_id' => $shift?->id,
                             'scheduled_start_at' => $start,
                             'scheduled_end_at' => $finish,
+                            'check_in_at' => null,
+                            'check_out_at' => null,
                             'status' => 'leave',
                             'worked_minutes' => 0,
                             'late_minutes' => 0,
@@ -181,20 +216,25 @@ class AttendanceService
         User $actor,
         ?string $decisionNote = null
     ): EmployeeLeaveRequest {
-        if ($leave->status !== 'pending') {
-            throw ValidationException::withMessages([
-                'leave' => 'تم اتخاذ قرار على طلب الإجازة مسبقًا.',
+        return DB::transaction(function () use ($leave, $actor, $decisionNote): EmployeeLeaveRequest {
+            Employee::query()->whereKey($leave->employee_id)->lockForUpdate()->firstOrFail();
+            $leave = EmployeeLeaveRequest::query()->whereKey($leave->id)->lockForUpdate()->firstOrFail();
+
+            if ($leave->status !== 'pending') {
+                throw ValidationException::withMessages([
+                    'leave' => 'تم اتخاذ قرار على طلب الإجازة مسبقًا.',
+                ]);
+            }
+
+            $leave->update([
+                'status' => 'rejected',
+                'decision_note' => $decisionNote,
+                'approved_by' => $actor->id,
+                'approved_at' => now(),
             ]);
-        }
 
-        $leave->update([
-            'status' => 'rejected',
-            'decision_note' => $decisionNote,
-            'approved_by' => $actor->id,
-            'approved_at' => now(),
-        ]);
-
-        return $leave->fresh();
+            return $leave->fresh();
+        });
     }
 
     public function isScheduledWorkDay(?WorkShift $shift, Carbon|string $date): bool
