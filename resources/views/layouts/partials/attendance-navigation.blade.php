@@ -33,3 +33,16 @@
         </a>
     @endcan
 @endif
+
+@if($attendanceFeatures->attendanceEnabled())
+    @can('attendance.approve')
+        <a href="{{ route('attendance.corrections.index') }}"
+           class="nav-item {{ request()->routeIs('attendance.corrections.*') ? 'active' : '' }}">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="17" rx="2"/>
+                <path d="M8 12h8M8 16h5M8 8h8"/>
+            </svg>
+            <span>تصحيحات الحضور</span>
+        </a>
+    @endcan
+@endif

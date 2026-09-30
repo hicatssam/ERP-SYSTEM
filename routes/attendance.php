@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Admin\AttendanceController;
+use App\Http\Controllers\Admin\AttendanceCorrectionController;
+use App\Http\Controllers\Employee\MyHrController;
 use App\Http\Controllers\Admin\AttendancePayrollController;
 use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\LeaveTypeController;
@@ -38,6 +40,15 @@ Route::middleware([
         'can:settings.manage',
         'throttle:20,1',
     ])->name('attendance.face.connection-test');
+
+    Route::prefix('my-hr')->name('my-hr.')->group(function (): void {
+        Route::get('/', [MyHrController::class, 'index'])->name('index');
+        Route::get('/payslips/{item}', [MyHrController::class, 'payslip'])->name('payslips.show');
+        Route::post('/leaves', [MyHrController::class, 'leave'])
+            ->middleware(EnsureAttendanceEnabled::class)->name('leaves.store');
+        Route::post('/corrections', [MyHrController::class, 'correction'])
+            ->middleware(EnsureAttendanceEnabled::class)->name('corrections.store');
+    });
 
     Route::prefix('attendance')
         ->name('attendance.')
@@ -145,6 +156,15 @@ Route::middleware([
             Route::post('/leaves/{leave}/reject', [LeaveController::class, 'reject'])
                 ->middleware('can:attendance.leaves.approve')
                 ->name('leaves.reject');
+
+            Route::get('/corrections', [AttendanceCorrectionController::class, 'index'])
+                ->middleware('can:attendance.approve')->name('corrections.index');
+
+            Route::post('/corrections/{correction}/approve', [AttendanceCorrectionController::class, 'approve'])
+                ->middleware('can:attendance.approve')->name('corrections.approve');
+
+            Route::post('/corrections/{correction}/reject', [AttendanceCorrectionController::class, 'reject'])
+                ->middleware('can:attendance.approve')->name('corrections.reject');
 
             Route::get('/devices', [AttendanceDeviceController::class, 'index'])
                 ->middleware([

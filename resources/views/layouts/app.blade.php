@@ -1094,7 +1094,22 @@ a.app-page-btn:hover {
 
             @endif
 
-            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage', 'attendance.view', 'attendance.leaves.view'])
+            @auth
+                @if(auth()->user()?->employee_id)
+                    <div class="nav-section">
+                        <div class="nav-section-title">ملفي الوظيفي</div>
+                        <a href="{{ route('my-hr.index') }}" class="nav-item {{ request()->routeIs('my-hr.*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="8" r="4"/>
+                                <path d="M4 21c0-4 3-7 8-7s8 3 8 7"/>
+                            </svg>
+                            <span>بوابة الموظف</span>
+                        </a>
+                    </div>
+                @endif
+            @endauth
+
+            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage', 'attendance.view', 'attendance.approve', 'attendance.leaves.view'])
 
                 <div class="nav-section">
 
