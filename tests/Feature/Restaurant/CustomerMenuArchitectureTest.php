@@ -3,6 +3,7 @@
 namespace Tests\Feature\Restaurant;
 
 use App\Http\Controllers\CustomerOrdering\CustomerMenuController;
+use App\Support\PublicImageUrl;
 use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionMethod;
@@ -76,56 +77,13 @@ class CustomerMenuArchitectureTest extends TestCase
     #[Test]
     public function demo_catalog_supports_remote_product_images_without_storage_rewrite(): void
     {
-        $indexView = file_get_contents(
-            resource_path('views/admin/products/index.blade.php')
-        );
-
-        $showView = file_get_contents(
-            resource_path('views/admin/products/show.blade.php')
-        );
-
-        $menuResolver = file_get_contents(
-            app_path(
-                'Http/Controllers/Concerns/ResolvesCustomerMenuBranding.php'
-            )
-        );
-
-        $restaurantMenu = file_get_contents(
-            resource_path('views/restaurant/menu/index.blade.php')
-        );
-
-        $restaurantPos = file_get_contents(
-            resource_path('views/restaurant/pos/index.blade.php')
-        );
-
         $seeder = file_get_contents(
             database_path('seeders/DatabaseSeeder.php')
         );
 
-        $this->assertStringContainsString(
-            "['http://', 'https://', '//']",
-            $indexView
-        );
-
-        $this->assertStringContainsString(
-            "['http://', 'https://', '//']",
-            $showView
-        );
-
-        $this->assertStringContainsString(
-            "str_starts_with(\$path, 'https://')",
-            $menuResolver
-        );
-
-        $this->assertStringContainsString(
-            "str_starts_with(\$image, 'https://')",
-            $restaurantMenu
-        );
-
-        $this->assertStringContainsString(
-            "str_starts_with(\$image, 'https://')",
-            $restaurantPos
-        );
+        $remoteImage = 'https://images.unsplash.com/example.jpg?width=800';
+        $this->assertSame($remoteImage, PublicImageUrl::url($remoteImage));
+        $this->assertSame('//cdn.example.test/cake.png', PublicImageUrl::url('//cdn.example.test/cake.png'));
 
         $this->assertStringContainsString(
             'demoProductRemoteImage',
