@@ -222,6 +222,31 @@ class HrExpansionTest extends TestCase
         $deduction = EmployeePayrollAdjustment::query()->sole();
         $this->assertEquals(50, $deduction->amount);
         $this->assertEquals(0.5, $deduction->metadata['unpaid_leave_days']);
+
+        $paidWorker = $this->employee($branch, 'Paid Half Absence');
+        EmployeeCompensationProfile::query()->create([
+            'employee_id' => $paidWorker->id, 'salary_basis' => 'monthly',
+            'base_salary' => 2600, 'effective_from' => '2026-01-01', 'is_active' => true,
+        ]);
+        EmployeeShiftAssignment::query()->create([
+            'employee_id' => $paidWorker->id, 'work_shift_id' => $shift->id,
+            'effective_from' => '2026-01-01', 'is_primary' => true,
+        ]);
+        AttendanceRecord::query()->create([
+            'employee_id' => $paidWorker->id, 'work_date' => $day,
+            'status' => 'absent', 'source' => 'manual',
+            'approved_at' => now(), 'approved_by' => $actor->id,
+        ]);
+        $paidLeave = app(EmployeeLeaveService::class)->create($paidWorker, $type, [
+            'start_date' => $day, 'end_date' => $day, 'day_fraction' => 0.5,
+            'half_day_slot' => 'second_half',
+        ], $actor->id);
+        app(AttendanceService::class)->approveLeave($paidLeave, $actor);
+        app(AttendancePayrollService::class)->sync($period, $actor);
+        $paidDeduction = EmployeePayrollAdjustment::query()
+            ->where('employee_id', $paidWorker->id)->sole();
+        $this->assertEquals(50, $paidDeduction->amount);
+        $this->assertEquals(0.5, $paidDeduction->metadata['absence_days']);
     }
 
     private function branch(string $suffix): Location

@@ -98,7 +98,14 @@ class AttendancePayrollService
                 $lateMinutes = (int) $uncoveredRecords->sum('late_minutes');
                 $earlyMinutes = (int) $uncoveredRecords->sum('early_leave_minutes');
                 $overtimeMinutes = (int) $employeeRecords->sum('overtime_minutes');
-                $absenceDays = $employeeRecords->where('status', 'absent')->count();
+                $absenceDays = $employeeRecords->where('status', 'absent')
+                    ->sum(function (AttendanceRecord $record) use ($employeePartial): float {
+                        $paidHalf = $employeePartial->first(fn (EmployeeLeaveRequest $leave) =>
+                            $leave->start_date->toDateString() === $record->work_date->toDateString()
+                            && ($leave->is_paid_snapshot ?? $leave->leaveType?->is_paid) === true);
+
+                        return $paidHalf ? 1 - (float) $paidHalf->day_fraction : 1;
+                    });
                 $unpaidLeaveDays = $employeeRecords
                     ->where('status', 'leave')
                     ->where('source', 'leave')
@@ -111,7 +118,8 @@ class AttendancePayrollService
                         ($leave->is_paid_snapshot ?? $leave->leaveType?->is_paid) === false
                         && ! $employeeRecords->contains(fn (AttendanceRecord $record) =>
                             $record->work_date->toDateString() === $leave->start_date->toDateString()
-                            && $record->status === 'absent'))
+                            && $record->status === 'absent'
+                            && $this->features->absenceDeductionEnabled()))
                     ->sum(fn (EmployeeLeaveRequest $leave) => (float) $leave->day_fraction);
 
                 $deductionAmount = 0.0;
