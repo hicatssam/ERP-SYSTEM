@@ -412,7 +412,7 @@
 
         <div class="pay-period-actions">
 
-            @can('payroll.manage')
+            @if($canManageGlobal && auth()->user()->can('payroll.manage'))
 
                 @if(in_array($period->status, ['draft', 'calculated'], true))
 
@@ -432,10 +432,10 @@
 
                 @endif
 
-            @endcan
+            @endif
 
 
-            @can('payroll.approve')
+            @if($canManageGlobal && auth()->user()->can('payroll.approve'))
 
                 @if($period->status === 'calculated')
 
@@ -456,7 +456,7 @@
 
                 @endif
 
-            @endcan
+            @endif
 
         </div>
 
@@ -520,6 +520,16 @@
 
         </div>
 
+    @endif
+
+    @if($period->status === 'calculated')
+        <div class="pay-notice">
+            <div>
+                <strong>مراجعة قبل الاعتماد</strong>
+                <p>موظفون دون راتب أساسي: {{ $zeroSalaryCount }} · إجازات معلّقة: {{ $pendingLeaves }} · تصحيحات حضور معلّقة: {{ $pendingCorrections }}</p>
+                <small>راجع المكونات في الجدول أدناه، ثم اعتمد الدورة إذا كانت البيانات صحيحة. هذه الأرقام ضمن نطاق الموظفين الذين يمكنك عرضهم.</small>
+            </div>
+        </div>
     @endif
 
 

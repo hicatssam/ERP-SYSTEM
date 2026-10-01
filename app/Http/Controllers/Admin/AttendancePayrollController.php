@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\PayrollPeriod;
 use App\Services\AttendancePayrollService;
+use App\Services\PayrollAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,7 @@ class AttendancePayrollController extends Controller
         PayrollPeriod $period,
         AttendancePayrollService $attendancePayroll
     ): RedirectResponse {
+        app(PayrollAccess::class)->assertGlobalWrite($request->user());
         $result = $attendancePayroll->sync(
             $period,
             $request->user()

@@ -1109,7 +1109,7 @@ a.app-page-btn:hover {
                 @endif
             @endauth
 
-            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage', 'attendance.view', 'attendance.approve', 'attendance.leaves.view'])
+            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage', 'attendance.view', 'attendance.approve', 'attendance.leaves.view', 'hr.dashboard.view'])
 
                 <div class="nav-section">
 
@@ -1154,6 +1154,12 @@ a.app-page-btn:hover {
                         </a>
 
                     @endcanany
+
+                    @can('hr.dashboard.view')
+                        <a href="{{ route('hr.dashboard') }}" class="nav-item {{ request()->routeIs('hr.*') ? 'active' : '' }}">
+                            <span>ملخص الموارد البشرية</span>
+                        </a>
+                    @endcan
 
                      @include('layouts.partials.payroll-navigation')
 

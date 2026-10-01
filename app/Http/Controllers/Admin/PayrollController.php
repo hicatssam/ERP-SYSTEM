@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Currency;
+use App\Models\AttendanceCorrectionRequest;
+use App\Models\EmployeeLeaveRequest;
 use App\Models\PaymentMethod;
 use App\Models\PayrollItem;
 use App\Models\PayrollPeriod;
 use App\Services\PayrollService;
+use App\Services\PayrollAccess;
 use App\Services\PayrollSettlementService;
 use App\Services\Procurement\DocumentNumberService;
 use Illuminate\Http\RedirectResponse;
@@ -23,24 +26,27 @@ class PayrollController extends Controller
         private readonly PayrollService $payroll,
         private readonly PayrollSettlementService $settlements,
         private readonly DocumentNumberService $numbers,
+        private readonly PayrollAccess $access,
     ) {
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
         return view('admin.payroll.index', [
-            'periods' => PayrollPeriod::query()
+            'periods' => $this->access->periods($request->user())
                 ->latest('start_date')
                 ->latest('id')
                 ->paginate(20),
             'baseCurrency' => Currency::query()
                 ->where('is_base', true)
                 ->first(),
+            'canManageGlobal' => $this->access->global($request->user()),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        $this->access->assertGlobalWrite($request->user());
         $data = $request->validate([
             'name' => ['required', 'string', 'max:190'],
             'start_date' => ['required', 'date'],
@@ -82,17 +88,28 @@ class PayrollController extends Controller
             ->with('success', 'تم إنشاء دورة الرواتب.');
     }
 
-    public function show(PayrollPeriod $period): View
+    public function show(Request $request, PayrollPeriod $period): View
     {
-        $period->load([
-            'items.employee',
-            'items.components',
-            'items.payments.paymentMethod',
-            'items.payments.employee',
-        ]);
+        $this->access->assertPeriod($request->user(), $period);
+        $period->setRelation('items', $this->access->items($request->user())
+            ->where('payroll_period_id', $period->id)
+            ->with(['employee', 'components', 'payments.paymentMethod', 'payments.employee'])
+            ->get());
+        $ids = $period->items->pluck('employee_id')->all();
+        $pendingLeaves = EmployeeLeaveRequest::query()->whereIn('employee_id', $ids)
+            ->where('status', 'pending')
+            ->whereDate('start_date', '<=', $period->end_date->toDateString())
+            ->whereDate('end_date', '>=', $period->start_date->toDateString())->count();
+        $pendingCorrections = AttendanceCorrectionRequest::query()->whereIn('employee_id', $ids)
+            ->where('status', 'pending')
+            ->whereDate('work_date', '>=', $period->start_date->toDateString())
+            ->whereDate('work_date', '<=', $period->end_date->toDateString())->count();
 
         return view('admin.payroll.show', [
             'period' => $period,
+            'canManageGlobal' => $this->access->global($request->user()),
+            'pendingLeaves' => $pendingLeaves,
+            'pendingCorrections' => $pendingCorrections,
             'paymentMethods' => PaymentMethod::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')
@@ -105,6 +122,7 @@ class PayrollController extends Controller
         Request $request,
         PayrollPeriod $period
     ): RedirectResponse {
+        $this->access->assertGlobalWrite($request->user());
         $this->payroll->calculatePeriod(
             $period,
             $request->user()
@@ -117,6 +135,7 @@ class PayrollController extends Controller
         Request $request,
         PayrollPeriod $period
     ): RedirectResponse {
+        $this->access->assertGlobalWrite($request->user());
         $this->payroll->approvePeriod(
             $period,
             $request->user()
@@ -132,6 +151,7 @@ class PayrollController extends Controller
         Request $request,
         PayrollItem $item
     ): RedirectResponse {
+        $this->access->assertItem($request->user(), $item);
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'gt:0'],
             'payment_method_id' => [

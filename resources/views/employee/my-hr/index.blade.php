@@ -85,6 +85,20 @@
                 @endforelse
             </div>
         </section>
+        <section class="card">
+            <div class="card-header"><span class="card-title">سلفي وآخر أرصدتها</span></div>
+            <div class="card-body">
+                @forelse($advances as $advance)
+                    <div class="myhr-row">
+                        <span>{{ $advance->issued_at?->format('Y-m-d') ?? '—' }} · {{ $advance->status }}</span>
+                        <strong>المتبقي: {{ number_format((float) $advance->outstanding_amount, 2) }}</strong>
+                        <small>الأصل: {{ number_format((float) $advance->amount, 2) }} · المسترد: {{ number_format((float) $advance->recovered_amount, 2) }}</small>
+                    </div>
+                @empty
+                    <p>لا توجد سلف مسجلة.</p>
+                @endforelse
+            </div>
+        </section>
     </div>
 
     <div class="myhr-grid">

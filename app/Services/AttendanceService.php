@@ -8,6 +8,7 @@ use App\Models\EmployeeLeaveRequest;
 use App\Models\EmployeeShiftAssignment;
 use App\Models\User;
 use App\Models\WorkShift;
+use App\Models\WorkHoliday;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -139,7 +140,8 @@ class AttendanceService
                 $leave->start_date,
                 $leave->end_date,
                 $leave->id,
-                approval: true
+                approval: true,
+                reservedDays: $leave->yearly_days
             );
 
             // A leave must never silently erase an actual shift or biometric punch.
@@ -173,7 +175,24 @@ class AttendanceService
             while ($cursor->lte($end)) {
                 $shift = $this->shiftFor($employee, $cursor);
 
-                if ($this->isScheduledWorkDay($shift, $cursor)) {
+                $locationId = $employee->employeeLocations()
+                    ->where('is_primary', true)
+                    ->where(fn ($query) => $query->whereNull('started_at')
+                        ->orWhereDate('started_at', '<=', $cursor->toDateString()))
+                    ->where(fn ($query) => $query->whereNull('ended_at')
+                        ->orWhereDate('ended_at', '>=', $cursor->toDateString()))
+                    ->value('location_id');
+                $isHoliday = WorkHoliday::query()
+                    ->whereDate('holiday_date', $cursor->toDateString())
+                    ->where(fn ($query) => $query->whereNull('location_id')
+                        ->orWhere('location_id', $locationId))->exists();
+
+                $chargeable = $leave->leaveType->count_basis === 'scheduled'
+                    && $leave->countable_dates !== null
+                    ? in_array($cursor->toDateString(), $leave->countable_dates, true)
+                    : (! $isHoliday && $this->isScheduledWorkDay($shift, $cursor));
+
+                if ($chargeable) {
                     [$start, $finish] = $this->scheduledWindow($shift, $cursor);
 
                     $this->persistDailyRecord(

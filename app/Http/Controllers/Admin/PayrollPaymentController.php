@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\PayrollPayment;
 use App\Services\PayrollSettlementService;
+use App\Services\PayrollAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,7 @@ class PayrollPaymentController extends Controller
         PayrollPayment $payment,
         PayrollSettlementService $settlements
     ): RedirectResponse {
+        app(PayrollAccess::class)->assertEmployee($request->user(), (int) $payment->employee_id);
         $settlements->verify(
             $payment,
             $request->user()
@@ -28,6 +30,7 @@ class PayrollPaymentController extends Controller
         PayrollPayment $payment,
         PayrollSettlementService $settlements
     ): RedirectResponse {
+        app(PayrollAccess::class)->assertEmployee($request->user(), (int) $payment->employee_id);
         $data = $request->validate([
             'reason' => ['required', 'string', 'max:1000'],
         ]);
@@ -46,6 +49,7 @@ class PayrollPaymentController extends Controller
         PayrollPayment $payment,
         PayrollSettlementService $settlements
     ): RedirectResponse {
+        app(PayrollAccess::class)->assertEmployee($request->user(), (int) $payment->employee_id);
         $data = $request->validate([
             'reason' => ['required', 'string', 'max:1000'],
         ]);

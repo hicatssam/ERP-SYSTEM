@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Services\EmployeeAdvanceRepaymentService;
+use App\Services\PayrollAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -15,6 +16,7 @@ class EmployeeAdvanceRepaymentController extends Controller
         EmployeeAdvanceRepayment $repayment,
         EmployeeAdvanceRepaymentService $service
     ): RedirectResponse {
+        app(PayrollAccess::class)->assertEmployee($request->user(), (int) $repayment->employee_id);
         $service->verify(
             $repayment,
             $request->user()
@@ -31,6 +33,7 @@ class EmployeeAdvanceRepaymentController extends Controller
         EmployeeAdvanceRepayment $repayment,
         EmployeeAdvanceRepaymentService $service
     ): RedirectResponse {
+        app(PayrollAccess::class)->assertEmployee($request->user(), (int) $repayment->employee_id);
         $data = $request->validate([
             'reason' => [
                 'required',

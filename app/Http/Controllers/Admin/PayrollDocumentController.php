@@ -7,12 +7,20 @@ use App\Models\Employee;
 use App\Models\EmployeeLedgerEntry;
 use App\Models\PayrollItem;
 use App\Models\PayrollPayment;
+use App\Services\PayrollAccess;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class PayrollDocumentController extends Controller
 {
-    public function payslip(PayrollItem $item): View
+    public function payslip(Request $request, PayrollItem $item, PayrollAccess $access): View
+    {
+        $access->assertItem($request->user(), $item);
+
+        return $this->renderPayslip($item);
+    }
+
+    public function renderPayslip(PayrollItem $item): View
     {
         $item->load([
             'employee',
@@ -30,8 +38,11 @@ class PayrollDocumentController extends Controller
     }
 
     public function paymentReceipt(
-        PayrollPayment $payment
+        Request $request,
+        PayrollPayment $payment,
+        PayrollAccess $access
     ): View {
+        $access->assertEmployee($request->user(), (int) $payment->employee_id);
         $payment->load([
             'employee',
             'item.period',
@@ -50,8 +61,10 @@ class PayrollDocumentController extends Controller
 
     public function employeeStatement(
         Request $request,
-        Employee $employee
+        Employee $employee,
+        PayrollAccess $access
     ): View {
+        $access->assertEmployee($request->user(), (int) $employee->id);
         $from = $request->date('from');
         $to = $request->date('to');
 

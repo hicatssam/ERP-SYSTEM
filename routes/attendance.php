@@ -1,11 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\AttendanceController;
+use App\Http\Controllers\Admin\EmployeeHrFileController;
+use App\Http\Controllers\Admin\HrDashboardController;
 use App\Http\Controllers\Admin\AttendanceCorrectionController;
 use App\Http\Controllers\Employee\MyHrController;
 use App\Http\Controllers\Admin\AttendancePayrollController;
 use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\LeaveTypeController;
+use App\Http\Controllers\Admin\WorkHolidayController;
 use App\Http\Controllers\Admin\WorkShiftController;
 use App\Http\Controllers\Admin\AttendanceDeviceController;
 use App\Http\Controllers\Admin\FaceAttendanceController;
@@ -48,6 +51,20 @@ Route::middleware([
             ->middleware(EnsureAttendanceEnabled::class)->name('leaves.store');
         Route::post('/corrections', [MyHrController::class, 'correction'])
             ->middleware(EnsureAttendanceEnabled::class)->name('corrections.store');
+    });
+
+    Route::get('/hr', [HrDashboardController::class, 'index'])
+        ->middleware('can:hr.dashboard.view')->name('hr.dashboard');
+
+    Route::prefix('hr/employees/{employee}')->name('hr.employees.')->group(function (): void {
+        Route::get('/file', [EmployeeHrFileController::class, 'show'])
+            ->middleware('can:hr.documents.view')->name('file');
+        Route::put('/file', [EmployeeHrFileController::class, 'profile'])
+            ->middleware('can:hr.documents.manage')->name('file.update');
+        Route::post('/documents', [EmployeeHrFileController::class, 'upload'])
+            ->middleware('can:hr.documents.manage')->name('documents.store');
+        Route::get('/documents/{document}', [EmployeeHrFileController::class, 'download'])
+            ->middleware('can:hr.documents.view')->name('documents.download');
     });
 
     Route::prefix('attendance')
@@ -136,6 +153,15 @@ Route::middleware([
             Route::get('/leave-types', [LeaveTypeController::class, 'index'])
                 ->middleware('can:settings.manage')
                 ->name('leave-types.index');
+
+            Route::get('/holidays', [WorkHolidayController::class, 'index'])
+                ->middleware('can:settings.manage')->name('holidays.index');
+
+            Route::post('/holidays', [WorkHolidayController::class, 'store'])
+                ->middleware('can:settings.manage')->name('holidays.store');
+
+            Route::delete('/holidays/{holiday}', [WorkHolidayController::class, 'destroy'])
+                ->middleware('can:settings.manage')->name('holidays.destroy');
 
             Route::post('/leave-types', [LeaveTypeController::class, 'store'])
                 ->middleware('can:settings.manage')

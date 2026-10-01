@@ -70,6 +70,16 @@ class Employee extends Model
         return $this->hasMany(EmployeeLocation::class);
     }
 
+    public function hrProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(EmployeeHrProfile::class);
+    }
+
+    public function documents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EmployeeDocument::class);
+    }
+
     public function cashSessions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(CashSession::class);
@@ -105,6 +115,7 @@ class Employee extends Model
                     'employee_locations.is_primary',
                     true
                 )
+                ->whereNull('employee_locations.ended_at')
         );
     }
 

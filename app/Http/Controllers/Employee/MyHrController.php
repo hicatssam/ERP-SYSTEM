@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\AttendanceRecord;
 use App\Models\EmployeeLeaveRequest;
+use App\Models\EmployeeAdvance;
 use App\Models\LeaveType;
 use App\Models\PayrollItem;
 use App\Models\User;
@@ -45,6 +46,8 @@ class MyHrController extends Controller
                 ->whereHas('period', fn ($query) => $query
                     ->whereIn('status', ['approved', 'paid', 'closed']))
                 ->with('period')->latest('payroll_period_id')->limit(8)->get(),
+            'advances' => EmployeeAdvance::query()->where('employee_id', $employee->id)
+                ->latest('issued_at')->limit(8)->get(),
         ]);
     }
 
@@ -109,7 +112,7 @@ class MyHrController extends Controller
             403
         );
 
-        return $documents->payslip($item);
+        return $documents->renderPayslip($item);
     }
 
     private function employee(User $user): \App\Models\Employee

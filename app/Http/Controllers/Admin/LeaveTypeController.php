@@ -36,7 +36,10 @@ class LeaveTypeController extends Controller
 
     private function validated(Request $request, ?LeaveType $leaveType = null): array
     {
-        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        $request->merge([
+            'code' => strtoupper(trim((string) $request->input('code'))),
+            'count_basis' => $request->input('count_basis', $leaveType?->count_basis ?? 'calendar'),
+        ]);
 
         $data = $request->validate([
             'code' => [
@@ -48,6 +51,7 @@ class LeaveTypeController extends Controller
             'notes' => ['nullable', 'string', 'max:1500'],
             'is_paid' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
+            'count_basis' => ['required', Rule::in(['calendar', 'scheduled'])],
         ]);
 
         return $data;

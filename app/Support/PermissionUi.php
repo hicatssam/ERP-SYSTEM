@@ -169,6 +169,9 @@ class PermissionUi
             'employees.update' => 'تعديل بيانات موظف',
             'employees.delete' => 'حذف موظف',
             'employees.manage' => 'إدارة الموظفين — صلاحية قديمة',
+            'hr.dashboard.view' => 'لوحة متابعة الموارد البشرية ضمن الفرع',
+            'hr.documents.view' => 'عرض الملف الوظيفي والمستندات الخاصة ضمن الفرع',
+            'hr.documents.manage' => 'تعديل الملف الوظيفي ورفع المستندات الخاصة ضمن الفرع',
 
             // المستخدمون
             'users.manage' => 'إدارة المستخدمين',

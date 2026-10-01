@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\Location;
 use App\Models\PayrollItem;
 use App\Models\PayrollPeriod;
+use App\Services\PayrollAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -14,6 +15,10 @@ use Illuminate\View\View;
 
 class PayrollReportController extends Controller
 {
+    public function __construct(private readonly PayrollAccess $access)
+    {
+    }
+
     public function index(Request $request): View
     {
         $query = $this->filteredQuery($request);
@@ -51,13 +56,15 @@ class PayrollReportController extends Controller
                 'payable' => (float) (clone $summaryQuery)
                     ->sum('payable_amount'),
             ],
-            'periods' => PayrollPeriod::query()
+            'periods' => $this->access->periods($request->user())
                 ->latest('start_date')
                 ->get(),
-            'employees' => Employee::query()
+            'employees' => $this->access->employees($request->user())
                 ->orderBy('full_name')
                 ->get(),
             'locations' => Location::query()
+                ->when(! $this->access->global($request->user()),
+                    fn (Builder $q) => $q->whereKey($request->user()->primaryLocation()?->id ?? 0))
                 ->orderBy('name')
                 ->get(),
         ]);
@@ -130,7 +137,7 @@ class PayrollReportController extends Controller
     private function filteredQuery(
         Request $request
     ): Builder {
-        return PayrollItem::query()
+        return $this->access->items($request->user())
             ->when(
                 $request->filled('period_id'),
                 fn (Builder $q) =>

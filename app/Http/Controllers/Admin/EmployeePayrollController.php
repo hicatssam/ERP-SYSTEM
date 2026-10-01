@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\EmployeeAdvanceRepaymentService;
 use App\Services\EmployeeLedgerService;
 use App\Services\PayrollService;
+use App\Services\PayrollAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -67,7 +68,7 @@ class EmployeePayrollController extends Controller
                 ->orderByDesc('is_base')
                 ->orderBy('code')
                 ->get(),
-            'periods' => PayrollPeriod::query()
+            'periods' => app(PayrollAccess::class)->periods($request->user())
                 ->latest('start_date')
                 ->limit(24)
                 ->get(),
@@ -309,6 +310,7 @@ class EmployeePayrollController extends Controller
             && $employee->employeeLocations()
                 ->where('location_id', $locationId)
                 ->where('is_primary', true)
+                ->whereNull('ended_at')
                 ->exists(),
             403,
             'لا يمكنك الوصول إلى الملف المالي لموظف تابع لموقع آخر.'

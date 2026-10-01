@@ -7,11 +7,12 @@
     <div class="page-actions">
         <div>
             <h1 class="page-heading">إعداد أنواع الإجازات</h1>
-            <p class="page-subheading">حدد سياسات الإجازات المناسبة لنشاطك. الحد السنوي يُحسب بالأيام التقويمية، وتركه فارغًا يعني عدم تحديد سقف. أيام الدوام في الإجازات غير المدفوعة تُخصم عند مزامنة الحضور مع الراتب.</p>
+            <p class="page-subheading">حدد طريقة حساب الرصيد لكل نوع. الأيام المجدولة تستثني عطلات الفرع وتتطلب وردية للموظف. ترك الحد فارغًا يعني عدم تحديد سقف. الإجازة غير المدفوعة تخصم أيام الدوام عند مزامنة الراتب.</p>
         </div>
         @can('attendance.leaves.view')
             <a class="btn btn-outline" href="{{ route('attendance.leaves.index') }}">العودة إلى الطلبات</a>
         @endcan
+        <a class="btn btn-outline" href="{{ route('attendance.holidays.index') }}">تقويم العطل</a>
     </div>
 
     @if($errors->any())
@@ -33,6 +34,7 @@
                 <div class="form-group"><label class="form-label" for="newLeaveName">الاسم</label><input class="form-input" id="newLeaveName" name="name" value="{{ old('name') }}" maxlength="190" required placeholder="إجازة سنوية"></div>
                 <div class="form-group"><label class="form-label" for="newLeaveDays">الحد السنوي بالأيام</label><input class="form-input" id="newLeaveDays" name="annual_days" type="number" min="0" max="366" step="0.5" value="{{ old('annual_days') }}" placeholder="دون سقف"></div>
                 <div class="form-group"><label class="form-label" for="newLeavePaid">الأجر</label><select class="form-input" id="newLeavePaid" name="is_paid"><option value="1">مدفوعة</option><option value="0">غير مدفوعة</option></select></div>
+                <div class="form-group"><label class="form-label" for="newBasis">حساب الرصيد</label><select class="form-input" id="newBasis" name="count_basis"><option value="calendar">الأيام التقويمية</option><option value="scheduled">أيام الدوام المجدولة دون العطل</option></select></div>
             </div>
             <input type="hidden" name="is_active" value="1">
             <div class="form-group" style="margin-top:.75rem"><label class="form-label" for="newLeaveNotes">ملاحظات السياسة</label><textarea class="form-input" id="newLeaveNotes" name="notes" rows="2" maxlength="1500">{{ old('notes') }}</textarea></div>
@@ -51,6 +53,7 @@
                     <div class="form-group"><label class="form-label" for="name-{{ $type->id }}">الاسم</label><input class="form-input" id="name-{{ $type->id }}" name="name" value="{{ $type->name }}" maxlength="190" required></div>
                     <div class="form-group"><label class="form-label" for="days-{{ $type->id }}">الحد السنوي بالأيام</label><input class="form-input" id="days-{{ $type->id }}" name="annual_days" type="number" min="0" max="366" step="0.5" value="{{ $type->annual_days }}" placeholder="دون سقف"></div>
                     <div class="form-group"><label class="form-label" for="paid-{{ $type->id }}">الأجر</label><select class="form-input" id="paid-{{ $type->id }}" name="is_paid"><option value="1" @selected($type->is_paid)>مدفوعة</option><option value="0" @selected(! $type->is_paid)>غير مدفوعة</option></select></div>
+                    <div class="form-group"><label class="form-label" for="basis-{{ $type->id }}">حساب الرصيد</label><select class="form-input" id="basis-{{ $type->id }}" name="count_basis"><option value="calendar" @selected($type->count_basis === 'calendar')>الأيام التقويمية</option><option value="scheduled" @selected($type->count_basis === 'scheduled')>أيام الدوام دون العطل</option></select></div>
                 </div>
                 <div class="form-group" style="margin-top:.75rem"><label class="form-label" for="notes-{{ $type->id }}">ملاحظات السياسة</label><textarea class="form-input" id="notes-{{ $type->id }}" name="notes" rows="2" maxlength="1500">{{ $type->notes }}</textarea></div>
                 <div class="leave-type-actions">

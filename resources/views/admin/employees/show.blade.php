@@ -47,6 +47,9 @@
         @endcan
 
         @can('employee_ledger.view')
+    @can('hr.documents.view')
+        <a class="btn btn-outline" href="{{ route('hr.employees.file', $employee) }}">الملف الوظيفي والمستندات</a>
+    @endcan
     <a class="btn btn-outline" href="{{ route('payroll.employees.show', $employee) }}">
         الراتب وكشف الحساب
     </a>

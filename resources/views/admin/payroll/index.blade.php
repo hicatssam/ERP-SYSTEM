@@ -340,7 +340,7 @@
         </div>
 
         <div class="payroll-header-actions">
-            @can('payroll.manage')
+            @if($canManageGlobal && auth()->user()->can('payroll.manage'))
                 <button
                     type="button"
                     class="btn btn-gold"
@@ -352,7 +352,7 @@
 
                     إنشاء دورة رواتب
                 </button>
-            @endcan
+            @endif
         </div>
     </div>
 
@@ -501,7 +501,7 @@
 {{-- =========================================================
     Create Payroll Period Modal
 ========================================================= --}}
-@can('payroll.manage')
+@if($canManageGlobal && auth()->user()->can('payroll.manage'))
 <div
     class="payroll-modal"
     id="payrollCreateModal"
@@ -666,7 +666,7 @@
         </form>
     </div>
 </div>
-@endcan
+@endif
 
 @push('scripts')
 <script>

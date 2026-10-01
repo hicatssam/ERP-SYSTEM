@@ -155,6 +155,9 @@ class DatabaseSeeder extends Seeder
     'employees.update',
     'employees.delete',
     'employees.manage',
+    'hr.dashboard.view',
+    'hr.documents.view',
+    'hr.documents.manage',
 
     // Users & Roles
     'users.manage',
@@ -2223,7 +2226,7 @@ SVG;
         };
 
         $grantByPrefixes('General Manager', [
-            'dashboard.','locations.','employees.','products.','categories.','customers.',
+            'dashboard.','locations.','employees.','hr.','products.','categories.','customers.',
             'orders.','inventory.','stock_','reports.','financial.','invoices.','payments.',
             'suppliers.','supplier_','purchase_','goods_','procurement.','recipes.','production.','quality_control.',
             'payroll.','employee_ledger.','attendance.','restaurant.','kitchen.','kds.',
@@ -2231,10 +2234,10 @@ SVG;
             'sales_channels.','customer_display.','cash_sessions.',
         ]);
         $grantByPrefixes('Branch Manager', [
-            'dashboard.','employees.','products.','categories.','customers.','orders.',
+            'dashboard.','employees.','hr.','products.','categories.','customers.','orders.',
             'inventory.','stock_','reports.','invoices.','payments.','restaurant.','kitchen.','kds.',
             'attendance.','chat.','crm.','loyalty.','delivery.','customer_display.','cash_sessions.',
-        ], ['financial.cash.view'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all']);
+        ], ['financial.cash.view'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage']);
         $grantByPrefixes('Cashier', ['orders.','customers.','payments.','invoices.','restaurant.pos.'], [
             'products.view','categories.view','payment_methods.view',
         ], ['orders.confirm','orders.cancel','orders.delete','customers.view_all']);
