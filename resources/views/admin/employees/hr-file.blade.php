@@ -13,7 +13,27 @@
         @can('employees.manage')
             <a class="btn btn-outline" href="{{ route('employees.show', $employee) }}">العودة إلى الموظف</a>
         @endcan
+        @can('hr.organization.view')
+            <a class="btn btn-outline" href="{{ route('hr.organization.index') }}">الهيكل الوظيفي</a>
+        @endcan
     </div>
+
+    <section class="card" style="margin-bottom:1rem">
+        <div class="card-header"><span class="card-title">التكليف الوظيفي وتاريخه</span></div>
+        <div class="card-body">
+            @if($employee->currentOrgAssignment)
+                <p><strong>{{ $employee->currentOrgAssignment->department?->name }}</strong> · {{ $employee->currentOrgAssignment->position?->name ?? $employee->job_title ?? '—' }} · مركز التكلفة: {{ $employee->currentOrgAssignment->costCenter?->name ?? 'غير محدد' }} · المدير المباشر: {{ $employee->currentOrgAssignment->manager?->full_name ?? '—' }}</p>
+            @else
+                <p>لم يُحدد تكليف حالي بعد.</p>
+            @endif
+            @foreach($employee->orgAssignments as $assignment)
+                <div class="hr-file-row">
+                    <strong>{{ $assignment->department?->name }} · {{ $assignment->position?->name ?? 'دون مسمى' }}</strong>
+                    <span>{{ $assignment->effective_from?->format('Y-m-d') }} — {{ $assignment->effective_to?->format('Y-m-d') ?? 'مستمر' }} · {{ $assignment->costCenter?->name ?? 'دون مركز تكلفة' }} · {{ $assignment->reason ?? 'دون ملاحظة' }}</span>
+                </div>
+            @endforeach
+        </div>
+    </section>
 
     @if($errors->any())
         <div class="alert alert-danger" role="alert">

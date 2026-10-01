@@ -96,7 +96,10 @@ class EmployeeSelfServiceTest extends TestCase
         $date = now()->subDays(3)->toDateString();
         $old = AttendanceRecord::query()->create([
             'employee_id' => $worker->id, 'work_date' => $date,
-            'status' => 'absent', 'source' => 'manual',
+            'status' => 'absent', 'source' => 'face',
+            'verification_method' => 'face',
+            'verification_reference' => 'old-scan-1',
+            'verification_metadata' => ['camera' => 'front'],
         ]);
 
         $this->actingAs($user)->post(route('my-hr.corrections.store'), [
@@ -119,6 +122,8 @@ class EmployeeSelfServiceTest extends TestCase
 
         $this->assertSame('approved', $correction->fresh()->status);
         $this->assertSame('absent', $correction->fresh()->original_snapshot['status']);
+        $this->assertSame('old-scan-1', $correction->fresh()->original_snapshot['verification_reference']);
+        $this->assertSame(['camera' => 'front'], $correction->fresh()->original_snapshot['verification_metadata']);
         $this->assertSame('present', $old->fresh()->status);
         $this->assertSame('correction', $old->fresh()->source);
         $this->assertNotNull($old->fresh()->approved_at);
@@ -133,6 +138,38 @@ class EmployeeSelfServiceTest extends TestCase
         ]);
         $this->actingAs($manager)->get(route('attendance.corrections.index'))->assertDontSee('Worker B');
         $this->actingAs($manager)->post(route('attendance.corrections.approve', $foreign))->assertForbidden();
+    }
+
+    #[Test]
+    public function correction_needs_a_reason_to_reject_and_cannot_use_future_times(): void
+    {
+        $branch = $this->branch('A');
+        $employee = $this->employee($branch, 'Worker for correction');
+        $user = User::factory()->create(['employee_id' => $employee->id]);
+        $manager = User::factory()->create(['employee_id' => $this->employee($branch, 'Reviewer')->id]);
+        $manager->givePermissionTo(Permission::findOrCreate('attendance.approve', 'web'));
+        $day = now()->subDays(1)->toDateString();
+
+        $this->actingAs($user)->post(route('my-hr.corrections.store'), [
+            'work_date' => now()->toDateString(),
+            'check_in_at' => now()->addHour()->format('Y-m-d H:i:s'),
+            'reason' => 'تعديل وقت',
+        ])->assertSessionHasErrors('check_in_at');
+
+        $this->actingAs($user)->post(route('my-hr.corrections.store'), [
+            'work_date' => $day,
+            'check_in_at' => $day.' 08:00:00',
+            'reason' => 'تعطل جهاز الحضور',
+        ])->assertSessionHasNoErrors();
+        $correction = AttendanceCorrectionRequest::query()->sole();
+        $this->actingAs($manager)->post(route('attendance.corrections.reject', $correction))
+            ->assertSessionHasErrors('decision_note');
+        $this->assertSame('pending', $correction->fresh()->status);
+        $this->actingAs($manager)->post(route('attendance.corrections.reject', $correction), [
+            'decision_note' => 'البصمة الموجودة صحيحة',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('rejected', $correction->fresh()->status);
+        $this->assertSame('البصمة الموجودة صحيحة', $correction->fresh()->decision_note);
     }
 
     #[Test]

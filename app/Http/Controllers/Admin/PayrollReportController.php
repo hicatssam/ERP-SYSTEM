@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Models\HrDepartment;
+use App\Models\HrCostCenter;
 use App\Models\Location;
 use App\Models\PayrollItem;
 use App\Models\PayrollPeriod;
 use App\Services\PayrollAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Illuminate\View\View;
 
@@ -27,6 +30,8 @@ class PayrollReportController extends Controller
             ->with([
                 'employee',
                 'period',
+                'orgAssignment.department',
+                'orgAssignment.costCenter',
             ])
             ->withSum(
                 [
@@ -40,9 +45,21 @@ class PayrollReportController extends Controller
             ->withQueryString();
 
         $summaryQuery = $this->filteredQuery($request);
+        $grouped = DB::query()->fromSub(
+            $this->filteredQuery($request)->select([
+                'payroll_items.employee_id', 'payroll_items.net_salary',
+                'payroll_items.org_assignment_id',
+            ]), 'scoped'
+        )->leftJoin('employee_org_assignments as org', 'org.id', '=', 'scoped.org_assignment_id')
+            ->selectRaw('org.cost_center_id, COUNT(DISTINCT scoped.employee_id) as employees, COALESCE(SUM(scoped.net_salary), 0) as net')
+            ->groupBy('org.cost_center_id')->orderByDesc('net')->get();
+        $centerNames = HrCostCenter::query()->whereIn('id', $grouped->pluck('cost_center_id')->filter())
+            ->pluck('name', 'id');
 
         return view('admin.payroll.reports.index', [
             'rows' => $rows,
+            'costCenterSummary' => $grouped,
+            'costCenterNames' => $centerNames,
             'summary' => [
                 'employees' => (clone $summaryQuery)
                     ->distinct('employee_id')
@@ -67,6 +84,16 @@ class PayrollReportController extends Controller
                     fn (Builder $q) => $q->whereKey($request->user()->primaryLocation()?->id ?? 0))
                 ->orderBy('name')
                 ->get(),
+            'departments' => HrDepartment::query()
+                ->when(! $this->access->global($request->user()), fn (Builder $query) => $query
+                    ->where(fn (Builder $scope) => $scope->whereNull('location_id')
+                        ->orWhere('location_id', $request->user()->primaryLocation()?->id)))
+                ->orderBy('name')->get(),
+            'centers' => HrCostCenter::query()
+                ->when(! $this->access->global($request->user()), fn (Builder $query) => $query
+                    ->where(fn (Builder $scope) => $scope->whereNull('location_id')
+                        ->orWhere('location_id', $request->user()->primaryLocation()?->id)))
+                ->orderBy('name')->get(),
         ]);
     }
 
@@ -76,6 +103,8 @@ class PayrollReportController extends Controller
             ->with([
                 'employee',
                 'period',
+                'orgAssignment.department',
+                'orgAssignment.costCenter',
             ])
             ->withSum(
                 [
@@ -97,6 +126,8 @@ class PayrollReportController extends Controller
                 fputcsv($out, [
                     'الدورة',
                     'الموظف',
+                    'القسم عند نهاية الدورة',
+                    'مركز التكلفة عند نهاية الدورة',
                     'الراتب الأساسي',
                     'البدلات',
                     'المكافآت',
@@ -112,6 +143,8 @@ class PayrollReportController extends Controller
                     fputcsv($out, [
                         $row->period?->name,
                         $row->employee?->full_name,
+                        $row->orgAssignment?->department?->name,
+                        $row->orgAssignment?->costCenter?->name,
                         $row->base_salary,
                         $row->allowances_total,
                         $row->bonuses_total,
@@ -161,6 +194,16 @@ class PayrollReportController extends Controller
                         'status',
                         $request->string('status')
                     )
+            )
+            ->when(
+                $request->filled('department_id'),
+                fn (Builder $q) => $q->whereHas('orgAssignment', fn (Builder $org) =>
+                    $org->where('department_id', $request->integer('department_id')))
+            )
+            ->when(
+                $request->filled('cost_center_id'),
+                fn (Builder $q) => $q->whereHas('orgAssignment', fn (Builder $org) =>
+                    $org->where('cost_center_id', $request->integer('cost_center_id')))
             )
             ->when(
                 $request->filled('location_id'),

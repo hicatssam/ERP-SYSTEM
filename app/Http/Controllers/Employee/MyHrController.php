@@ -97,6 +97,11 @@ class MyHrController extends Controller
                     $field => 'يجب أن يتوافق وقت التصحيح مع يوم الدوام المختار.',
                 ]);
             }
+            if (\Carbon\Carbon::parse($data[$field])->isFuture()) {
+                throw ValidationException::withMessages([
+                    $field => 'لا يمكن طلب تصحيح لوقت لم يحن بعد.',
+                ]);
+            }
         }
 
         $corrections->create($employee, $request->user(), $data);

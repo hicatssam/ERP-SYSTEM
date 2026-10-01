@@ -25,12 +25,14 @@
     <div class="card">
         <div class="card-body" style="overflow-x:auto;padding:0">
             <table class="hr-corrections">
-                <thead><tr><th>الموظف</th><th>التاريخ</th><th>الحضور المطلوب</th><th>الانصراف المطلوب</th><th>السبب</th><th>الحالة والإجراء</th></tr></thead>
+                <thead><tr><th>الموظف ومقدم الطلب</th><th>التاريخ</th><th>السجل الحالي</th><th>الحضور المطلوب</th><th>الانصراف المطلوب</th><th>السبب</th><th>الحالة والإجراء</th></tr></thead>
                 <tbody>
                 @forelse($requests as $correction)
                     <tr>
-                        <td><strong>{{ $correction->employee?->full_name }}</strong><br><small>{{ $correction->employee?->employee_number }}</small></td>
+                        @php($currentRecord = $records->get($correction->employee_id.'|'.$correction->work_date?->toDateString()))
+                        <td><strong>{{ $correction->employee?->full_name }}</strong><br><small>{{ $correction->employee?->employee_number }} · مقدم الطلب: {{ $correction->requester?->employee?->full_name ?? $correction->requester?->name ?? '—' }}</small></td>
                         <td>{{ $correction->work_date?->format('Y-m-d') }}</td>
+                        <td>{{ $currentRecord?->status ?? 'لا يوجد سجل' }}<small>حضور: {{ $currentRecord?->check_in_at?->format('H:i') ?? '—' }} · انصراف: {{ $currentRecord?->check_out_at?->format('H:i') ?? '—' }}</small></td>
                         <td>{{ $correction->requested_check_in_at?->format('Y-m-d H:i') ?? 'دون تغيير' }}</td>
                         <td>{{ $correction->requested_check_out_at?->format('Y-m-d H:i') ?? 'دون تغيير' }}</td>
                         <td style="min-width:170px;white-space:normal">{{ $correction->reason }}</td>
@@ -46,7 +48,7 @@
                                     </form>
                                     <form action="{{ route('attendance.corrections.reject', $correction) }}" method="POST" class="hr-decision">
                                         @csrf
-                                        <input class="form-input" name="decision_note" placeholder="سبب الرفض" maxlength="1000">
+                                        <input class="form-input" name="decision_note" placeholder="سبب الرفض" maxlength="1000" required>
                                         <button class="btn btn-outline btn-sm" type="submit">رفض</button>
                                     </form>
                                 @endif
@@ -57,7 +59,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6">لا توجد طلبات بهذه الحالة.</td></tr>
+                    <tr><td colspan="7">لا توجد طلبات بهذه الحالة.</td></tr>
                 @endforelse
                 </tbody>
             </table>

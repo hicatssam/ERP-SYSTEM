@@ -97,7 +97,7 @@
                 </div>
 
                 <div class="employee-profile-job">
-                    {{ $employee->job_title ?? 'لا يوجد مسمى وظيفي' }}
+                    {{ $employee->currentOrgAssignment?->position?->name ?? $employee->job_title ?? 'لا يوجد مسمى وظيفي' }}
                 </div>
 
                 <div class="employee-profile-meta">

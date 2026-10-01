@@ -142,7 +142,9 @@ class AttendanceService
                 $leave->end_date,
                 $leave->id,
                 approval: true,
-                reservedDays: $leave->yearly_days
+                reservedDays: $leave->yearly_days,
+                fraction: (float) $leave->day_fraction,
+                halfDaySlot: $leave->half_day_slot
             );
 
             // A leave must never silently erase an actual shift or biometric punch.

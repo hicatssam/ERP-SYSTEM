@@ -7,6 +7,7 @@ use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\EmployeeCompensationProfile;
 use App\Models\EmployeePayrollAdjustment;
+use App\Models\EmployeeOrgAssignment;
 use App\Models\PayrollItem;
 use App\Models\PayrollItemComponent;
 use App\Models\PayrollPayment;
@@ -117,6 +118,15 @@ class PayrollService
         $existingBalance = $this->ledger->balance($employee);
         $payable = max(0, $existingBalance + $net);
 
+        // Keep the end-of-period organizational context on the payroll item;
+        // later staff moves must not rewrite an approved report's department.
+        $orgAssignmentId = EmployeeOrgAssignment::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('effective_from', '<=', $period->end_date)
+            ->where(fn ($query) => $query->whereNull('effective_to')
+                ->orWhereDate('effective_to', '>=', $period->end_date))
+            ->orderByDesc('effective_from')->value('id');
+
         $item = PayrollItem::query()->updateOrCreate(
             [
                 'payroll_period_id' => $period->id,
@@ -124,6 +134,7 @@ class PayrollService
             ],
             [
                 'compensation_profile_id' => $profile?->id,
+                'org_assignment_id' => $orgAssignmentId,
                 'base_salary' => $baseSalary,
                 'allowances_total' => $allowances,
                 'bonuses_total' => $bonuses,

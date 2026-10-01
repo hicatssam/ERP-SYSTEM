@@ -211,6 +211,7 @@ class EmployeeController extends Controller
 
         $this->ensureEmployeeAccess($employee, $user);
         $this->loadEmployeeRelations($employee, $user);
+        $employee->load('currentOrgAssignment.position');
 
         return view('admin.employees.show', compact('employee'));
     }

@@ -12,6 +12,7 @@ class PayrollItem extends Model
         'payroll_period_id',
         'employee_id',
         'compensation_profile_id',
+        'org_assignment_id',
         'base_salary',
         'allowances_total',
         'bonuses_total',
@@ -52,6 +53,11 @@ class PayrollItem extends Model
             EmployeeCompensationProfile::class,
             'compensation_profile_id'
         );
+    }
+
+    public function orgAssignment(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeOrgAssignment::class, 'org_assignment_id');
     }
 
     public function components(): HasMany

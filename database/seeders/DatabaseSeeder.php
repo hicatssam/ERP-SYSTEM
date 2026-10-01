@@ -158,6 +158,8 @@ class DatabaseSeeder extends Seeder
     'hr.dashboard.view',
     'hr.documents.view',
     'hr.documents.manage',
+    'hr.organization.view',
+    'hr.organization.manage',
 
     // Users & Roles
     'users.manage',
@@ -2237,7 +2239,7 @@ SVG;
             'dashboard.','employees.','hr.','products.','categories.','customers.','orders.',
             'inventory.','stock_','reports.','invoices.','payments.','restaurant.','kitchen.','kds.',
             'attendance.','chat.','crm.','loyalty.','delivery.','customer_display.','cash_sessions.',
-        ], ['financial.cash.view'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage']);
+        ], ['financial.cash.view'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage','hr.organization.manage']);
         $grantByPrefixes('Cashier', ['orders.','customers.','payments.','invoices.','restaurant.pos.'], [
             'products.view','categories.view','payment_methods.view',
         ], ['orders.confirm','orders.cancel','orders.delete','customers.view_all']);

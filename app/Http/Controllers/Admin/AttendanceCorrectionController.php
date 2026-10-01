@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceCorrectionRequest;
+use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\User;
 use App\Services\AttendanceCorrectionService;
@@ -21,12 +22,24 @@ class AttendanceCorrectionController extends Controller
             'status' => ['nullable', Rule::in(['pending', 'approved', 'rejected'])],
         ])['status'] ?? 'pending';
 
-        return view('admin.attendance.corrections', [
-            'requests' => AttendanceCorrectionRequest::query()
+        $requests = AttendanceCorrectionRequest::query()
                 ->whereIn('employee_id', $this->accessibleEmployees($request->user())->select('employees.id'))
                 ->where('status', $status)
-                ->with(['employee', 'requester', 'reviewer'])
-                ->latest('work_date')->latest('id')->paginate(25)->withQueryString(),
+                ->with(['employee', 'requester.employee', 'reviewer'])
+                ->latest('work_date')->latest('id')->paginate(25)->withQueryString();
+        $records = $requests->count() === 0 ? collect() : AttendanceRecord::query()
+            ->where(function (Builder $query) use ($requests): void {
+                foreach ($requests as $correction) {
+                    $query->orWhere(fn (Builder $day) => $day
+                        ->where('employee_id', $correction->employee_id)
+                        ->whereDate('work_date', $correction->work_date->toDateString()));
+                }
+            })->get()->keyBy(fn ($record) =>
+                $record->employee_id.'|'.$record->work_date->toDateString());
+
+        return view('admin.attendance.corrections', [
+            'requests' => $requests,
+            'records' => $records,
             'status' => $status,
         ]);
     }
@@ -49,7 +62,7 @@ class AttendanceCorrectionController extends Controller
         AttendanceCorrectionService $service
     ): RedirectResponse {
         $this->assertAccessible($request->user(), $correction);
-        $data = $request->validate(['decision_note' => ['nullable', 'string', 'max:1000']]);
+        $data = $request->validate(['decision_note' => ['required', 'string', 'max:1000']]);
         $service->review($correction, $request->user(), false, $data['decision_note'] ?? null);
 
         return back()->with('success', 'تم رفض طلب التصحيح.');

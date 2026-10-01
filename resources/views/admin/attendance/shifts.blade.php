@@ -1136,6 +1136,7 @@
 
                     <tr>
                         <th>الموظف</th>
+                        <th>القسم</th>
                         <th>الفرع</th>
                         <th>الوردية</th>
                         <th>ساري من</th>
@@ -1198,7 +1199,9 @@
                             data-search="{{ mb_strtolower(
                                 $employeeName
                                 .' '
-                                .($assignment->employee?->job_title ?? '')
+                                .($assignment->employee?->currentOrgAssignment?->position?->name ?? $assignment->employee?->job_title ?? '')
+                                .' '
+                                .($assignment->employee?->currentOrgAssignment?->department?->name ?? '')
                                 .' '
                                 .($assignment->shift?->name ?? '')
                                 .' '
@@ -1223,7 +1226,7 @@
                                         </strong>
 
                                         <small>
-                                            {{ $assignment->employee?->job_title ?: 'موظف' }}
+                                            {{ $assignment->employee?->currentOrgAssignment?->position?->name ?? $assignment->employee?->job_title ?? 'موظف' }}
                                         </small>
 
                                     </div>
@@ -1231,6 +1234,8 @@
                                 </div>
 
                             </td>
+
+                            <td>{{ $assignment->employee?->currentOrgAssignment?->department?->name ?? 'غير محدد' }}</td>
 
 
                             {{-- Location --}}
@@ -1319,7 +1324,7 @@
                         <tr>
 
                             <td
-                                colspan="6"
+                                colspan="7"
                                 class="shift-empty"
                             >
 

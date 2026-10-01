@@ -519,7 +519,6 @@
     $pendingCount = (int) ($totals->get('pending')?->request_count ?? 0);
     $approvedCount = (int) ($totals->get('approved')?->request_count ?? 0);
     $rejectedCount = (int) ($totals->get('rejected')?->request_count ?? 0);
-    $totalLeaveDays = (float) $totals->sum('days');
     $totalRequests = (int) $totals->sum('request_count');
 @endphp
 
@@ -665,7 +664,7 @@
             </div>
 
             <strong>{{ number_format($totalRequests) }}</strong>
-            <small>حسب نطاق البحث والفروع المسموحة</small>
+            <small>كل الحالات ضمن الموظف والنوع والسنة المختارة</small>
         </div>
 
         <div class="leave-stat">
@@ -707,16 +706,16 @@
         <div class="leave-stat">
             <div class="leave-stat-head">
                 <span class="leave-stat-label">
-                    أيام الإجازة
+                    أيام الطلبات
                 </span>
                 <span class="leave-stat-icon">⌁</span>
             </div>
 
             <strong>
-                {{ number_format($totalLeaveDays, 0) }}
+                {{ number_format($totalLeaveDays, 1) }}
             </strong>
 
-            <small>ضمن نتائج البحث كاملة</small>
+            <small>ضمن الموظف والنوع والسنة المختارة، بجميع الحالات</small>
         </div>
 
     </div>

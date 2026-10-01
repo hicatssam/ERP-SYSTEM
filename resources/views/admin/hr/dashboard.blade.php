@@ -7,7 +7,10 @@
 <div style="max-width:1260px;margin:auto">
     <div class="page-actions">
         <div><h1 class="page-heading">متابعة الموارد البشرية</h1><p class="page-subheading">أرقام ومهام الموظفين ضمن نطاق الفروع المسموح لك بعرضها.</p></div>
-        @can('employees.manage')<a class="btn btn-outline" href="{{ route('employees.index') }}">الموظفون</a>@endcan
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            @can('employees.manage')<a class="btn btn-outline" href="{{ route('employees.index') }}">الموظفون</a>@endcan
+            @can('hr.organization.view')<a class="btn btn-outline" href="{{ route('hr.organization.index') }}">الهيكل الوظيفي</a>@endcan
+        </div>
     </div>
     @if($errors->any())
         <div class="alert alert-danger" role="alert">@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>

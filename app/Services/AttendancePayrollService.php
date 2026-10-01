@@ -100,11 +100,12 @@ class AttendancePayrollService
                 $overtimeMinutes = (int) $employeeRecords->sum('overtime_minutes');
                 $absenceDays = $employeeRecords->where('status', 'absent')
                     ->sum(function (AttendanceRecord $record) use ($employeePartial): float {
-                        $paidHalf = $employeePartial->first(fn (EmployeeLeaveRequest $leave) =>
+                        $paidFraction = $employeePartial->filter(fn (EmployeeLeaveRequest $leave) =>
                             $leave->start_date->toDateString() === $record->work_date->toDateString()
-                            && ($leave->is_paid_snapshot ?? $leave->leaveType?->is_paid) === true);
+                            && ($leave->is_paid_snapshot ?? $leave->leaveType?->is_paid) === true)
+                            ->sum(fn (EmployeeLeaveRequest $leave) => (float) $leave->day_fraction);
 
-                        return $paidHalf ? 1 - (float) $paidHalf->day_fraction : 1;
+                        return max(0.0, 1 - $paidFraction);
                     });
                 $unpaidLeaveDays = $employeeRecords
                     ->where('status', 'leave')

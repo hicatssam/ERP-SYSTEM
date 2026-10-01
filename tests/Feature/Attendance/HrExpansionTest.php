@@ -250,6 +250,64 @@ class HrExpansionTest extends TestCase
     }
 
     #[Test]
+    public function opposite_half_day_slots_can_both_be_approved_but_a_duplicate_slot_is_rejected(): void
+    {
+        $branch = $this->branch('A');
+        $worker = $this->employee($branch, 'Split Shift Worker');
+        $actor = $this->user($branch, ['attendance.leaves.view', 'attendance.leaves.manage', 'attendance.leaves.approve']);
+        $type = LeaveType::query()->create([
+            'code' => 'SPLIT-HR', 'name' => 'Split day', 'is_paid' => true,
+            'annual_days' => 1, 'is_active' => true,
+        ]);
+        $shift = WorkShift::query()->create([
+            'code' => 'SPLIT-SHIFT', 'name' => 'Split shift',
+            'start_time' => '08:00', 'end_time' => '16:00', 'work_days' => [1, 2, 3, 4, 5],
+        ]);
+        EmployeeShiftAssignment::query()->create([
+            'employee_id' => $worker->id, 'work_shift_id' => $shift->id,
+            'effective_from' => '2026-01-01', 'is_primary' => true,
+        ]);
+        $service = app(EmployeeLeaveService::class);
+        $first = $service->create($worker, $type, [
+            'start_date' => '2026-10-05', 'end_date' => '2026-10-05',
+            'day_fraction' => 0.5, 'half_day_slot' => 'first_half',
+        ], $actor->id);
+        $second = $service->create($worker, $type, [
+            'start_date' => '2026-10-05', 'end_date' => '2026-10-05',
+            'day_fraction' => 0.5, 'half_day_slot' => 'second_half',
+        ], $actor->id);
+
+        app(AttendanceService::class)->approveLeave($first, $actor);
+        app(AttendanceService::class)->approveLeave($second, $actor);
+        $this->assertSame('approved', $second->fresh()->status);
+        $this->assertEquals(1, $service->balances($worker, [$type], 2026)[$type->id]['approved']);
+
+        AttendanceRecord::query()->create([
+            'employee_id' => $worker->id, 'work_date' => '2026-10-05',
+            'status' => 'absent', 'source' => 'manual',
+            'approved_at' => now(), 'approved_by' => $actor->id,
+        ]);
+        EmployeeCompensationProfile::query()->create([
+            'employee_id' => $worker->id, 'salary_basis' => 'monthly',
+            'base_salary' => 2600, 'effective_from' => '2026-01-01', 'is_active' => true,
+        ]);
+        $period = PayrollPeriod::query()->create([
+            'code' => 'SPLIT-PAY', 'name' => 'Split day pay',
+            'start_date' => '2026-10-01', 'end_date' => '2026-10-31', 'status' => 'draft',
+        ]);
+        app(AttendancePayrollService::class)->sync($period, $actor);
+        $this->assertDatabaseMissing('employee_payroll_adjustments', [
+            'employee_id' => $worker->id, 'source_type' => 'attendance_summary',
+        ]);
+
+        $this->actingAs($actor)->post(route('attendance.leaves.store'), [
+            'employee_id' => $worker->id, 'leave_type_id' => $type->id,
+            'start_date' => '2026-10-05', 'end_date' => '2026-10-05',
+            'day_fraction' => '0.5', 'half_day_slot' => 'first_half',
+        ])->assertSessionHasErrors('start_date');
+    }
+
+    #[Test]
     public function hr_attendance_export_contains_only_authorized_branch(): void
     {
         $a = $this->branch('A');

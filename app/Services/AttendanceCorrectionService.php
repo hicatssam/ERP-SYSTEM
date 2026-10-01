@@ -87,7 +87,21 @@ class AttendanceCorrectionService
                     'status' => $existing->status,
                     'check_in_at' => $existing->check_in_at?->toDateTimeString(),
                     'check_out_at' => $existing->check_out_at?->toDateTimeString(),
+                    'work_shift_id' => $existing->work_shift_id,
+                    'scheduled_start_at' => $existing->scheduled_start_at?->toDateTimeString(),
+                    'scheduled_end_at' => $existing->scheduled_end_at?->toDateTimeString(),
+                    'worked_minutes' => $existing->worked_minutes,
+                    'late_minutes' => $existing->late_minutes,
+                    'early_leave_minutes' => $existing->early_leave_minutes,
+                    'overtime_minutes' => $existing->overtime_minutes,
                     'source' => $existing->source,
+                    'verification_method' => $existing->verification_method,
+                    'verification_provider' => $existing->verification_provider,
+                    'verification_reference' => $existing->verification_reference,
+                    'verification_location_id' => $existing->verification_location_id,
+                    'verification_metadata' => $existing->verification_metadata,
+                    'notes' => $existing->notes,
+                    'created_by' => $existing->created_by,
                     'approved_by' => $existing->approved_by,
                     'approved_at' => $existing->approved_at?->toDateTimeString(),
                 ] : null;
@@ -130,17 +144,21 @@ class AttendanceCorrectionService
             ]);
         }
 
-        $locationId = $employee->employeeLocations()
-            ->where('is_primary', true)->whereNull('ended_at')->value('location_id');
+        $locationIds = $employee->employeeLocations()->where('is_primary', true)
+            ->where(fn ($query) => $query->whereNull('started_at')
+                ->orWhereDate('started_at', '<=', $date))
+            ->where(fn ($query) => $query->whereNull('ended_at')
+                ->orWhereDate('ended_at', '>=', $date))
+            ->pluck('location_id');
 
         $closedPeriod = PayrollPeriod::query()
             ->whereIn('status', ['approved', 'paid', 'closed'])
             ->whereDate('start_date', '<=', $date)
             ->whereDate('end_date', '>=', $date)
-            ->where(function ($query) use ($locationId): void {
+            ->where(function ($query) use ($locationIds): void {
                 $query->whereNull('location_id');
-                if ($locationId) {
-                    $query->orWhere('location_id', $locationId);
+                if ($locationIds->isNotEmpty()) {
+                    $query->orWhereIn('location_id', $locationIds);
                 }
             })->exists();
 

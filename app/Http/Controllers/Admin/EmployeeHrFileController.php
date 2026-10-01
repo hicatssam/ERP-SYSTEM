@@ -19,7 +19,13 @@ class EmployeeHrFileController extends Controller
         $this->assertScope($request, $employee);
 
         return view('admin.employees.hr-file', [
-            'employee' => $employee->load(['hrProfile', 'documents', 'employeeLocations.location']),
+            'employee' => $employee->load([
+                'hrProfile', 'documents', 'employeeLocations.location',
+                'currentOrgAssignment.department', 'currentOrgAssignment.position',
+                'currentOrgAssignment.costCenter', 'currentOrgAssignment.manager',
+                'orgAssignments.department', 'orgAssignments.position',
+                'orgAssignments.costCenter', 'orgAssignments.manager',
+            ]),
         ]);
     }
 

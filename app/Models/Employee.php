@@ -75,6 +75,20 @@ class Employee extends Model
         return $this->hasOne(EmployeeHrProfile::class);
     }
 
+    public function orgAssignments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EmployeeOrgAssignment::class)->orderByDesc('effective_from');
+    }
+
+    public function currentOrgAssignment(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(EmployeeOrgAssignment::class)
+            ->whereDate('effective_from', '<=', now()->toDateString())
+            ->where(fn (Builder $query) => $query->whereNull('effective_to')
+                ->orWhereDate('effective_to', '>=', now()->toDateString()))
+            ->orderByDesc('effective_from');
+    }
+
     public function documents(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(EmployeeDocument::class);

@@ -54,6 +54,20 @@ class EmployeeLeaveService
                         'start_date' => 'نصف اليوم يتطلب وردية عمل مجدولة في التاريخ المختار.',
                     ]);
                 }
+                $locationId = $employee->employeeLocations()
+                    ->where('is_primary', true)
+                    ->where(fn ($query) => $query->whereNull('started_at')
+                        ->orWhereDate('started_at', '<=', $start->toDateString()))
+                    ->where(fn ($query) => $query->whereNull('ended_at')
+                        ->orWhereDate('ended_at', '>=', $start->toDateString()))
+                    ->value('location_id');
+                if (WorkHoliday::query()->whereDate('holiday_date', $start->toDateString())
+                    ->where(fn ($query) => $query->whereNull('location_id')
+                        ->orWhere('location_id', $locationId))->exists()) {
+                    throw ValidationException::withMessages([
+                        'start_date' => 'لا يمكن حجز نصف يوم في عطلة رسمية.',
+                    ]);
+                }
             }
 
             $countableDates = [];
@@ -61,7 +75,9 @@ class EmployeeLeaveService
             if ($fraction === 0.5) {
                 $yearlyDays = array_map(fn ($days) => $days * 0.5, $yearlyDays);
             }
-            $this->assertAvailable($employee, $type, $start, $end, reservedDays: $yearlyDays);
+            $this->assertAvailable($employee, $type, $start, $end,
+                reservedDays: $yearlyDays, fraction: $fraction,
+                halfDaySlot: $data['half_day_slot'] ?? null);
 
             return EmployeeLeaveRequest::query()->create([
                 'employee_id' => $employee->id,
@@ -87,19 +103,28 @@ class EmployeeLeaveService
         Carbon $end,
         ?int $excludingId = null,
         bool $approval = false,
-        ?array $reservedDays = null
+        ?array $reservedDays = null,
+        float $fraction = 1.0,
+        ?string $halfDaySlot = null
     ): void {
         $statuses = $approval ? ['approved'] : ['pending', 'approved'];
 
-        $overlap = EmployeeLeaveRequest::query()
+        $overlapping = EmployeeLeaveRequest::query()
             ->where('employee_id', $employee->id)
             ->whereIn('status', $statuses)
             ->whereDate('start_date', '<=', $end->toDateString())
             ->whereDate('end_date', '>=', $start->toDateString())
             ->when($excludingId, fn ($query) => $query->whereKeyNot($excludingId))
-            ->exists();
+            ->get(['start_date', 'end_date', 'day_fraction', 'half_day_slot']);
 
-        if ($overlap) {
+        $conflict = $overlapping->contains(fn (EmployeeLeaveRequest $existing) =>
+            $fraction !== 0.5 || $start->toDateString() !== $end->toDateString()
+            || $existing->start_date->toDateString() !== $start->toDateString()
+            || $existing->end_date->toDateString() !== $end->toDateString()
+            || (float) $existing->day_fraction !== 0.5
+            || $existing->half_day_slot === $halfDaySlot);
+
+        if ($conflict) {
             throw ValidationException::withMessages([
                 'start_date' => 'للموظف طلب إجازة آخر يتداخل مع هذه الفترة.',
             ]);
@@ -191,15 +216,19 @@ class EmployeeLeaveService
 
     public function assertPayrollEditable(Employee $employee, Carbon $start, Carbon $end): void
     {
-        $locationId = $employee->employeeLocations()
-            ->where('is_primary', true)->whereNull('ended_at')->value('location_id');
+        $locationIds = $employee->employeeLocations()->where('is_primary', true)
+            ->where(fn ($query) => $query->whereNull('started_at')
+                ->orWhereDate('started_at', '<=', $end->toDateString()))
+            ->where(fn ($query) => $query->whereNull('ended_at')
+                ->orWhereDate('ended_at', '>=', $start->toDateString()))
+            ->pluck('location_id');
         $locked = PayrollPeriod::query()->whereIn('status', ['approved', 'paid', 'closed'])
             ->whereDate('start_date', '<=', $end->toDateString())
             ->whereDate('end_date', '>=', $start->toDateString())
-            ->where(function ($query) use ($locationId): void {
+            ->where(function ($query) use ($locationIds): void {
                 $query->whereNull('location_id');
-                if ($locationId) {
-                    $query->orWhere('location_id', $locationId);
+                if ($locationIds->isNotEmpty()) {
+                    $query->orWhereIn('location_id', $locationIds);
                 }
             })->exists();
         if ($locked) {
@@ -257,10 +286,8 @@ class EmployeeLeaveService
             ->whereDate('start_date', '<=', $yearEnd)
             ->whereDate('end_date', '>=', $yearStart)
             ->when($excludingId, fn ($query) => $query->whereKeyNot($excludingId))
-            ->get(['start_date', 'end_date', 'yearly_days'])
-            ->sum(fn (EmployeeLeaveRequest $leave) => $leave->yearly_days !== null
-                ? (float) ($leave->yearly_days[$year] ?? 0)
-                : $this->daysInYear($leave->start_date, $leave->end_date, $year));
+            ->get(['start_date', 'end_date', 'yearly_days', 'day_fraction'])
+            ->sum(fn (EmployeeLeaveRequest $leave) => $leave->daysForYear($year));
 
         return fmod((float) $total, 1.0) === 0.0 ? (int) $total : (float) $total;
     }

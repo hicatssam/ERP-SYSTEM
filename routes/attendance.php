@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AttendanceController;
 use App\Http\Controllers\Admin\EmployeeHrFileController;
 use App\Http\Controllers\Admin\HrDashboardController;
+use App\Http\Controllers\Admin\HrOrganizationController;
 use App\Http\Controllers\Admin\AttendanceCorrectionController;
 use App\Http\Controllers\Employee\MyHrController;
 use App\Http\Controllers\Admin\AttendancePayrollController;
@@ -57,6 +58,19 @@ Route::middleware([
         ->middleware('can:hr.dashboard.view')->name('hr.dashboard');
     Route::get('/hr/attendance-report.csv', [HrDashboardController::class, 'csv'])
         ->middleware('can:hr.dashboard.view')->name('hr.report.csv');
+
+    Route::get('/hr/organization', [HrOrganizationController::class, 'index'])
+        ->middleware('can:hr.organization.view')->name('hr.organization.index');
+    Route::get('/hr/organization.csv', [HrOrganizationController::class, 'csv'])
+        ->middleware('can:hr.organization.view')->name('hr.organization.csv');
+    Route::post('/hr/departments', [HrOrganizationController::class, 'department'])
+        ->middleware('can:hr.organization.manage')->name('hr.departments.store');
+    Route::post('/hr/positions', [HrOrganizationController::class, 'position'])
+        ->middleware('can:hr.organization.manage')->name('hr.positions.store');
+    Route::post('/hr/cost-centers', [HrOrganizationController::class, 'center'])
+        ->middleware('can:hr.organization.manage')->name('hr.cost-centers.store');
+    Route::post('/hr/assignments', [HrOrganizationController::class, 'assign'])
+        ->middleware('can:hr.organization.manage')->name('hr.assignments.store');
 
     Route::prefix('hr/employees/{employee}')->name('hr.employees.')->group(function (): void {
         Route::get('/file', [EmployeeHrFileController::class, 'show'])

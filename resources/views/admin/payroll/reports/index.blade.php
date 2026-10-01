@@ -11,7 +11,7 @@
     <div class="pr-head">
         <div>
             <h1 class="page-heading">تقارير الرواتب</h1>
-            <p class="page-subheading">تحليل الرواتب حسب الدورة والموظف والموقع والحالة.</p>
+            <p class="page-subheading">تحليل الرواتب حسب الدورة والموظف والموقع والحالة. القسم ومركز التكلفة يعكسان التكليف عند نهاية دورة الرواتب.</p>
         </div>
         <div style="display:flex;gap:.6rem">
             <a class="btn btn-ghost" href="{{ route('payroll.index') }}">الرواتب</a>
@@ -61,6 +61,18 @@
                         @endforeach
                     </select>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">القسم</label>
+                    <select class="form-input" name="department_id"><option value="">كل الأقسام</option>
+                        @foreach($departments as $department)<option value="{{ $department->id }}" @selected((int)request('department_id') === $department->id)>{{ $department->name }}</option>@endforeach
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">مركز التكلفة</label>
+                    <select class="form-input" name="cost_center_id"><option value="">كل المراكز</option>
+                        @foreach($centers as $center)<option value="{{ $center->id }}" @selected((int)request('cost_center_id') === $center->id)>{{ $center->name }}</option>@endforeach
+                    </select>
+                </div>
             </div>
 
             <div style="display:flex;justify-content:flex-end;gap:.6rem">
@@ -78,17 +90,30 @@
         <div class="pr-stat"><small>المتبقي</small><strong>{{ number_format($summary['payable'],2) }}</strong></div>
     </div>
 
+    <div class="card" style="margin-bottom:1rem">
+        <div class="card-header"><span class="card-title">صافي الرواتب حسب مركز التكلفة</span></div>
+        <div class="card-body" style="overflow:auto">
+            <table class="pr-table"><thead><tr><th>مركز التكلفة</th><th>الموظفون</th><th>الصافي</th></tr></thead><tbody>
+                @forelse($costCenterSummary as $group)
+                    <tr><td>{{ $centerNames[$group->cost_center_id] ?? 'غير مصنف' }}</td><td>{{ $group->employees }}</td><td>{{ number_format((float)$group->net, 2) }}</td></tr>
+                @empty <tr><td colspan="3">لا توجد بيانات رواتب.</td></tr> @endforelse
+            </tbody></table>
+        </div>
+    </div>
+
     <div class="card">
         <div class="card-body" style="padding:0;overflow:auto">
             <table class="pr-table">
                 <thead>
-                    <tr><th>الدورة</th><th>الموظف</th><th>الأساسي</th><th>بدلات</th><th>مكافآت</th><th>خصومات</th><th>الصافي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th></th></tr>
+                    <tr><th>الدورة</th><th>الموظف</th><th>القسم</th><th>مركز التكلفة</th><th>الأساسي</th><th>بدلات</th><th>مكافآت</th><th>خصومات</th><th>الصافي</th><th>المدفوع</th><th>المتبقي</th><th>الحالة</th><th></th></tr>
                 </thead>
                 <tbody>
                     @forelse($rows as $row)
                         <tr>
                             <td>{{ $row->period?->name }}</td>
                             <td>{{ $row->employee?->full_name }}</td>
+                            <td>{{ $row->orgAssignment?->department?->name ?? '—' }}</td>
+                            <td>{{ $row->orgAssignment?->costCenter?->name ?? '—' }}</td>
                             <td>{{ number_format((float)$row->base_salary,2) }}</td>
                             <td>{{ number_format((float)$row->allowances_total,2) }}</td>
                             <td>{{ number_format((float)$row->bonuses_total,2) }}</td>
@@ -102,7 +127,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="11" style="text-align:center;padding:2rem">لا توجد نتائج.</td></tr>
+                        <tr><td colspan="13" style="text-align:center;padding:2rem">لا توجد نتائج.</td></tr>
                     @endforelse
                 </tbody>
             </table>

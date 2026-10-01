@@ -1109,7 +1109,7 @@ a.app-page-btn:hover {
                 @endif
             @endauth
 
-            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage', 'attendance.view', 'attendance.approve', 'attendance.leaves.view', 'hr.dashboard.view'])
+            @canany(['locations.manage', 'employees.view', 'employees.manage', 'users.manage', 'attendance.view', 'attendance.approve', 'attendance.leaves.view', 'hr.dashboard.view', 'hr.organization.view'])
 
                 <div class="nav-section">
 
@@ -1156,8 +1156,14 @@ a.app-page-btn:hover {
                     @endcanany
 
                     @can('hr.dashboard.view')
-                        <a href="{{ route('hr.dashboard') }}" class="nav-item {{ request()->routeIs('hr.*') ? 'active' : '' }}">
+                        <a href="{{ route('hr.dashboard') }}" class="nav-item {{ request()->routeIs('hr.dashboard') ? 'active' : '' }}">
                             <span>ملخص الموارد البشرية</span>
+                        </a>
+                    @endcan
+
+                    @can('hr.organization.view')
+                        <a href="{{ route('hr.organization.index') }}" class="nav-item {{ request()->routeIs('hr.organization.*') ? 'active' : '' }}">
+                            <span>الهيكل الوظيفي ومراكز التكلفة</span>
                         </a>
                     @endcan
 

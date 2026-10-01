@@ -150,6 +150,8 @@ class WorkShiftController extends Controller
             EmployeeShiftAssignment::query()
                 ->with([
                     'employee.employeeLocations.location',
+                    'employee.currentOrgAssignment.department',
+                    'employee.currentOrgAssignment.position',
                     'shift.location',
                 ])
                 ->whereIn(

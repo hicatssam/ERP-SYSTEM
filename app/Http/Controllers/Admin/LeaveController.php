@@ -40,20 +40,33 @@ class LeaveController extends Controller
             ? (clone $accessibleEmployees)->findOrFail($filters['employee_id'])
             : null;
 
-        $query = EmployeeLeaveRequest::query()
+        $scope = EmployeeLeaveRequest::query()
             ->whereIn('employee_id', (clone $accessibleEmployees)->select('employees.id'))
             ->when($selectedEmployee, fn (Builder $q) => $q->where('employee_id', $selectedEmployee->id))
             ->when($filters['leave_type_id'] ?? null, fn (Builder $q, $id) => $q->where('leave_type_id', $id))
-            ->when($filters['status'] ?? null, fn (Builder $q, $status) => $q->where('status', $status))
             ->when($filters['year'] ?? null, fn (Builder $q) => $q
                 ->whereDate('start_date', '<=', "{$year}-12-31")
                 ->whereDate('end_date', '>=', "{$year}-01-01"));
 
-        $totals = (clone $query)
+        // The status filter changes the list, not the counters. Otherwise an
+        // approved request disappears from the pending list while the approved
+        // counter stays at zero until the filter is cleared.
+        $totals = (clone $scope)
             ->selectRaw('status, COUNT(*) as request_count, COALESCE(SUM(total_days), 0) as days')
             ->groupBy('status')
             ->get()
             ->keyBy('status');
+        $totalLeaveDays = (float) $totals->sum('days');
+        if (isset($filters['year'])) {
+            $totalLeaveDays = 0.0;
+            (clone $scope)->chunkById(500, function ($leaves) use (&$totalLeaveDays, $year): void {
+                foreach ($leaves as $leave) {
+                    $totalLeaveDays += $leave->daysForYear($year);
+                }
+            });
+        }
+        $query = (clone $scope)
+            ->when($filters['status'] ?? null, fn (Builder $q, $status) => $q->where('status', $status));
 
         $leaveTypes = LeaveType::query()->orderBy('name')->get();
 
@@ -66,6 +79,7 @@ class LeaveController extends Controller
             'employees' => (clone $accessibleEmployees)->orderBy('full_name')->get(),
             'leaveTypes' => $leaveTypes,
             'totals' => $totals,
+            'totalLeaveDays' => $totalLeaveDays,
             'filters' => $filters,
             'selectedEmployee' => $selectedEmployee,
             'balanceYear' => $year,

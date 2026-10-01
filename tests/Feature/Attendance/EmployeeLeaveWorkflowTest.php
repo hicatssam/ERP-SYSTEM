@@ -185,6 +185,64 @@ class EmployeeLeaveWorkflowTest extends TestCase
     }
 
     #[Test]
+    public function approval_updates_balance_and_counters_even_while_list_is_filtered_to_pending(): void
+    {
+        $branch = $this->branch('A');
+        $employee = $this->employee($branch, 'Approved Worker');
+        $manager = $this->manager($branch);
+        $type = $this->type(3);
+
+        $this->actingAs($manager)->post(route('attendance.leaves.store'),
+            $this->payload($employee, $type, '2026-10-05'))
+            ->assertSessionHasNoErrors();
+        $leave = EmployeeLeaveRequest::query()->sole();
+
+        $this->actingAs($manager)->post(route('attendance.leaves.approve', $leave))
+            ->assertSessionHasNoErrors();
+        $this->assertSame('approved', $leave->fresh()->status);
+        $this->assertNotNull($leave->fresh()->approved_at);
+
+        $this->actingAs($manager)->get(route('attendance.leaves.index', [
+            'employee_id' => $employee->id, 'year' => 2026, 'status' => 'pending',
+        ]))->assertOk()
+            ->assertViewHas('totals', fn ($totals) =>
+                (int) ($totals->get('approved')?->request_count ?? 0) === 1
+                && (int) ($totals->get('pending')?->request_count ?? 0) === 0)
+            ->assertViewHas('requests', fn ($requests) => $requests->total() === 0)
+            ->assertViewHas('balances', fn ($balances) => $balances[$type->id] === [
+                'approved' => 1, 'pending' => 0, 'available' => 2.0,
+            ]);
+    }
+
+    #[Test]
+    public function year_filter_counts_only_days_in_that_year_and_rejection_releases_balance(): void
+    {
+        $employee = $this->employee($this->branch('A'), 'Cross-year Worker');
+        $manager = $this->manager($employee->primaryLocation());
+        $type = $this->type(5);
+        $this->actingAs($manager)->post(route('attendance.leaves.store'),
+            $this->payload($employee, $type, '2026-12-31', '2027-01-02'))
+            ->assertSessionHasNoErrors();
+        $leave = EmployeeLeaveRequest::query()->sole();
+        $this->actingAs($manager)->post(route('attendance.leaves.approve', $leave))
+            ->assertSessionHasNoErrors();
+        $this->actingAs($manager)->get(route('attendance.leaves.index', [
+            'employee_id' => $employee->id, 'year' => 2027,
+        ]))->assertOk()->assertViewHas('totalLeaveDays', fn ($days) => $days === 2.0)
+            ->assertViewHas('balances', fn ($balances) => $balances[$type->id]['approved'] === 2);
+
+        $second = $this->leave($employee, $type, '2027-02-01');
+        $this->actingAs($manager)->post(route('attendance.leaves.reject', $second))
+            ->assertSessionHasNoErrors();
+        $this->actingAs($manager)->get(route('attendance.leaves.index', [
+            'employee_id' => $employee->id, 'year' => 2027, 'status' => 'pending',
+        ]))->assertOk()->assertViewHas('totals', fn ($totals) =>
+            (int) ($totals->get('approved')?->request_count ?? 0) === 1
+            && (int) ($totals->get('rejected')?->request_count ?? 0) === 1)
+            ->assertViewHas('balances', fn ($balances) => $balances[$type->id]['pending'] === 0);
+    }
+
+    #[Test]
     public function only_settings_managers_can_configure_leave_types_and_disabled_types_cannot_be_requested(): void
     {
         $branch = $this->branch('A');

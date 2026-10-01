@@ -1,5 +1,6 @@
 <?php
 namespace App\Models;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -14,4 +15,19 @@ class EmployeeLeaveRequest extends Model
 
     public function employee(): BelongsTo { return $this->belongsTo(Employee::class); }
     public function leaveType(): BelongsTo { return $this->belongsTo(LeaveType::class); }
+
+    public function daysForYear(int $year): float
+    {
+        if ($this->yearly_days !== null) {
+            return (float) ($this->yearly_days[$year] ?? 0);
+        }
+
+        // Legacy requests have no yearly breakdown. Split their actual date
+        // span instead of charging the entire request to each matching year.
+        $from = $this->start_date->copy()->max(Carbon::create($year, 1, 1));
+        $to = $this->end_date->copy()->min(Carbon::create($year, 12, 31));
+
+        return $to->lt($from) ? 0.0 : ((int) $from->diffInDays($to) + 1)
+            * (float) ($this->day_fraction ?? 1);
+    }
 }
