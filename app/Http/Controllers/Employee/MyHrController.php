@@ -59,6 +59,8 @@ class MyHrController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'reason' => ['nullable', 'string', 'max:1500'],
+            'day_fraction' => ['nullable', Rule::in(['1', '0.5'])],
+            'half_day_slot' => ['nullable', Rule::in(['first_half', 'second_half'])],
         ]);
         $leaves->create($employee, LeaveType::query()->findOrFail($data['leave_type_id']), $data, $request->user()->id);
 

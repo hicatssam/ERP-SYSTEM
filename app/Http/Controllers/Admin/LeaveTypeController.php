@@ -39,6 +39,8 @@ class LeaveTypeController extends Controller
         $request->merge([
             'code' => strtoupper(trim((string) $request->input('code'))),
             'count_basis' => $request->input('count_basis', $leaveType?->count_basis ?? 'calendar'),
+            'accrual_mode' => $request->input('accrual_mode', $leaveType?->accrual_mode ?? 'annual'),
+            'carryover_limit_days' => $request->input('carryover_limit_days', $leaveType?->carryover_limit_days ?? 0),
         ]);
 
         $data = $request->validate([
@@ -52,6 +54,8 @@ class LeaveTypeController extends Controller
             'is_paid' => ['required', 'boolean'],
             'is_active' => ['required', 'boolean'],
             'count_basis' => ['required', Rule::in(['calendar', 'scheduled'])],
+            'accrual_mode' => ['required', Rule::in(['annual', 'monthly'])],
+            'carryover_limit_days' => ['required', 'numeric', 'min:0', 'max:366'],
         ]);
 
         return $data;

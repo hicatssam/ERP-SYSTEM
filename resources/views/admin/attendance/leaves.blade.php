@@ -629,9 +629,28 @@
                         @endforeach
                     </tbody>
                 </table>
-                <small>الحساب بالأيام التقويمية ضمن السنة المحددة. الطلبات قيد الانتظار تحجز من الرصيد حتى يُتخذ قرار بشأنها.</small>
+                <small>كل نوع يُحتسب وفق سياسته: تقويمي أو أيام دوام، سنوي أو شهري. الطلبات قيد الانتظار تحجز من الرصيد، والترحيل الممنوح يضاف لسنة واحدة فقط.</small>
             </div>
         </div>
+        @can('attendance.leaves.manage')
+            <div class="card" style="margin-bottom:1rem">
+                <div class="card-header"><span class="card-title">ترحيل رصيد {{ $selectedEmployee->full_name }} لعام {{ $balanceYear }}</span></div>
+                <div class="card-body">
+                    <p class="page-subheading">الترحيل يدوي ومحدود بما تبقى من استحقاق السنة السابقة وسقف النوع. لا يُرحّل الرصيد المرحّل مرة ثانية.</p>
+                    @foreach($leaveTypes->filter(fn ($type) => (float) $type->carryover_limit_days > 0 && $type->annual_days !== null) as $type)
+                        <form method="POST" action="{{ route('attendance.leaves.carryover') }}" style="display:flex;align-items:end;flex-wrap:wrap;gap:.7rem;margin:.7rem 0">
+                            @csrf
+                            <input type="hidden" name="employee_id" value="{{ $selectedEmployee->id }}">
+                            <input type="hidden" name="leave_type_id" value="{{ $type->id }}">
+                            <input type="hidden" name="year" value="{{ $balanceYear }}">
+                            <div><label class="form-label">{{ $type->name }} · السقف {{ $type->carryover_limit_days }} يوم</label><input class="form-input" name="days" type="number" min="0" max="{{ $type->carryover_limit_days }}" step="0.5" value="{{ $carryovers->get($type->id)?->days ?? 0 }}" required></div>
+                            <div><label class="form-label">ملاحظة</label><input class="form-input" name="note" maxlength="1000" value="{{ $carryovers->get($type->id)?->note }}"></div>
+                            <button class="btn btn-outline" type="submit">حفظ الترحيل</button>
+                        </form>
+                    @endforeach
+                </div>
+            </div>
+        @endcan
     @endif
 
     {{-- Stats --}}
@@ -1136,6 +1155,23 @@
                             value="{{ old('end_date') }}"
                             required
                         >
+                    </div>
+
+                    {{-- Reason --}}
+                    <div class="form-group">
+                        <label class="form-label" for="leaveFraction">المدة</label>
+                        <select class="form-input" id="leaveFraction" name="day_fraction">
+                            <option value="1">يوم كامل أو الفترة المحددة</option>
+                            <option value="0.5" @selected(old('day_fraction') == '0.5')>نصف يوم (تاريخ واحد)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="leaveHalfSlot">أي نصف؟ (لنصف اليوم فقط)</label>
+                        <select class="form-input" id="leaveHalfSlot" name="half_day_slot">
+                            <option value="">اختر عند طلب نصف يوم</option>
+                            <option value="first_half" @selected(old('half_day_slot') === 'first_half')>النصف الأول</option>
+                            <option value="second_half" @selected(old('half_day_slot') === 'second_half')>النصف الثاني</option>
+                        </select>
                     </div>
 
                     {{-- Reason --}}

@@ -134,6 +134,7 @@ class AttendanceService
             }
 
             $leave->loadMissing('leaveType');
+            $this->leaves->assertPayrollEditable($employee, $leave->start_date, $leave->end_date);
             $this->leaves->assertAvailable(
                 $employee,
                 $leave->leaveType,
@@ -145,7 +146,7 @@ class AttendanceService
             );
 
             // A leave must never silently erase an actual shift or biometric punch.
-            $workedDay = AttendanceRecord::query()
+            $workedDay = (float) $leave->day_fraction < 1 ? null : AttendanceRecord::query()
                 ->where('employee_id', $employee->id)
                 ->whereDate('work_date', '>=', $leave->start_date->toDateString())
                 ->whereDate('work_date', '<=', $leave->end_date->toDateString())
@@ -164,6 +165,7 @@ class AttendanceService
 
             $leave->update([
                 'status' => 'approved',
+                'is_paid_snapshot' => (bool) $leave->leaveType->is_paid,
                 'decision_note' => $decisionNote,
                 'approved_by' => $actor->id,
                 'approved_at' => now(),
@@ -192,7 +194,7 @@ class AttendanceService
                     ? in_array($cursor->toDateString(), $leave->countable_dates, true)
                     : (! $isHoliday && $this->isScheduledWorkDay($shift, $cursor));
 
-                if ($chargeable) {
+                if ($chargeable && (float) $leave->day_fraction >= 1) {
                     [$start, $finish] = $this->scheduledWindow($shift, $cursor);
 
                     $this->persistDailyRecord(

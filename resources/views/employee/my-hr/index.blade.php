@@ -51,6 +51,8 @@
                     <div><label class="form-label" for="myLeaveStart">من</label><input class="form-input" type="date" id="myLeaveStart" name="start_date" value="{{ old('start_date') }}" required></div>
                     <div><label class="form-label" for="myLeaveEnd">إلى</label><input class="form-input" type="date" id="myLeaveEnd" name="end_date" value="{{ old('end_date') }}" required></div>
                 </div>
+                <div><label class="form-label" for="myLeaveFraction">المدة</label><select class="form-input" id="myLeaveFraction" name="day_fraction"><option value="1">يوم كامل أو الفترة المحددة</option><option value="0.5" @selected(old('day_fraction') == '0.5')>نصف يوم (تاريخ واحد)</option></select></div>
+                <div><label class="form-label" for="myLeaveSlot">أي نصف؟ (لنصف اليوم فقط)</label><select class="form-input" id="myLeaveSlot" name="half_day_slot"><option value="">اختر عند طلب نصف يوم</option><option value="first_half" @selected(old('half_day_slot') === 'first_half')>النصف الأول</option><option value="second_half" @selected(old('half_day_slot') === 'second_half')>النصف الثاني</option></select></div>
                 <div><label class="form-label" for="myLeaveReason">السبب</label><textarea class="form-input" id="myLeaveReason" name="reason" rows="2" maxlength="1500">{{ old('reason') }}</textarea></div>
                 <button class="btn btn-gold" type="submit" @disabled($leaveTypes->isEmpty())>إرسال الطلب</button>
             </form>

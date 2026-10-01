@@ -40,6 +40,20 @@ class AttendancePayrollService
                 ->get()
                 ->groupBy('employee_id');
 
+            // Half-day leave coexists with an actual worked shift. It has no
+            // synthetic full-day attendance row; payroll counts its fraction
+            // once and excludes covered late/early time from automatic fines.
+            $partialLeaves = EmployeeLeaveRequest::query()->with('leaveType')
+                ->where('status', 'approved')->where('day_fraction', '<', 1)
+                ->whereDate('start_date', '<=', $period->end_date->toDateString())
+                ->whereDate('end_date', '>=', $period->start_date->toDateString())
+                ->get()->groupBy('employee_id');
+            foreach ($partialLeaves->keys() as $employeeId) {
+                if (! $records->has($employeeId)) {
+                    $records->put($employeeId, collect());
+                }
+            }
+
             // Older approved leave records predate the payment snapshot on
             // attendance_records. Resolve those against exactly one request.
             $legacyLeaveRequests = EmployeeLeaveRequest::query()
@@ -55,6 +69,12 @@ class AttendancePayrollService
             $employees = 0;
 
             foreach ($records as $employeeId => $employeeRecords) {
+                $employeePartial = $partialLeaves->get($employeeId, collect());
+                $partialDates = $employeePartial
+                    ->map(fn (EmployeeLeaveRequest $leave) => $leave->start_date->toDateString())->all();
+                $uncoveredRecords = $employeeRecords
+                    ->reject(fn (AttendanceRecord $record) =>
+                        in_array($record->work_date->toDateString(), $partialDates, true));
                 $profile = EmployeeCompensationProfile::query()
                     ->where('employee_id', $employeeId)
                     ->where('is_active', true)
@@ -75,8 +95,8 @@ class AttendancePayrollService
                 $hourlyRate = $this->hourlyRate($profile);
                 $dailyRate = $this->dailyRate($profile);
 
-                $lateMinutes = (int) $employeeRecords->sum('late_minutes');
-                $earlyMinutes = (int) $employeeRecords->sum('early_leave_minutes');
+                $lateMinutes = (int) $uncoveredRecords->sum('late_minutes');
+                $earlyMinutes = (int) $uncoveredRecords->sum('early_leave_minutes');
                 $overtimeMinutes = (int) $employeeRecords->sum('overtime_minutes');
                 $absenceDays = $employeeRecords->where('status', 'absent')->count();
                 $unpaidLeaveDays = $employeeRecords
@@ -86,7 +106,13 @@ class AttendancePayrollService
                         $record,
                         $legacyLeaveRequests->get($employeeId, collect())
                     ))
-                    ->count();
+                    ->count() + $employeePartial
+                    ->filter(fn (EmployeeLeaveRequest $leave) =>
+                        ($leave->is_paid_snapshot ?? $leave->leaveType?->is_paid) === false
+                        && ! $employeeRecords->contains(fn (AttendanceRecord $record) =>
+                            $record->work_date->toDateString() === $leave->start_date->toDateString()
+                            && $record->status === 'absent'))
+                    ->sum(fn (EmployeeLeaveRequest $leave) => (float) $leave->day_fraction);
 
                 $deductionAmount = 0.0;
 

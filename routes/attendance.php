@@ -175,6 +175,10 @@ Route::middleware([
                 ->middleware('can:attendance.leaves.manage')
                 ->name('leaves.store');
 
+            Route::post('/leaves/carryover', [LeaveController::class, 'carryover'])
+                ->middleware('can:attendance.leaves.manage')
+                ->name('leaves.carryover');
+
             Route::post('/leaves/{leave}/approve', [LeaveController::class, 'approve'])
                 ->middleware('can:attendance.leaves.approve')
                 ->name('leaves.approve');

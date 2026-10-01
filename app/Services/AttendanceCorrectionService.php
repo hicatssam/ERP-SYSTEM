@@ -120,6 +120,7 @@ class AttendanceCorrectionService
         $approvedLeave = EmployeeLeaveRequest::query()
             ->where('employee_id', $employee->id)
             ->where('status', 'approved')
+            ->where('day_fraction', '>=', 1)
             ->whereDate('start_date', '<=', $date)
             ->whereDate('end_date', '>=', $date)->exists();
 

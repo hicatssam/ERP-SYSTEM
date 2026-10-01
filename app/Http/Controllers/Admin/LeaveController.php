@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeLeaveRequest;
+use App\Models\EmployeeLeaveCarryover;
 use App\Models\LeaveType;
 use App\Services\AttendanceService;
 use App\Services\EmployeeLeaveService;
@@ -71,7 +72,34 @@ class LeaveController extends Controller
             'balances' => $selectedEmployee
                 ? $this->leaves->balances($selectedEmployee, $leaveTypes, $year)
                 : [],
+            'carryovers' => $selectedEmployee
+                ? EmployeeLeaveCarryover::query()->where('employee_id', $selectedEmployee->id)
+                    ->where('year', $year)->get()->keyBy('leave_type_id')
+                : collect(),
         ]);
+    }
+
+    public function carryover(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'employee_id' => ['required', Rule::exists('employees', 'id')],
+            'leave_type_id' => ['required', Rule::exists('leave_types', 'id')],
+            'year' => ['required', 'integer', 'between:2001,2100'],
+            'days' => ['required', 'numeric', 'min:0', 'max:366'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
+        $employee = $this->accessibleEmployees($request->user())->find($data['employee_id']);
+        abort_unless($employee, 403, 'لا يمكنك إدارة رصيد موظف في فرع آخر.');
+
+        $this->leaves->grantCarryover(
+            $employee, LeaveType::query()->findOrFail($data['leave_type_id']),
+            (int) $data['year'], (float) $data['days'],
+            $request->user()->id, $data['note'] ?? null
+        );
+
+        return redirect()->route('attendance.leaves.index', [
+            'employee_id' => $employee->id, 'year' => $data['year'],
+        ])->with('success', 'تم حفظ الرصيد المرحّل للموظف.');
     }
 
     public function store(Request $request): RedirectResponse
@@ -82,6 +110,8 @@ class LeaveController extends Controller
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'reason' => ['nullable', 'string', 'max:1500'],
+            'day_fraction' => ['nullable', Rule::in(['1', '0.5'])],
+            'half_day_slot' => ['nullable', Rule::in(['first_half', 'second_half'])],
         ]);
 
         $employee = $this->accessibleEmployees($request->user())
