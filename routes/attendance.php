@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\HrDashboardController;
 use App\Http\Controllers\Admin\HrOrganizationController;
 use App\Http\Controllers\Admin\AttendanceCorrectionController;
 use App\Http\Controllers\Employee\MyHrController;
+use App\Http\Controllers\Employee\EmployeeFaceAttendanceController;
 use App\Http\Controllers\Admin\AttendancePayrollController;
 use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\LeaveTypeController;
@@ -52,6 +53,12 @@ Route::middleware([
             ->middleware(EnsureAttendanceEnabled::class)->name('leaves.store');
         Route::post('/corrections', [MyHrController::class, 'correction'])
             ->middleware(EnsureAttendanceEnabled::class)->name('corrections.store');
+        Route::post('/face/challenge', [EmployeeFaceAttendanceController::class, 'challenge'])
+            ->middleware([EnsureBiometricAttendanceEnabled::class, 'throttle:10,1'])
+            ->name('face.challenge');
+        Route::post('/face/punch', [EmployeeFaceAttendanceController::class, 'punch'])
+            ->middleware([EnsureBiometricAttendanceEnabled::class, 'throttle:5,1'])
+            ->name('face.punch');
     });
 
     Route::get('/hr', [HrDashboardController::class, 'index'])

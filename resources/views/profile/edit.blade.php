@@ -7,8 +7,7 @@
 @php
     $currentUser = $user ?? auth()->user();
 
-    $profileImage = $currentUser->employee?->profile_image
-        ?? $currentUser->profile_image;
+    $profileImage = \App\Support\ProfileImage::urlFor($currentUser);
 
     $displayName = $currentUser->employee?->full_name
         ?? $currentUser->username;
@@ -73,7 +72,7 @@
                     @if($profileImage)
                         <img
                             id="profileImagePreview"
-                            src="{{ asset('storage/' . $profileImage) }}"
+                            src="{{ $profileImage }}"
                             alt="{{ $displayName }}"
                             width="88"
                             height="88"

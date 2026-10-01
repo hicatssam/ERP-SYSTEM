@@ -23,6 +23,12 @@ class AttendanceFeatureService
             );
     }
 
+    public function employeeFacePunchEnabled(): bool
+    {
+        return $this->biometricEnabled()
+            && (bool) SystemSetting::get('attendance_employee_face_punch_enabled', false);
+    }
+
     public function deviceApprovalRequired(): bool
     {
         return (bool) SystemSetting::get(
@@ -93,6 +99,7 @@ class AttendanceFeatureService
         return [
             'attendance_enabled' => $this->attendanceEnabled(),
             'attendance_biometric_enabled' => $this->biometricEnabled(),
+            'attendance_employee_face_punch_enabled' => $this->employeeFacePunchEnabled(),
             'attendance_device_require_approval' => $this->deviceApprovalRequired(),
             'payroll_late_deduction_enabled' => $this->lateDeductionEnabled(),
             'payroll_absence_deduction_enabled' => $this->absenceDeductionEnabled(),

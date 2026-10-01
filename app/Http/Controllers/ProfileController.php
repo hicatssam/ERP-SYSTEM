@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ProfileImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,17 @@ class ProfileController extends Controller
         ]);
 
         return view('profile.edit', compact('user'));
+    }
+
+    public function image(Request $request)
+    {
+        $path = ProfileImage::pathFor($request->user());
+        abort_unless($path, 404);
+
+        return Storage::disk('public')->response($path, null, [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function update(Request $request)

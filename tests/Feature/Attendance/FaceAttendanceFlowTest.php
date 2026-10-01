@@ -6,6 +6,7 @@ use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\EmployeeFaceProfile;
 use App\Models\Location;
+use App\Models\PayrollPeriod;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\FaceAttendanceService;
@@ -793,6 +794,139 @@ class FaceAttendanceFlowTest extends TestCase
                 'provider',
                 'compreface'
             );
+    }
+
+    #[Test]
+    public function worker_can_punch_own_face_into_attendance_from_portal(): void
+    {
+        SystemSetting::set('attendance_employee_face_punch_enabled', 1);
+        $branch = $this->makeLocation('PORTAL');
+        $employee = $this->makeEmployee($branch, 'Self Service Worker');
+        $user = User::factory()->create(['employee_id' => $employee->id]);
+        $this->makeActiveProfile($employee, 'portal-face');
+
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' => Http::sequence()
+                ->push($this->recognition('portal-face', .95, 2), 200)
+                ->push($this->recognition('portal-face', .94, 26), 200)
+                ->push($this->recognition('portal-face', .96, 1), 200)
+                ->push($this->recognition('portal-face', .92, -25), 200),
+        ]);
+
+        $this->actingAs($user)->get(route('my-hr.index'))
+            ->assertOk()->assertSee('تسجيل الحضور بالوجه');
+
+        $firstToken = $this->actingAs($user)->postJson(route('my-hr.face.challenge'))
+            ->assertOk()->json('token');
+        $payload = [
+            'front_image' => $this->image('front'),
+            'turned_image' => $this->image('turned'),
+            'challenge_token' => $firstToken,
+        ];
+        $this->actingAs($user)->postJson(route('my-hr.face.punch'), $payload)
+            ->assertOk()->assertJsonPath('action', 'check_in');
+        $record = AttendanceRecord::query()->sole();
+        $this->assertSame($employee->id, $record->employee_id);
+        $this->assertNotNull($record->check_in_at);
+        $this->assertSame('employee_portal', data_get($record->verification_metadata, 'face_scans.check_in.channel'));
+
+        $this->actingAs($user)->postJson(route('my-hr.face.punch'), $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('challenge_token');
+
+        $secondToken = $this->actingAs($user)->postJson(route('my-hr.face.challenge'))
+            ->assertOk()->json('token');
+        $this->actingAs($user)->postJson(route('my-hr.face.punch'), [
+            ...$payload, 'challenge_token' => $secondToken,
+        ])->assertOk()->assertJsonPath('action', 'check_out');
+
+        $this->assertDatabaseCount('attendance_records', 1);
+        $record->refresh();
+        $this->assertNotNull($record->check_out_at);
+        $this->assertSame('employee_portal', data_get($record->verification_metadata, 'face_scans.check_out.channel'));
+    }
+
+    #[Test]
+    public function portal_refuses_another_employees_face_and_disabled_feature(): void
+    {
+        $branch = $this->makeLocation('MATCH');
+        $employee = $this->makeEmployee($branch, 'Portal Owner');
+        $other = $this->makeEmployee($branch, 'Other Worker');
+        $user = User::factory()->create(['employee_id' => $employee->id]);
+        $this->makeActiveProfile($employee, 'owner-face');
+        $this->makeActiveProfile($other, 'other-face');
+
+        $this->actingAs($user)->postJson(route('my-hr.face.challenge'))->assertForbidden();
+        SystemSetting::set('attendance_employee_face_punch_enabled', 1);
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' => Http::sequence()
+                ->push($this->recognition('other-face', .95, 0), 200)
+                ->push($this->recognition('other-face', .95, 25), 200),
+        ]);
+        $token = $this->actingAs($user)->postJson(route('my-hr.face.challenge'))
+            ->assertOk()->json('token');
+        $this->actingAs($user)->postJson(route('my-hr.face.punch'), [
+            'front_image' => $this->image('front'),
+            'turned_image' => $this->image('turned'),
+            'challenge_token' => $token,
+            'employee_id' => $other->id,
+            'location_id' => $branch->id,
+        ])->assertUnprocessable()->assertJsonValidationErrors('face');
+        $this->assertDatabaseCount('attendance_records', 0);
+    }
+
+    #[Test]
+    public function portal_cannot_change_an_approved_payroll_period(): void
+    {
+        SystemSetting::set('attendance_employee_face_punch_enabled', 1);
+        $branch = $this->makeLocation('LOCK');
+        $employee = $this->makeEmployee($branch, 'Pay Locked Worker');
+        $user = User::factory()->create(['employee_id' => $employee->id]);
+        $this->makeActiveProfile($employee, 'pay-face');
+        PayrollPeriod::query()->create([
+            'code' => 'FACE-LOCK', 'name' => 'Locked Face Period',
+            'start_date' => now()->startOfMonth()->toDateString(),
+            'end_date' => now()->endOfMonth()->toDateString(),
+            'status' => 'approved', 'location_id' => $branch->id,
+        ]);
+        Http::fake([
+            'http://compreface.test/api/v1/recognition/recognize*' => Http::sequence()
+                ->push($this->recognition('pay-face', .95, 1), 200)
+                ->push($this->recognition('pay-face', .94, 25), 200),
+        ]);
+        $token = $this->actingAs($user)->postJson(route('my-hr.face.challenge'))
+            ->assertOk()->json('token');
+        $this->actingAs($user)->postJson(route('my-hr.face.punch'), [
+            'front_image' => $this->image('front'),
+            'turned_image' => $this->image('turned'),
+            'challenge_token' => $token,
+        ])->assertUnprocessable()->assertJsonValidationErrors('start_date');
+        $this->assertDatabaseCount('attendance_records', 0);
+    }
+
+    #[Test]
+    public function portal_face_switch_is_saved_by_settings_manager_and_stops_with_biometrics(): void
+    {
+        $branch = $this->makeLocation('SETTINGS');
+        $manager = $this->makeManager($branch, ['settings.manage']);
+        $values = [
+            'attendance_enabled' => 1,
+            'attendance_biometric_enabled' => 1,
+            'attendance_employee_face_punch_enabled' => 1,
+            'payroll_standard_work_days_per_month' => 26,
+            'payroll_standard_hours_per_day' => 8,
+            'payroll_overtime_multiplier' => 1.5,
+        ];
+
+        $this->actingAs($manager)->put(route('settings.attendance-payroll.update'), $values)
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertTrue(app(\App\Services\AttendanceFeatureService::class)->employeeFacePunchEnabled());
+
+        unset($values['attendance_biometric_enabled']);
+        $this->actingAs($manager)->put(route('settings.attendance-payroll.update'), $values)
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertFalse(app(\App\Services\AttendanceFeatureService::class)->employeeFacePunchEnabled());
+        $this->assertSame('0', SystemSetting::query()
+            ->where('key', 'attendance_employee_face_punch_enabled')->value('value'));
     }
 
     private function recognition(

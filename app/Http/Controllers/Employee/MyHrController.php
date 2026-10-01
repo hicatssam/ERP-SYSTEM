@@ -12,8 +12,10 @@ use App\Models\LeaveType;
 use App\Models\PayrollItem;
 use App\Models\User;
 use App\Services\AttendanceCorrectionService;
+use App\Services\AttendanceFeatureService;
 use App\Services\AttendanceService;
 use App\Services\EmployeeLeaveService;
+use App\Services\FaceAttendanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -25,7 +27,9 @@ class MyHrController extends Controller
     public function index(
         Request $request,
         AttendanceService $attendance,
-        EmployeeLeaveService $leaves
+        EmployeeLeaveService $leaves,
+        AttendanceFeatureService $features,
+        FaceAttendanceService $face
     ): View {
         $employee = $this->employee($request->user());
         $types = LeaveType::query()->where('is_active', true)->orderBy('name')->get();
@@ -33,6 +37,12 @@ class MyHrController extends Controller
         return view('employee.my-hr.index', [
             'employee' => $employee,
             'shift' => $attendance->shiftFor($employee, now()->toDateString()),
+            'todayRecord' => AttendanceRecord::query()->where('employee_id', $employee->id)
+                ->whereDate('work_date', now()->toDateString())->first(),
+            'facePunchEnabled' => $features->employeeFacePunchEnabled(),
+            'faceConfigured' => $face->configured(),
+            'faceProfileActive' => $employee->faceProfile?->isActive() === true
+                && $employee->faceProfile->provider === $face->provider(),
             'records' => AttendanceRecord::query()->where('employee_id', $employee->id)
                 ->latest('work_date')->limit(20)->get(),
             'leaveTypes' => $types,

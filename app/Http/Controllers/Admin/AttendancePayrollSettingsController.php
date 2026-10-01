@@ -73,6 +73,8 @@ class AttendancePayrollSettingsController extends Controller
                 $request->boolean('attendance_enabled'),
             'attendance_biometric_enabled' =>
                 $request->boolean('attendance_biometric_enabled'),
+            'attendance_employee_face_punch_enabled' =>
+                $request->boolean('attendance_employee_face_punch_enabled'),
             'attendance_device_require_approval' =>
                 $request->boolean('attendance_device_require_approval'),
             'payroll_late_deduction_enabled' =>
@@ -95,6 +97,9 @@ class AttendancePayrollSettingsController extends Controller
          */
         if (! $values['attendance_enabled']) {
             $values['attendance_biometric_enabled'] = false;
+        }
+        if (! $values['attendance_biometric_enabled']) {
+            $values['attendance_employee_face_punch_enabled'] = false;
         }
 
         DB::transaction(function () use ($values): void {

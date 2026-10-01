@@ -99,6 +99,7 @@ Route::middleware(['auth', 'location.scope'])->group(function () {
 
         // Profile
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.show');
+        Route::get('/profile/image', [ProfileController::class, 'image'])->name('profile.image');
         Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::post('/profile/password', [ChangePasswordController::class, 'updateFromProfile'])->name('password.change');
 

@@ -946,7 +946,7 @@ a.app-page-btn:hover {
 
         $headerUser = auth()->user();
 
-        $headerProfileImage = $headerUser->employee?->profile_image ?? $headerUser->profile_image;
+        $headerProfileImage = \App\Support\ProfileImage::urlFor($headerUser);
 
         $headerDisplayName = $headerUser->display_name;
 
@@ -2343,7 +2343,7 @@ a.app-page-btn:hover {
 
                     @if ($headerProfileImage)
 
-                        <img src="{{ asset('storage/' . $headerProfileImage) }}" alt="{{ $headerDisplayName }}">
+                        <img src="{{ $headerProfileImage }}" alt="{{ $headerDisplayName }}">
 
                     @else
 
@@ -2497,7 +2497,7 @@ a.app-page-btn:hover {
 
                             @if ($headerProfileImage)
 
-                                <img src="{{ asset('storage/' . $headerProfileImage) }}" alt="{{ $headerDisplayName }}">
+                                <img src="{{ $headerProfileImage }}" alt="{{ $headerDisplayName }}">
 
                             @else
 

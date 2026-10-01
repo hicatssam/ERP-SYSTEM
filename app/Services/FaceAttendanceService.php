@@ -15,7 +15,8 @@ class FaceAttendanceService
 {
     public function __construct(
         private readonly AttendanceService $attendance,
-        private readonly CompreFaceClient $compreface
+        private readonly CompreFaceClient $compreface,
+        private readonly EmployeeLeaveService $leaves
     ) {
     }
 
@@ -343,7 +344,8 @@ class FaceAttendanceService
         Location $location,
         string $frontImage,
         string $turnedImage,
-        array $context = []
+        array $context = [],
+        ?Employee $expectedEmployee = null
     ): array {
         $this->assertConfigured();
 
@@ -431,6 +433,12 @@ class FaceAttendanceService
             ]);
         }
 
+        if ($expectedEmployee && (int) $employee->id !== (int) $expectedEmployee->id) {
+            throw ValidationException::withMessages([
+                'face' => 'الوجه الذي تم التعرف عليه لا يطابق حساب الموظف الحالي.',
+            ]);
+        }
+
         $belongsToLocation =
             $employee
                 ->employeeLocations()
@@ -438,7 +446,10 @@ class FaceAttendanceService
                     'location_id',
                     $location->id
                 )
-                ->whereNull('ended_at')
+                ->where(fn ($query) => $query->whereNull('started_at')
+                    ->orWhereDate('started_at', '<=', now()->toDateString()))
+                ->where(fn ($query) => $query->whereNull('ended_at')
+                    ->orWhereDate('ended_at', '>=', now()->toDateString()))
                 ->exists();
 
         if (! $belongsToLocation) {
@@ -460,6 +471,12 @@ class FaceAttendanceService
             ): array {
                 $workDate =
                     now()->toDateString();
+
+                $this->leaves->assertPayrollEditable(
+                    $employee,
+                    now()->startOfDay(),
+                    now()->startOfDay()
+                );
 
                 $record =
                     AttendanceRecord::query()
@@ -573,6 +590,7 @@ class FaceAttendanceService
                                 300
                             )
                             : null,
+                    'channel' => $context['channel'] ?? 'kiosk',
                 ];
 
                 $metadata['face_scans'] =

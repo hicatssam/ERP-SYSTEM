@@ -143,6 +143,18 @@
                             <span class="att-slider"></span>
                         </label>
                     </div>
+
+                    <div class="att-toggle-row">
+                        <div class="att-toggle-copy">
+                            <strong>تسجيل الوجه من بوابة الموظف</strong>
+                            <small>يفتح الكاميرا لحساب الموظف المرتبط بوجه مسجل فقط، ويسجل الحضور أو الانصراف في سجله. فعّله بعد تجهيز CompreFace وتحديد سياسة الحضور خارج الفرع؛ ربطه بالفرع لا يثبت وجود الموظف داخله.</small>
+                        </div>
+                        <label class="att-switch">
+                            <input type="checkbox" name="attendance_employee_face_punch_enabled" id="employeeFacePunchEnabled" value="1"
+                                @checked(old('attendance_employee_face_punch_enabled', $settings['attendance_employee_face_punch_enabled']))>
+                            <span class="att-slider"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
