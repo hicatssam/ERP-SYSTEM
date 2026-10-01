@@ -9,6 +9,14 @@
         <div><h1 class="page-heading">متابعة الموارد البشرية</h1><p class="page-subheading">أرقام ومهام الموظفين ضمن نطاق الفروع المسموح لك بعرضها.</p></div>
         @can('employees.manage')<a class="btn btn-outline" href="{{ route('employees.index') }}">الموظفون</a>@endcan
     </div>
+    @if($errors->any())
+        <div class="alert alert-danger" role="alert">@foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
+    @endif
+    <form class="card card-body" method="GET" action="{{ route('hr.report.csv') }}" style="display:flex;gap:.8rem;align-items:end;flex-wrap:wrap">
+        <div><label class="form-label" for="hrReportFrom">تقرير الحضور من</label><input class="form-input" id="hrReportFrom" type="date" name="from" value="{{ now()->subDays(29)->toDateString() }}" required></div>
+        <div><label class="form-label" for="hrReportTo">إلى</label><input class="form-input" id="hrReportTo" type="date" name="to" value="{{ now()->toDateString() }}" required></div>
+        <button class="btn btn-outline" type="submit">تنزيل تقرير CSV</button>
+    </form>
     <div class="hr-summary">
         <div class="card card-body"><small>الموظفون</small><strong>{{ $employeeCount }}</strong></div>
         <div class="card card-body"><small>إجازات معلقة</small><strong>{{ $leaveCount }}</strong></div>

@@ -55,6 +55,8 @@ Route::middleware([
 
     Route::get('/hr', [HrDashboardController::class, 'index'])
         ->middleware('can:hr.dashboard.view')->name('hr.dashboard');
+    Route::get('/hr/attendance-report.csv', [HrDashboardController::class, 'csv'])
+        ->middleware('can:hr.dashboard.view')->name('hr.report.csv');
 
     Route::prefix('hr/employees/{employee}')->name('hr.employees.')->group(function (): void {
         Route::get('/file', [EmployeeHrFileController::class, 'show'])

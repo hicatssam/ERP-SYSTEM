@@ -249,6 +249,30 @@ class HrExpansionTest extends TestCase
         $this->assertEquals(0.5, $paidDeduction->metadata['absence_days']);
     }
 
+    #[Test]
+    public function hr_attendance_export_contains_only_authorized_branch(): void
+    {
+        $a = $this->branch('A');
+        $b = $this->branch('B');
+        $own = $this->employee($a, 'Exported Worker');
+        $private = $this->employee($b, 'Private Export Worker');
+        $manager = $this->user($a, ['hr.dashboard.view']);
+        foreach ([$own, $private] as $employee) {
+            AttendanceRecord::query()->create([
+                'employee_id' => $employee->id, 'work_date' => '2026-09-30',
+                'status' => 'absent', 'source' => 'manual',
+            ]);
+        }
+
+        $this->actingAs($manager)->get(route('hr.dashboard'))
+            ->assertOk()->assertSee('1')->assertDontSee('Private Export Worker');
+        $csv = $this->actingAs($manager)->get(route('hr.report.csv', [
+            'from' => '2026-09-01', 'to' => '2026-09-30',
+        ]))->assertOk()->streamedContent();
+        $this->assertStringContainsString('Exported Worker', $csv);
+        $this->assertStringNotContainsString('Private Export Worker', $csv);
+    }
+
     private function branch(string $suffix): Location
     {
         return Location::query()->create([
