@@ -78,10 +78,9 @@ class RestaurantMenuController extends Controller
                         ->where('is_available', true)
                 );
             } elseif ($status === 'unavailable') {
-                $query->whereHas('product.locationProducts', fn (Builder $locationProducts) =>
-                    $locationProducts
-                        ->where('location_id', $location->id)
-                        ->where('is_available', false)
+                $query->whereDoesntHave('product.locationProducts', fn (Builder $locationProducts) =>
+                    $locationProducts->where('location_id', $location->id)
+                        ->where('is_available', true)
                 );
             }
         }

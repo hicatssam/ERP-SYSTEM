@@ -9,8 +9,9 @@
 
     $resolveProductImage = static fn (?string $image): ?string => \App\Support\PublicImageUrl::url($image);
 
-    $productPayload = $products->map(function ($product) use ($resolveProductImage, $location) {
+    $productPayload = $products->map(function ($product) use ($resolveProductImage) {
         $menuItem = $product->restaurantMenuItems->first();
+        $price = (float) ($product->locationProducts->first()?->local_selling_price ?? $product->base_selling_price);
 
         return [
             // Keep product id because RestaurantOrderService / inventory / invoice workflows use product_id.
@@ -20,15 +21,17 @@
                 ?: $product->name_ar
                 ?: $product->name,
             'category' => $product->category?->name_ar ?: $product->category?->name ?: 'بدون فئة',
-            'price'    => (float) $product->getEffectivePriceForLocation($location->id),
+            'price'    => $price,
             'image'    => $resolveProductImage($menuItem?->image ?: $product->image),
             'sku'      => $product->sku,
-            'brand'    => $product->getAttribute('brand_name') ?: null,
+            'barcode'  => $product->barcode,
+            'description' => $menuItem?->effectiveDescription(),
+            'brand'    => $product->brand?->displayName(),
             'requires_variant' => $product->isVariantProduct() && $product->activeVariants->isNotEmpty(),
             'variants' => $product->activeVariants->map(fn ($variant) => [
                 'id' => (int) $variant->id,
                 'name' => $variant->displayName(),
-                'price' => (float) ($variant->selling_price ?? $product->getEffectivePriceForLocation($location->id)),
+                'price' => (float) ($variant->selling_price ?? $price),
                 'is_default' => (bool) $variant->is_default,
             ])->values(),
             'modifier_groups' => $product->modifierGroupLinks
@@ -184,7 +187,8 @@
                         <input
                             type="search"
                             id="rbProductSearch"
-                            placeholder="ابحث في المنتجات"
+                            placeholder="ابحث بالاسم أو الرمز أو الباركود — F2"
+                            aria-label="البحث في منتجات المنيو"
                             autocomplete="off"
                         >
                     </label>
@@ -200,10 +204,12 @@
 
                 <div class="rb-category-tabs" id="rbCategoryTabs"></div>
 
-                <div class="rb-product-grid" id="rbProductGrid"></div>
+                <div class="rb-product-grid" id="rbProductGrid" aria-live="polite"></div>
+
+                <button type="button" class="rb-load-more" id="rbLoadMore" hidden>عرض المزيد من المنتجات</button>
 
                 <div class="rb-products-footer">
-                    <span><b id="rbVisibleProductCount">0</b> منتج ظاهر</span>
+                    <span><b id="rbVisibleProductCount">0</b> من <b id="rbMatchingProductCount">0</b> منتج مطابق</span>
                     <span>{{ $location->name }}</span>
                 </div>
             </section>
@@ -579,6 +585,28 @@
             </div>
         </div>
     </form>
+
+    <div class="rb-modal" id="rbProductOptionsModal" hidden aria-hidden="true">
+        <div class="rb-modal-backdrop" data-close-product-options></div>
+        <div class="rb-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="rbProductOptionsTitle">
+            <div class="rb-modal-head">
+                <div>
+                    <h2 id="rbProductOptionsTitle">خيارات المنتج</h2>
+                    <p>اختر الحجم والإضافات قبل إضافة المنتج للطلب.</p>
+                </div>
+                <button type="button" class="rb-modal-close" data-close-product-options aria-label="إغلاق">×</button>
+            </div>
+            <div class="rb-modal-body" id="rbProductOptionsBody"></div>
+            <div class="rb-modal-foot">
+                <div class="rb-modal-total">
+                    <span>سعر القطعة</span>
+                    <strong id="rbProductOptionsPrice">₪0.00</strong>
+                </div>
+                <button type="button" class="rb-btn rb-btn-light" data-close-product-options>إلغاء</button>
+                <button type="button" class="rb-btn rb-btn-primary" id="rbAddConfiguredProduct">إضافة للطلب</button>
+            </div>
+        </div>
+    </div>
     </main>
 </div>
 
@@ -1063,7 +1091,7 @@ body.rb-pos-mode {
     outline: 0;
     background: transparent;
     color: var(--rb-text);
-    font-size: 10px;
+    font-size: 12px;
     direction: rtl;
 }
 
@@ -1081,7 +1109,7 @@ body.rb-pos-mode {
     border: 1px solid var(--rb-border);
     border-radius: 6px;
     outline: none;
-    font-size: 10px;
+    font-size: 11px;
     font-weight: 650;
     direction: rtl;
     transition: .15s ease;
@@ -1109,7 +1137,7 @@ body.rb-pos-mode {
     background: transparent;
     border: 0;
     border-radius: 4px;
-    font-size: 9px;
+    font-size: 11px;
     font-weight: 750;
     cursor: pointer;
     direction: rtl;
@@ -1134,7 +1162,7 @@ body.rb-pos-mode {
 .rb-product-card {
     position: relative;
     min-width: 0;
-    min-height: 150px;
+    min-height: 204px;
     overflow: hidden;
     padding: 0;
     color: var(--rb-text);
@@ -1142,7 +1170,7 @@ body.rb-pos-mode {
     border: 1px solid var(--rb-border);
     border-radius: 6px;
     box-shadow: 0 1px 4px color-mix(in srgb, var(--rb-text) 4%, transparent);
-    text-align: left;
+    text-align: right;
     cursor: pointer;
     transition: .14s ease;
 }
@@ -1153,8 +1181,14 @@ body.rb-pos-mode {
     box-shadow: 0 7px 16px color-mix(in srgb, var(--rb-text) 8%, transparent);
 }
 
+.rb-product-card:focus-visible,
+.rb-load-more:focus-visible {
+    outline: 3px solid var(--rb-orange);
+    outline-offset: 2px;
+}
+
 .rb-product-image {
-    height: 104px;
+    height: 125px;
     display: grid;
     place-items: center;
     overflow: hidden;
@@ -1184,6 +1218,8 @@ body.rb-pos-mode {
     border-radius: 50%;
 }
 
+.rb-product-placeholder[hidden] { display: none; }
+
 .rb-product-placeholder svg {
     width: 27px;
     height: 27px;
@@ -1193,20 +1229,55 @@ body.rb-pos-mode {
 }
 
 .rb-product-info {
-    padding: 8px 9px 9px;
+    padding: 9px 11px 11px;
     direction: rtl;
-    text-align: left;
+    text-align: right;
+}
+
+.rb-product-meta-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+    min-width: 0;
+    color: var(--rb-muted);
+    font-size: 10px;
+}
+
+.rb-product-sku {
+    overflow: hidden;
+    max-width: 48%;
+    direction: ltr;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .rb-product-name {
     display: block;
     overflow: hidden;
     color: var(--rb-text);
-    font-size: 9.5px;
+    font-size: 12px;
     font-weight: 800;
-    line-height: 1.4;
+    line-height: 1.5;
+    min-height: 36px;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.rb-product-description {
+    display: block;
+    overflow: hidden;
+    color: var(--rb-muted);
+    font-size: 10px;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+
+.rb-product-options-label {
+    color: var(--rb-orange);
+    font-size: 10px;
+    font-weight: 800;
 }
 
 .rb-product-bottom {
@@ -1215,12 +1286,12 @@ body.rb-pos-mode {
     justify-content: space-between;
     gap: 6px;
     margin-top: 5px;
-    direction: ltr;
+    direction: rtl;
 }
 
 .rb-product-price {
     color: var(--rb-orange);
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 900;
     direction: ltr;
 }
@@ -1267,9 +1338,57 @@ body.rb-pos-mode {
     display: grid;
     place-items: center;
     color: var(--rb-muted);
-    font-size: 11px;
+    font-size: 13px;
     direction: rtl;
+    text-align: center;
+    line-height: 1.8;
 }
+
+.rb-products-empty button {
+    display: block;
+    margin: 10px auto 0;
+    padding: 7px 14px;
+    color: var(--rb-orange);
+    background: var(--rb-orange-soft);
+    border: 1px solid var(--rb-orange);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.rb-load-more {
+    display: block;
+    margin: 14px auto 0;
+    padding: 9px 18px;
+    color: var(--rb-orange);
+    background: var(--rb-orange-soft);
+    border: 1px solid var(--rb-orange);
+    border-radius: 7px;
+    font-size: 11px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.rb-load-more[hidden] { display: none; }
+
+.rb-option-group { margin-bottom: 18px; }
+.rb-option-group h3 { margin: 0 0 8px; font-size: 12px; }
+.rb-option-group p { margin: 0 0 8px; color: var(--rb-muted); font-size: 10px; }
+.rb-option-choice {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border: 1px solid var(--rb-border);
+    border-radius: 7px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    font-size: 12px;
+}
+.rb-option-choice:has(input:checked) { border-color: var(--rb-orange); background: var(--rb-orange-soft); }
+.rb-option-choice span { flex: 1; }
+.rb-option-choice small { color: var(--rb-orange); font-size: 11px; }
+.rb-option-choice select { width: 65px; height: 29px; }
+.rb-options-error { color: var(--rb-danger); font-size: 11px; font-weight: 700; margin-bottom: 10px; }
 
 .rb-products-footer {
     display: flex;
@@ -1442,6 +1561,13 @@ body.rb-pos-mode {
     font-weight: 850;
     white-space: nowrap;
     text-overflow: ellipsis;
+}
+
+.rb-cart-options {
+    display: block;
+    margin-top: 3px;
+    color: var(--rb-muted);
+    font-size: 10px;
 }
 
 .rb-cart-item-price-line {
@@ -2198,6 +2324,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const categorySelect = document.getElementById('rbCategorySelect');
     const brandSelect = document.getElementById('rbBrandSelect');
     const visibleProductCount = document.getElementById('rbVisibleProductCount');
+    const matchingProductCount = document.getElementById('rbMatchingProductCount');
+    const loadMoreButton = document.getElementById('rbLoadMore');
+    const productOptionsModal = document.getElementById('rbProductOptionsModal');
+    const productOptionsBody = document.getElementById('rbProductOptionsBody');
+    const productOptionsPrice = document.getElementById('rbProductOptionsPrice');
+    const addConfiguredProductButton = document.getElementById('rbAddConfiguredProduct');
 
     const cartItems = document.getElementById('rbCartItems');
     const cartEmpty = document.getElementById('rbCartEmpty');
@@ -2262,18 +2394,35 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeBrand = '__all__';
     let pendingAction = 'bill_payment';
     let drawerMode = 'all';
+    let shownProducts = 48;
+    let pendingProduct = null;
+    let previousFocus = null;
+
+    function normalizeSearch(value) {
+        return String(value || '').toLocaleLowerCase('ar')
+            .normalize('NFKD')
+            .replace(/[\u064b-\u065f\u0670]/g, '')
+            .replace(/[أإآٱ]/g, 'ا')
+            .replace(/ى/g, 'ي')
+            .replace(/ة/g, 'ه')
+            .replace(/ـ/g, '')
+            .trim();
+    }
+
+    products.forEach(product => {
+        product.searchIndex = normalizeSearch([
+            product.name, product.category, product.brand, product.description,
+            product.sku, product.barcode, ...product.variants.map(variant => variant.name),
+        ].join(' '));
+    });
 
     const draftKey = `restaurant_pos_draft_${locationId}`;
 
     oldItems.forEach(item => {
         const product = products.find(p => Number(p.id) === Number(item.product_id));
         if (!product) return;
-
-        cart.set(Number(product.id), {
-            ...product,
-            quantity: Math.max(1, Number(item.quantity || 1)),
-            kitchen_notes: item.kitchen_notes || '',
-        });
+        const row = makeCartItem(product, item.product_variant_id, item.modifiers, item.quantity, item.kitchen_notes);
+        if (row) cart.set(row.key, row);
     });
 
     const categories = [...new Set(products.map(p => p.category || 'بدون فئة'))];
@@ -2282,11 +2431,186 @@ document.addEventListener('DOMContentLoaded', () => {
     function escapeHtml(value) {
         const div = document.createElement('div');
         div.textContent = value ?? '';
-        return div.innerHTML;
+        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     function money(value) {
         return `₪${Number(value || 0).toFixed(2)}`;
+    }
+
+    function applicableGroups(product, variantId) {
+        const groups = new Map();
+        product.modifier_groups.forEach(group => {
+            if (group.product_variant_id && Number(group.product_variant_id) !== Number(variantId)) return;
+            if (!groups.has(group.id) || group.product_variant_id) groups.set(group.id, group);
+        });
+        return [...groups.values()];
+    }
+
+    function makeCartItem(product, variantId = null, modifierRows = [], quantity = 1, note = '') {
+        const variant = product.variants.find(option => Number(option.id) === Number(variantId)) || null;
+        if ((variantId && !variant) || (product.requires_variant && !variant)) return null;
+
+        const groups = applicableGroups(product, variant?.id);
+        const modifiers = [];
+        for (const selected of modifierRows || []) {
+            const match = groups.flatMap(group => group.modifiers.map(modifier => ({ group, modifier })))
+                .find(row => Number(row.modifier.id) === Number(selected.modifier_id));
+            if (!match || modifiers.some(row => row.modifier_id === Number(selected.modifier_id))) return null;
+            const modifierQuantity = Number(selected.quantity || 1);
+            if (!Number.isInteger(modifierQuantity) || modifierQuantity < 1
+                || modifierQuantity > Number(match.modifier.max_quantity || 1)
+                || (!match.modifier.allow_quantity && modifierQuantity !== 1)) return null;
+            modifiers.push({
+                modifier_id: Number(match.modifier.id),
+                quantity: modifierQuantity,
+                name: match.modifier.name,
+                price_delta: Number(match.modifier.price_delta),
+            });
+        }
+
+        const key = `${product.id}:${variant?.id || 0}:${modifiers
+            .map(row => `${row.modifier_id}-${row.quantity}`).sort().join(',')}`;
+        const price = Number(variant?.price ?? product.price)
+            + modifiers.reduce((sum, row) => sum + row.price_delta * row.quantity, 0);
+
+        return {
+            ...product,
+            key,
+            variant_id: variant?.id || null,
+            name: variant ? `${product.name} — ${variant.name}` : product.name,
+            modifiers,
+            price,
+            quantity: Math.max(1, Number(quantity || 1)),
+            kitchen_notes: String(note || '').slice(0, 500),
+        };
+    }
+
+    function addCartItem(row) {
+        if (!row) return;
+        if (cart.has(row.key)) {
+            cart.get(row.key).quantity += row.quantity;
+        } else {
+            cart.set(row.key, row);
+        }
+        renderCart();
+    }
+
+    function closeProductOptions() {
+        productOptionsModal.hidden = true;
+        productOptionsModal.setAttribute('aria-hidden', 'true');
+        pendingProduct = null;
+        previousFocus?.focus();
+    }
+
+    function selectedVariantId() {
+        return productOptionsBody.querySelector('[name="rb_variant"]:checked')?.value || null;
+    }
+
+    function selectedModifierRows() {
+        return [...productOptionsBody.querySelectorAll('[data-modifier-id]:checked')].map(input => ({
+            modifier_id: Number(input.dataset.modifierId),
+            quantity: Number(input.closest('.rb-option-choice').querySelector('select')?.value || 1),
+        }));
+    }
+
+    function renderProductGroups() {
+        if (!pendingProduct) return;
+        const variantId = selectedVariantId();
+        const groupContainer = productOptionsBody.querySelector('#rbProductGroups');
+        groupContainer.innerHTML = applicableGroups(pendingProduct, variantId).map(group => {
+            const minimum = Math.max(Number(group.min_selections || 0), group.is_required ? 1 : 0);
+            const maximum = group.selection_type === 'single' ? 1 : group.max_selections;
+            return `
+                <section class="rb-option-group" data-option-group="${group.id}">
+                    <h3>${escapeHtml(group.name)}</h3>
+                    <p>${minimum ? `مطلوب ${minimum} على الأقل` : 'اختياري'}${maximum ? ` · الحد الأقصى ${maximum}` : ''}</p>
+                    ${group.modifiers.map(modifier => `
+                        <label class="rb-option-choice">
+                            <input type="${group.selection_type === 'single' ? 'radio' : 'checkbox'}"
+                                name="rb_group_${group.id}" data-modifier-id="${modifier.id}"
+                                ${modifier.is_default ? 'checked' : ''}>
+                            <span>${escapeHtml(modifier.name)}</span>
+                            <small>${Number(modifier.price_delta) ? `+ ${money(modifier.price_delta)}` : 'بدون زيادة'}</small>
+                            ${modifier.allow_quantity ? `<select aria-label="كمية ${escapeHtml(modifier.name)}" ${modifier.is_default ? '' : 'disabled'}>
+                                ${Array.from({ length: Math.max(1, Math.min(10, Number(modifier.max_quantity || 1))) }, (_, i) =>
+                                    `<option value="${i + 1}">${i + 1}</option>`).join('')}
+                            </select>` : ''}
+                        </label>
+                    `).join('')}
+                </section>
+            `;
+        }).join('');
+        updateProductOptionsPrice();
+    }
+
+    function updateProductOptionsPrice() {
+        if (!pendingProduct) return;
+        const variant = pendingProduct.variants.find(option => Number(option.id) === Number(selectedVariantId()));
+        const groups = applicableGroups(pendingProduct, variant?.id);
+        const delta = selectedModifierRows().reduce((sum, row) => {
+            const modifier = groups.flatMap(group => group.modifiers)
+                .find(option => Number(option.id) === row.modifier_id);
+            return sum + Number(modifier?.price_delta || 0) * row.quantity;
+        }, 0);
+        productOptionsPrice.textContent = money(Number(variant?.price ?? pendingProduct.price) + delta);
+    }
+
+    function openProductOptions(product) {
+        pendingProduct = product;
+        previousFocus = document.activeElement;
+        document.getElementById('rbProductOptionsTitle').textContent = product.name;
+        productOptionsBody.innerHTML = `
+            <div class="rb-options-error" id="rbOptionsError" role="alert" hidden></div>
+            ${product.requires_variant ? `
+                <section class="rb-option-group">
+                    <h3>الحجم أو المتغير *</h3>
+                    ${product.variants.map(variant => `
+                        <label class="rb-option-choice">
+                            <input type="radio" name="rb_variant" value="${variant.id}" ${variant.is_default ? 'checked' : ''}>
+                            <span>${escapeHtml(variant.name)}</span>
+                            <small>${money(variant.price)}</small>
+                        </label>
+                    `).join('')}
+                </section>
+            ` : ''}
+            <div id="rbProductGroups"></div>
+        `;
+        renderProductGroups();
+        productOptionsModal.hidden = false;
+        productOptionsModal.setAttribute('aria-hidden', 'false');
+        productOptionsBody.querySelector('input')?.focus();
+    }
+
+    function confirmProductOptions() {
+        if (!pendingProduct) return;
+        const error = document.getElementById('rbOptionsError');
+        const variantId = selectedVariantId();
+        if (pendingProduct.requires_variant && !variantId) {
+            error.textContent = 'اختر الحجم أو المتغير أولًا.';
+            error.hidden = false;
+            return;
+        }
+
+        for (const group of applicableGroups(pendingProduct, variantId)) {
+            const selected = productOptionsBody.querySelectorAll(`[data-option-group="${group.id}"] [data-modifier-id]:checked`).length;
+            const minimum = Math.max(Number(group.min_selections || 0), group.is_required ? 1 : 0);
+            const maximum = group.selection_type === 'single' ? 1 : group.max_selections;
+            if (selected < minimum || (maximum !== null && selected > Number(maximum))) {
+                error.textContent = `راجع خيارات ${group.name}: اختر من ${minimum} إلى ${maximum ?? 'أي عدد'}.`;
+                error.hidden = false;
+                return;
+            }
+        }
+
+        const row = makeCartItem(pendingProduct, variantId, selectedModifierRows());
+        if (!row) {
+            error.textContent = 'تعذر إضافة هذه الخيارات. أعد اختيار المنتج.';
+            error.hidden = false;
+            return;
+        }
+        closeProductOptions();
+        addCartItem(row);
     }
 
     function statusMessage(message, type = 'info') {
@@ -2483,53 +2807,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tabCategories = categories.slice(0, 8);
         categoryTabs.innerHTML = `
-            <button type="button" class="rb-category-tab ${activeCategory === '__all__' ? 'active' : ''}" data-category="__all__">
-                عرض الكل
+            <button type="button" class="rb-category-tab ${activeCategory === '__all__' ? 'active' : ''}" data-category="__all__" aria-pressed="${activeCategory === '__all__'}">
+                عرض الكل (${products.length})
             </button>
             ${tabCategories.map(category => `
                 <button
                     type="button"
                     class="rb-category-tab ${activeCategory === category ? 'active' : ''}"
                     data-category="${escapeHtml(category)}"
+                    aria-pressed="${activeCategory === category}"
                 >
-                    ${escapeHtml(category)}
+                    ${escapeHtml(category)} (${products.filter(product => product.category === category).length})
                 </button>
             `).join('')}
         `;
+        brandSelect.hidden = brands.length === 0;
     }
 
     function renderProducts() {
-        const query = (productSearch.value || '').trim().toLowerCase();
+        const query = normalizeSearch(productSearch.value);
 
         const filtered = products.filter(product => {
             const categoryOk = activeCategory === '__all__' || product.category === activeCategory;
             const brandOk = activeBrand === '__all__' || product.brand === activeBrand;
-            const searchText = `${product.name} ${product.category} ${product.sku || ''}`.toLowerCase();
-            const searchOk = !query || searchText.includes(query);
+            const searchOk = !query || product.searchIndex.includes(query);
             return categoryOk && brandOk && searchOk;
         });
 
-        visibleProductCount.textContent = filtered.length;
+        const visible = filtered.slice(0, shownProducts);
+        visibleProductCount.textContent = visible.length;
+        matchingProductCount.textContent = filtered.length;
+        loadMoreButton.hidden = filtered.length <= visible.length;
 
         if (!filtered.length) {
             productGrid.innerHTML = `
                 <div class="rb-products-empty">
-                    لا توجد منتجات مطابقة للبحث أو الفلتر الحالي.
+                    ${products.length
+                        ? 'لا توجد منتجات مطابقة. جرّب اسمًا أو رمزًا آخر.<button type="button" data-reset-products>مسح البحث والفلاتر</button>'
+                        : 'لا توجد منتجات متاحة للبيع في منيو هذا الفرع.'}
                 </div>
             `;
             return;
         }
 
-        productGrid.innerHTML = filtered.map(product => {
-            const item = cart.get(Number(product.id));
-            const qty = item ? Number(item.quantity) : 0;
+        productGrid.innerHTML = visible.map(product => {
+            const qty = [...cart.values()]
+                .filter(item => Number(item.id) === Number(product.id))
+                .reduce((total, item) => total + Number(item.quantity), 0);
+            const hasOptions = product.requires_variant || product.modifier_groups.length > 0;
 
             return `
                 <button
                     type="button"
                     class="rb-product-card"
                     data-product-id="${product.id}"
-                    title="إضافة ${escapeHtml(product.name)}"
+                    aria-label="${hasOptions ? 'اختيار خيارات' : 'إضافة'} ${escapeHtml(product.name)} — ${money(product.price)}"
                 >
                     <div class="rb-product-image">
                         ${productImage(product)}
@@ -2546,14 +2878,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
 
                         <span class="rb-product-name">${escapeHtml(product.name)}</span>
+                        ${product.description
+                            ? `<span class="rb-product-description" title="${escapeHtml(product.description)}">${escapeHtml(product.description)}</span>`
+                            : ''}
 
                         <div class="rb-product-bottom">
                             <span class="rb-product-price">${money(product.price)}</span>
-                            <span class="rb-product-plus">
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M12 5v14M5 12h14"></path>
-                                </svg>
-                            </span>
+                            ${hasOptions
+                                ? '<span class="rb-product-options-label">اختيار الخيارات</span>'
+                                : `<span class="rb-product-plus" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                                        <path d="M12 5v14M5 12h14"></path>
+                                    </svg>
+                                </span>`}
                         </div>
                     </div>
                 </button>
@@ -2564,8 +2901,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncHiddenItems() {
         hiddenItems.innerHTML = [...cart.values()].map((item, index) => `
             <input type="hidden" name="items[${index}][product_id]" value="${item.id}">
+            ${item.variant_id ? `<input type="hidden" name="items[${index}][product_variant_id]" value="${item.variant_id}">` : ''}
             <input type="hidden" name="items[${index}][quantity]" value="${item.quantity}">
             <input type="hidden" name="items[${index}][kitchen_notes]" value="${escapeHtml(item.kitchen_notes || '')}">
+            ${item.modifiers.map((modifier, modifierIndex) => `
+                <input type="hidden" name="items[${index}][modifiers][${modifierIndex}][modifier_id]" value="${modifier.modifier_id}">
+                <input type="hidden" name="items[${index}][modifiers][${modifierIndex}][quantity]" value="${modifier.quantity}">
+            `).join('')}
         `).join('');
     }
 
@@ -2590,10 +2932,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const hasNote = Boolean(item.kitchen_notes);
 
             return `
-                <div class="rb-cart-item" data-cart-row="${item.id}">
+                <div class="rb-cart-item" data-cart-row="${item.key}">
                     <div class="rb-cart-item-head">
                         <div class="rb-cart-item-name">
                             <strong>${escapeHtml(item.name)}</strong>
+                            ${item.modifiers.length ? `<small class="rb-cart-options">${escapeHtml(item.modifiers.map(modifier => modifier.name).join('، '))}</small>` : ''}
                             <div class="rb-cart-item-price-line">
                                 <span>${money(item.price)}</span>
                                 <span>×</span>
@@ -2607,7 +2950,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             type="button"
                             class="rb-cart-remove"
                             data-cart-action="remove"
-                            data-id="${item.id}"
+                            data-id="${item.key}"
                             title="حذف"
                         >
                             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -2618,12 +2961,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     <div class="rb-cart-item-foot">
                         <div class="rb-qty-control">
-                            <button type="button" class="rb-qty-btn" data-cart-action="minus" data-id="${item.id}">−</button>
+                            <button type="button" class="rb-qty-btn" data-cart-action="minus" data-id="${item.key}">−</button>
                             <span class="rb-qty-value">${Number(item.quantity)}</span>
-                            <button type="button" class="rb-qty-btn" data-cart-action="plus" data-id="${item.id}">+</button>
+                            <button type="button" class="rb-qty-btn" data-cart-action="plus" data-id="${item.key}">+</button>
                         </div>
 
-                        <button type="button" class="rb-add-note" data-note-toggle="${item.id}">
+                        <button type="button" class="rb-add-note" data-note-toggle="${item.key}">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M4 5h16v11H8l-4 4z"></path>
                             </svg>
@@ -2631,11 +2974,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                     </div>
 
-                    <div class="rb-item-note-wrap" data-note-wrap="${item.id}" ${hasNote ? '' : 'hidden'}>
+                    <div class="rb-item-note-wrap" data-note-wrap="${item.key}" ${hasNote ? '' : 'hidden'}>
                         <input
                             type="text"
                             class="rb-item-note"
-                            data-kitchen-note="${item.id}"
+                            data-kitchen-note="${item.key}"
                             maxlength="500"
                             value="${escapeHtml(item.kitchen_notes || '')}"
                             placeholder="مثال: بدون بصل، زيادة صوص..."
@@ -2655,17 +2998,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const product = products.find(p => Number(p.id) === id);
         if (!product) return;
 
-        if (cart.has(id)) {
-            cart.get(id).quantity += 1;
-        } else {
-            cart.set(id, {
-                ...product,
-                quantity: 1,
-                kitchen_notes: '',
-            });
+        if (product.requires_variant || product.modifier_groups.length) {
+            openProductOptions(product);
+            return;
         }
-
-        renderCart();
+        addCartItem(makeCartItem(product));
     }
 
     function clearOrder(ask = true) {
@@ -2910,11 +3247,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const simpleField = name => form.querySelector(`[name="${name}"]`)?.value ?? '';
 
         return {
-            version: 1,
+            version: 2,
             location_id: locationId,
             saved_at: new Date().toISOString(),
             items: [...cart.values()].map(item => ({
                 id: item.id,
+                product_variant_id: item.variant_id,
+                modifiers: item.modifiers.map(modifier => ({
+                    modifier_id: modifier.modifier_id,
+                    quantity: modifier.quantity,
+                })),
                 quantity: item.quantity,
                 kitchen_notes: item.kitchen_notes || '',
             })),
@@ -2971,12 +3313,8 @@ document.addEventListener('DOMContentLoaded', () => {
         draft.items.forEach(row => {
             const product = products.find(p => Number(p.id) === Number(row.id));
             if (!product) return;
-
-            cart.set(Number(product.id), {
-                ...product,
-                quantity: Math.max(1, Number(row.quantity || 1)),
-                kitchen_notes: row.kitchen_notes || '',
-            });
+            const item = makeCartItem(product, row.product_variant_id, row.modifiers, row.quantity, row.kitchen_notes);
+            if (item) cart.set(item.key, item);
         });
 
         const fields = draft.fields || {};
@@ -3138,6 +3476,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <tr>
                                     <td>
                                         <strong>${escapeHtml(item.name)}</strong>
+                                        ${item.modifiers.length ? `<div class="note">${escapeHtml(item.modifiers.map(modifier => modifier.name).join('، '))}</div>` : ''}
                                         ${item.kitchen_notes ? `<div class="note">ملاحظة: ${escapeHtml(item.kitchen_notes)}</div>` : ''}
                                     </td>
                                     <td>${Number(item.quantity)} × ${money(item.price)}</td>
@@ -3479,12 +3818,41 @@ async function submitOrder(action) {
     // Product listeners
     // -----------------------------
     productGrid.addEventListener('click', event => {
+        if (event.target.closest('[data-reset-products]')) {
+            productSearch.value = '';
+            activeCategory = '__all__';
+            activeBrand = '__all__';
+            shownProducts = 48;
+            renderFilters();
+            renderProducts();
+            productSearch.focus();
+            return;
+        }
         const card = event.target.closest('[data-product-id]');
         if (!card) return;
         addProduct(card.dataset.productId);
     });
 
-    productSearch.addEventListener('input', renderProducts);
+    productSearch.addEventListener('input', () => {
+        shownProducts = 48;
+        renderProducts();
+    });
+    productSearch.addEventListener('keydown', event => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        const scanned = normalizeSearch(productSearch.value);
+        const match = products.find(product => scanned && [product.barcode, product.sku]
+            .some(value => normalizeSearch(value) === scanned));
+        if (!match) return;
+        addProduct(match.id);
+        productSearch.value = '';
+        shownProducts = 48;
+        renderProducts();
+    });
+    loadMoreButton.addEventListener('click', () => {
+        shownProducts += 48;
+        renderProducts();
+    });
 
     categoryTabs.addEventListener('click', event => {
         const button = event.target.closest('[data-category]');
@@ -3492,20 +3860,41 @@ async function submitOrder(action) {
 
         activeCategory = button.dataset.category;
         categorySelect.value = activeCategory;
+        shownProducts = 48;
         renderFilters();
         renderProducts();
     });
 
     categorySelect.addEventListener('change', () => {
         activeCategory = categorySelect.value;
+        shownProducts = 48;
         renderFilters();
         renderProducts();
     });
 
     brandSelect.addEventListener('change', () => {
         activeBrand = brandSelect.value;
+        shownProducts = 48;
         renderProducts();
     });
+
+    productOptionsBody.addEventListener('change', event => {
+        if (event.target.name === 'rb_variant') {
+            renderProductGroups();
+        } else {
+            const choice = event.target.closest('.rb-option-choice');
+            if (event.target.matches('[data-modifier-id]')) {
+                const quantity = choice.querySelector('select');
+                if (quantity) quantity.disabled = !event.target.checked;
+            }
+            updateProductOptionsPrice();
+        }
+        document.getElementById('rbOptionsError')?.setAttribute('hidden', '');
+    });
+    productOptionsModal.querySelectorAll('[data-close-product-options]').forEach(button => {
+        button.addEventListener('click', closeProductOptions);
+    });
+    addConfiguredProductButton.addEventListener('click', confirmProductOptions);
 
     // -----------------------------
     // Cart listeners
@@ -3513,17 +3902,17 @@ async function submitOrder(action) {
     cartItems.addEventListener('click', event => {
         const actionButton = event.target.closest('[data-cart-action]');
         if (actionButton) {
-            const id = Number(actionButton.dataset.id);
-            const item = cart.get(id);
+            const key = actionButton.dataset.id;
+            const item = cart.get(key);
             if (!item) return;
 
             if (actionButton.dataset.cartAction === 'plus') {
                 item.quantity += 1;
             } else if (actionButton.dataset.cartAction === 'minus') {
                 item.quantity -= 1;
-                if (item.quantity <= 0) cart.delete(id);
+                if (item.quantity <= 0) cart.delete(key);
             } else if (actionButton.dataset.cartAction === 'remove') {
-                cart.delete(id);
+                cart.delete(key);
             }
 
             renderCart();
@@ -3532,8 +3921,9 @@ async function submitOrder(action) {
 
         const noteButton = event.target.closest('[data-note-toggle]');
         if (noteButton) {
-            const id = Number(noteButton.dataset.noteToggle);
-            const wrap = cartItems.querySelector(`[data-note-wrap="${id}"]`);
+            const key = noteButton.dataset.noteToggle;
+            const wrap = [...cartItems.querySelectorAll('[data-note-wrap]')]
+                .find(node => node.dataset.noteWrap === key);
             if (!wrap) return;
             wrap.hidden = !wrap.hidden;
             if (!wrap.hidden) {
@@ -3546,8 +3936,8 @@ async function submitOrder(action) {
         const noteInput = event.target.closest('[data-kitchen-note]');
         if (!noteInput) return;
 
-        const id = Number(noteInput.dataset.kitchenNote);
-        const item = cart.get(id);
+        const key = noteInput.dataset.kitchenNote;
+        const item = cart.get(key);
         if (!item) return;
 
         item.kitchen_notes = noteInput.value.slice(0, 500);
@@ -3632,6 +4022,10 @@ async function submitOrder(action) {
     // -----------------------------
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
+            if (!productOptionsModal.hidden) {
+                closeProductOptions();
+                return;
+            }
             if (!checkoutModal.hidden) {
                 closeCheckout();
                 return;

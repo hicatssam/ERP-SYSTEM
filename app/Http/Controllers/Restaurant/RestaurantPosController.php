@@ -10,6 +10,7 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Models\Product;
+use App\Models\RestaurantMenuItem;
 use App\Models\RestaurantTable;
 use App\Models\SalesChannel;
 use App\Services\Restaurant\RestaurantContextService;
@@ -53,6 +54,7 @@ class RestaurantPosController extends Controller
             )
             ->with([
                 'category:id,name,name_ar',
+                'brand:id,name,name_ar',
 
                 'restaurantMenuItems' => fn ($menuItem) => $menuItem
                     ->where('location_id', $location->id)
@@ -75,7 +77,12 @@ class RestaurantPosController extends Controller
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ])
-            ->orderBy('name')
+            ->orderBy(RestaurantMenuItem::query()
+                ->select('sort_order')
+                ->whereColumn('restaurant_menu_items.product_id', 'products.id')
+                ->where('location_id', $location->id)
+                ->limit(1))
+            ->orderBy('products.id')
             ->get();
 
         $customers = Customer::query()

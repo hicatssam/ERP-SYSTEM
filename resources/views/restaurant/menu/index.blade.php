@@ -115,7 +115,7 @@
             <strong>{{ $location->name }}</strong>
         </div>
         <div>
-            <span>أصناف المنيو</span>
+            <span>الأصناف المطابقة</span>
             <strong>{{ $menuItems->total() }}</strong>
         </div>
         <div>
@@ -145,7 +145,15 @@
                 <div class="rm-card-main">
                     <div class="rm-card-image">
                         @if($image)
-                            <img src="{{ $image }}" alt="{{ $name }}" loading="lazy">
+                            <img src="{{ $image }}" alt="{{ $name }}" loading="lazy"
+                                 onerror="this.hidden=true;this.nextElementSibling.hidden=false;">
+                            <div class="rm-placeholder" hidden aria-hidden="true">
+                                <svg viewBox="0 0 24 24">
+                                    <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <path d="m21 15-5-5L5 21"></path>
+                                </svg>
+                            </div>
                         @else
                             <div class="rm-placeholder">
                                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -397,7 +405,7 @@
                             @foreach($availableProducts as $product)
                                 <option
                                     value="{{ $product->id }}"
-                                    data-price="{{ $product->getEffectivePriceForLocation($location->id) }}"
+                                    data-price="{{ $product->locationProducts->first()?->local_selling_price ?? $product->base_selling_price }}"
                                     data-name-ar="{{ $product->name_ar }}"
                                     data-name="{{ $product->name }}"
                                 >
@@ -774,6 +782,9 @@
     border: 1px dashed #d5d9df;
     border-radius: 15px;
 }
+
+.rm-placeholder[hidden],
+.rm-card-image img[hidden] { display: none; }
 
 .rm-placeholder svg {
     width: 27px;
