@@ -245,6 +245,7 @@ class EmployeePurchaseAccountTest extends TestCase
         $product = Product::query()->create([
             'category_id' => $category, 'name' => 'Test Product', 'name_ar' => 'صنف اختبار',
             'sku' => 'SKU-'.Str::upper(Str::random(8)), 'base_selling_price' => $price,
+            'barcode' => 'BAR-'.Str::upper(Str::random(9)),
             'is_active' => true, 'tracks_batch' => $tracked,
         ]);
         LocationProduct::query()->create([
