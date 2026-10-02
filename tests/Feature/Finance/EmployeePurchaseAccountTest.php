@@ -87,7 +87,7 @@ class EmployeePurchaseAccountTest extends TestCase
         $this->actingAs($user)->post(route('accounting.employee-purchases.receipts.store', $purchase), $receiptData)
             ->assertRedirect()->assertSessionHasNoErrors();
         $this->assertEquals(5, $purchase->fresh()->installments()->first()->paid_amount);
-        $this->assertEquals(1, $purchase->fresh()->installments()->orderBy('sequence', 'desc')->first()->paid_amount);
+        $this->assertEquals(1, $purchase->fresh()->installments()->where('sequence', 2)->first()->paid_amount);
         $this->assertEquals(4, $purchase->fresh()->outstanding_amount);
         $totals = app(DailyCashReconciliationService::class)->forDay($branch->id, now()->toDateString());
         $this->assertEquals(6, $totals['components']['employee_receipts']);
