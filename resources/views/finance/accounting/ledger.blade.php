@@ -50,7 +50,7 @@
         <div class="kpi-grid">
             @forelse($summary as $item)
                 <div class="kpi-item">
-                    <div class="kpi-label">{{ \App\Enums\LedgerEntryType::tryFrom((string) $item->entry_type)?->label() ?? $item->entry_type }} · {{ $item->entries_count }} حركة</div>
+                    <div class="kpi-label">{{ $item->entry_type?->label() ?? '—' }} · {{ $item->entries_count }} حركة</div>
                     <div class="kpi-value">{{ number_format((float) $item->amount_total, 2) }} {{ $item->currency_code }}</div>
                 </div>
             @empty
