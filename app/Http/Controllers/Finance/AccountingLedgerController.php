@@ -6,6 +6,7 @@ use App\Enums\LedgerEntryType;
 use App\Http\Controllers\Controller;
 use App\Models\Location;
 use App\Models\SalesLedgerEntry;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -36,12 +37,15 @@ class AccountingLedgerController extends Controller
 
         $from = $filters['date_from'] ?? now()->startOfMonth()->toDateString();
         $to = $filters['date_to'] ?? now()->toDateString();
+        $endExclusive = CarbonImmutable::parse($to)->addDay()->toDateString();
         $locationIds = $locationId ? collect([$locationId]) : Location::query()->pluck('id');
 
         $query = SalesLedgerEntry::query()
             ->whereIn('location_id', $locationIds)
             ->where('entry_date', '>=', $from)
-            ->where('entry_date', '<=', $to)
+            // DATE casts may persist midnight timestamps on SQLite; a half-open
+            // range includes the full selected day and keeps the date index usable.
+            ->where('entry_date', '<', $endExclusive)
             ->when($filters['entry_type'] ?? null, fn ($q, $type) => $q->where('entry_type', $type));
 
         // Keep currencies and posting types separate: sales, receipts and expenses
