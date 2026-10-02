@@ -660,16 +660,14 @@
         ->where('is_active', false)
         ->count();
 
-    $activeAssignments = $assignments
+    $activeAssignmentRows = $assignments
         ->filter(
-            fn ($assignment) =>
-                ! $assignment->effective_to
-                || $assignment->effective_to->isToday()
-                || $assignment->effective_to->isFuture()
-        )
-        ->count();
+            fn ($assignment) => $assignment->effective_from?->lte(today())
+                && (! $assignment->effective_to || $assignment->effective_to->gte(today()))
+        );
+    $activeAssignments = $activeAssignmentRows->count();
 
-    $assignedEmployeeIds = $assignments
+    $assignedEmployeeIds = $activeAssignmentRows
         ->pluck('employee_id')
         ->unique()
         ->filter();
@@ -1162,10 +1160,9 @@
                                 1
                             );
 
-                            $assignmentActive =
-                                ! $assignment->effective_to
-                                || $assignment->effective_to->isToday()
-                                || $assignment->effective_to->isFuture();
+                            $assignmentUpcoming = $assignment->effective_from?->gt(today());
+                            $assignmentActive = ! $assignmentUpcoming
+                                && (! $assignment->effective_to || $assignment->effective_to->gte(today()));
 
                             $employeePrimaryLocation =
                                 $assignment
@@ -1304,6 +1301,12 @@
 
                                     <span class="shift-status shift-active">
                                         فعال
+                                    </span>
+
+                                @elseif($assignmentUpcoming)
+
+                                    <span class="shift-status shift-inactive">
+                                        يبدأ لاحقًا
                                     </span>
 
                                 @else

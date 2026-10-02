@@ -9,8 +9,10 @@ use App\Models\Location;
 use App\Models\User;
 use App\Models\WorkShift;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -48,27 +50,7 @@ class WorkShiftController extends Controller
         |   موظفو فرعه فقط.
         |--------------------------------------------------------------------------
         */
-        $employees = Employee::query()
-            ->when(
-                ! $canViewAllLocations,
-                function ($query) use ($currentLocation): void {
-                    $query->whereHas(
-                        'employeeLocations',
-                        function ($locationQuery) use ($currentLocation): void {
-                            $locationQuery
-                                ->where(
-                                    'location_id',
-                                    $currentLocation->id
-                                )
-                                ->where(
-                                    'is_primary',
-                                    true
-                                )
-                                ->whereNull('ended_at');
-                        }
-                    );
-                }
-            )
+        $employees = $this->scopedEmployees($user)
             ->where(
                 'employment_status',
                 'active'
@@ -81,7 +63,10 @@ class WorkShiftController extends Controller
                                 'is_primary',
                                 true
                             )
-                            ->whereNull('ended_at')
+                            ->where(fn ($dates) => $dates->whereNull('started_at')
+                                ->orWhereDate('started_at', '<=', now()->toDateString()))
+                            ->where(fn ($dates) => $dates->whereNull('ended_at')
+                                ->orWhereDate('ended_at', '>=', now()->toDateString()))
                             ->with(
                                 'location:id,name'
                             );
@@ -391,183 +376,75 @@ class WorkShiftController extends Controller
                     ),
                 ],
 
-                'effective_from' => [
-                    'required',
-                    'date',
-                ],
+                'effective_from' => ['required', 'date_format:Y-m-d'],
 
                 'effective_to' => [
                     'nullable',
-                    'date',
+                    'date_format:Y-m-d',
                     'after_or_equal:effective_from',
                 ],
             ]);
 
-        /*
-        |--------------------------------------------------------------------------
-        | Employee Scope
-        |--------------------------------------------------------------------------
-        */
-        $employee =
-            Employee::query()
-                ->when(
-                    ! $canViewAllLocations,
-                    function ($query) use ($user): void {
-
-                        $locationId =
-                            $user
-                                ->primaryLocation()
-                                ?->id;
-
-                        abort_unless(
-                            $locationId,
-                            403,
-                            'لا يوجد فرع مرتبط بالمستخدم.'
-                        );
-
-                        $query->whereHas(
-                            'employeeLocations',
-                            function ($locationQuery) use ($locationId): void {
-                                $locationQuery
-                                    ->where(
-                                        'location_id',
-                                        $locationId
-                                    )
-                                    ->where(
-                                        'is_primary',
-                                        true
-                                    )
-                                    ->whereNull(
-                                        'ended_at'
-                                    );
-                            }
-                        );
-                    }
-                )
-                ->findOrFail(
-                    $data['employee_id']
-                );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Shift Scope
-        |--------------------------------------------------------------------------
-        */
-        $shift =
-            WorkShift::query()
-                ->when(
-                    ! $canViewAllLocations,
-                    function ($query) use ($user): void {
-
-                        $locationId =
-                            $user
-                                ->primaryLocation()
-                                ?->id;
-
-                        $query->where(
-                            'location_id',
-                            $locationId
-                        );
-                    }
-                )
-                ->findOrFail(
-                    $data['work_shift_id']
-                );
-
-        /*
-        |--------------------------------------------------------------------------
-        | Employee / Shift Location Match
-        |--------------------------------------------------------------------------
-        */
-        if ($shift->location_id) {
-
-            $employeeLocationId =
-                $this->employeePrimaryLocationId(
-                    $employee
-                );
-
-            if (
-                (int) $employeeLocationId
-                !== (int) $shift->location_id
-            ) {
-                throw ValidationException::withMessages([
-                    'work_shift_id' =>
-                        'لا يمكن ربط الموظف بورديّة تابعة لفرع مختلف.',
-                ]);
+        DB::transaction(function () use ($user, $data, $canViewAllLocations): void {
+            $employee = $this->scopedEmployees($user)
+                ->whereKey($data['employee_id'])->lockForUpdate()->firstOrFail();
+            if (! $employee->isActive()) {
+                throw ValidationException::withMessages(['employee_id' => 'يمكن تعيين وردية لموظف نشط فقط.']);
             }
-        }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Close old primary assignment
-        |--------------------------------------------------------------------------
-        */
-        EmployeeShiftAssignment::query()
-            ->where(
-                'employee_id',
-                $employee->id
-            )
-            ->where(
-                'is_primary',
-                true
-            )
-            ->where(
-                function ($query) use ($data): void {
-                    $query
-                        ->whereNull(
-                            'effective_to'
-                        )
-                        ->orWhereDate(
-                            'effective_to',
-                            '>=',
-                            $data[
-                                'effective_from'
-                            ]
-                        );
-                }
-            )
-            ->update([
-                'effective_to' =>
-                    Carbon::parse(
-                        $data[
-                            'effective_from'
-                        ]
-                    )
-                    ->subDay()
-                    ->toDateString(),
+            $shift = WorkShift::query()
+                ->when(! $canViewAllLocations, fn ($query) => $query
+                    ->where('location_id', $user->primaryLocation()?->id))
+                ->findOrFail($data['work_shift_id']);
+            if (! $shift->is_active) {
+                throw ValidationException::withMessages(['work_shift_id' => 'الوردية المختارة غير فعالة.']);
+            }
 
-                'is_primary' =>
-                    false,
+            $from = Carbon::parse($data['effective_from']);
+            if ($employee->hire_date && $from->lt($employee->hire_date)) {
+                throw ValidationException::withMessages(['effective_from' => 'تاريخ الوردية يسبق تعيين الموظف.']);
+            }
+            $location = $employee->employeeLocations()->where('is_primary', true)
+                ->where(fn ($query) => $query->whereNull('started_at')
+                    ->orWhereDate('started_at', '<=', $data['effective_from']))
+                ->where(fn ($query) => $query->whereNull('ended_at')
+                    ->orWhereDate('ended_at', '>=', $data['effective_from']))
+                ->orderByDesc('started_at')->first();
+            if (! $location) {
+                throw ValidationException::withMessages(['employee_id' => 'لا يوجد فرع أساسي للموظف في تاريخ الوردية.']);
+            }
+            if ($shift->location_id && (int) $shift->location_id !== (int) $location->location_id) {
+                throw ValidationException::withMessages(['work_shift_id' => 'لا يمكن ربط الموظف بوردية فرع مختلف في تاريخ سريانها.']);
+            }
+            if (! $canViewAllLocations && (int) $location->location_id !== (int) $user->primaryLocation()?->id) {
+                throw ValidationException::withMessages(['work_shift_id' => 'لا يمكنك تعيين وردية بعد انتقال الموظف إلى فرع آخر.']);
+            }
+
+            $end = $data['effective_to'] ?? null;
+            if ($location->ended_at && (! $end || $end > $location->ended_at->toDateString())) {
+                $end = $location->ended_at->toDateString();
+            }
+
+            $last = EmployeeShiftAssignment::query()->where('employee_id', $employee->id)
+                ->where('is_primary', true)->orderByDesc('effective_from')
+                ->orderByDesc('id')->lockForUpdate()->first();
+            if ($last && $last->effective_from->gte($from)) {
+                throw ValidationException::withMessages(['effective_from' => 'تاريخ الوردية يجب أن يأتي بعد آخر تعيين مسجل.']);
+            }
+            if ($last && (! $last->effective_to || $last->effective_to->gte($from))) {
+                // The preceding interval remains primary for its historical days.
+                $last->update(['effective_to' => $from->copy()->subDay()->toDateString()]);
+            }
+
+            EmployeeShiftAssignment::query()->create([
+                'employee_id' => $employee->id,
+                'work_shift_id' => $shift->id,
+                'effective_from' => $data['effective_from'],
+                'effective_to' => $end,
+                'is_primary' => true,
+                'created_by' => $user->id,
             ]);
-
-        /*
-        |--------------------------------------------------------------------------
-        | Create assignment
-        |--------------------------------------------------------------------------
-        */
-        EmployeeShiftAssignment::create([
-            'employee_id' =>
-                $employee->id,
-
-            'work_shift_id' =>
-                $shift->id,
-
-            'effective_from' =>
-                $data[
-                    'effective_from'
-                ],
-
-            'effective_to' =>
-                $data[
-                    'effective_to'
-                ] ?? null,
-
-            'is_primary' =>
-                true,
-
-            'created_by' =>
-                $user->id,
-        ]);
+        });
 
         return back()->with(
             'success',
@@ -575,38 +452,27 @@ class WorkShiftController extends Controller
         );
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Employee Primary Location
-    |--------------------------------------------------------------------------
-    */
-    private function employeePrimaryLocationId(
-        Employee $employee
-    ): ?int {
-        $locationId =
-            $employee
-                ->employeeLocations()
-                ->where(
-                    'is_primary',
-                    true
-                )
-                ->whereNull(
-                    'ended_at'
-                )
-                ->value(
-                    'location_id'
-                );
+    private function scopedEmployees(User $user): Builder
+    {
+        if ($this->canViewAllLocations($user)) {
+            return Employee::query();
+        }
 
-        return $locationId
-            ? (int) $locationId
-            : null;
+        $locationId = $user->primaryLocation()?->id;
+        abort_unless($locationId, 403, 'لا يوجد فرع مرتبط بالمستخدم.');
+        $date = now()->toDateString();
+
+        return Employee::query()->whereHas('employeeLocations', fn (Builder $query) => $query
+            ->where('location_id', $locationId)->where('is_primary', true)
+            ->where(fn (Builder $dates) => $dates->whereNull('started_at')
+                ->orWhereDate('started_at', '<=', $date))
+            ->where(fn (Builder $dates) => $dates->whereNull('ended_at')
+                ->orWhereDate('ended_at', '>=', $date)));
     }
 
     /*
     |--------------------------------------------------------------------------
     | Admin Scope
-    |--------------------------------------------------------------------------
-    | فقط Admin يرى جميع الفروع والورديات.
     |--------------------------------------------------------------------------
     */
     private function canViewAllLocations(

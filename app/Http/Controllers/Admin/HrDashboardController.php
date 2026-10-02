@@ -64,6 +64,9 @@ class HrDashboardController extends Controller
 
     public function index(Request $request): View
     {
+        $canViewLeaves = $request->user()->can('attendance.leaves.view')
+            || $request->user()->can('attendance.leaves.approve');
+        $canReviewAttendance = $request->user()->can('attendance.approve');
         $staff = Employee::query()->accessibleBy($request->user());
         $ids = (clone $staff)->select('employees.id');
         $today = now()->toDateString();
@@ -103,13 +106,15 @@ class HrDashboardController extends Controller
             'notRegisteredCount' => (clone $withoutTodayRecord)->count(),
             'onDutyEmployees' => (clone $onDuty)->orderBy('full_name')->limit(8)->get(['id', 'full_name', 'job_title']),
             'withoutTodayRecordEmployees' => (clone $withoutTodayRecord)->orderBy('full_name')->limit(8)->get(['id', 'full_name', 'job_title']),
-            'selfAttendanceCount' => (clone $selfRequests)->count(),
-            'leaveCount' => (clone $leave)->count(),
-            'correctionCount' => (clone $corrections)->count(),
+            'selfAttendanceCount' => $canReviewAttendance ? (clone $selfRequests)->count() : 0,
+            'leaveCount' => $canViewLeaves ? (clone $leave)->count() : 0,
+            'correctionCount' => $canReviewAttendance ? (clone $corrections)->count() : 0,
             'absenceCount' => (clone $absences)->count(),
-            'leaves' => (clone $leave)->with('employee')->oldest()->limit(10)->get(),
-            'corrections' => (clone $corrections)->with('employee')->oldest()->limit(10)->get(),
-            'selfAttendanceRequests' => (clone $selfRequests)->with('employee')->oldest()->limit(10)->get(),
+            'leaves' => $canViewLeaves ? (clone $leave)->with('employee')->oldest()->limit(10)->get() : collect(),
+            'corrections' => $canReviewAttendance ? (clone $corrections)->with('employee')->oldest()->limit(10)->get() : collect(),
+            'selfAttendanceRequests' => $canReviewAttendance ? (clone $selfRequests)->with('employee')->oldest()->limit(10)->get() : collect(),
+            'canViewLeaves' => $canViewLeaves,
+            'canReviewAttendance' => $canReviewAttendance,
             'documents' => $request->user()->can('hr.documents.view')
                 ? $documents->with('employee')->orderBy('expires_on')->limit(10)->get()
                 : collect(),

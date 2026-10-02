@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\AttendanceCorrectionRequest;
 use App\Models\Employee;
 use App\Models\EmployeeAdvance;
 use App\Models\EmployeeAdvanceRepayment;
 use App\Models\EmployeeCompensationProfile;
+use App\Models\EmployeeLeaveRequest;
 use App\Models\EmployeePayrollAdjustment;
+use App\Models\EmployeeSelfAttendanceRequest;
 use App\Models\EmployeeOrgAssignment;
 use App\Models\PayrollItem;
 use App\Models\PayrollItemComponent;
@@ -196,6 +199,42 @@ class PayrollService
                 ->filter()
                 ->unique()
                 ->values();
+
+            $pendingLeave = EmployeeLeaveRequest::query()
+                ->whereIn('employee_id', $employeeIds)
+                ->where('status', 'pending')
+                ->whereDate('start_date', '<=', $period->end_date->toDateString())
+                ->whereDate('end_date', '>=', $period->start_date->toDateString())
+                ->exists();
+            if ($pendingLeave) {
+                throw ValidationException::withMessages([
+                    'payroll' => 'توجد طلبات إجازة معلّقة في فترة الرواتب. اعتمدها أو ارفضها قبل اعتماد الدورة.',
+                ]);
+            }
+
+            $pendingCorrection = AttendanceCorrectionRequest::query()
+                ->whereIn('employee_id', $employeeIds)
+                ->where('status', 'pending')
+                ->whereDate('work_date', '>=', $period->start_date->toDateString())
+                ->whereDate('work_date', '<=', $period->end_date->toDateString())
+                ->exists();
+            if ($pendingCorrection) {
+                throw ValidationException::withMessages([
+                    'payroll' => 'توجد طلبات تصحيح حضور معلّقة في فترة الرواتب. راجعها قبل اعتماد الدورة.',
+                ]);
+            }
+
+            $pendingSelfAttendance = EmployeeSelfAttendanceRequest::query()
+                ->whereIn('employee_id', $employeeIds)
+                ->where('status', 'pending')
+                ->whereDate('work_date', '>=', $period->start_date->toDateString())
+                ->whereDate('work_date', '<=', $period->end_date->toDateString())
+                ->exists();
+            if ($pendingSelfAttendance) {
+                throw ValidationException::withMessages([
+                    'payroll' => 'توجد تسجيلات دوام ذاتية معلّقة في فترة الرواتب. راجعها قبل اعتماد الدورة.',
+                ]);
+            }
 
             $pendingAdvanceRepayment = EmployeeAdvanceRepayment::query()
                 ->whereIn('employee_id', $employeeIds)

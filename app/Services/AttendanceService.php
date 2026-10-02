@@ -23,7 +23,7 @@ class AttendanceService
     {
         $date = Carbon::parse($date)->toDateString();
 
-        return EmployeeShiftAssignment::query()
+        $shift = EmployeeShiftAssignment::query()
             ->with('shift')
             ->where('employee_id', $employee->id)
             ->where('is_primary', true)
@@ -34,6 +34,20 @@ class AttendanceService
             })
             ->latest('effective_from')
             ->first()?->shift;
+
+        if ($shift?->location_id) {
+            $locationId = $employee->employeeLocations()->where('is_primary', true)
+                ->where(fn ($query) => $query->whereNull('started_at')
+                    ->orWhereDate('started_at', '<=', $date))
+                ->where(fn ($query) => $query->whereNull('ended_at')
+                    ->orWhereDate('ended_at', '>=', $date))
+                ->orderByDesc('started_at')->value('location_id');
+            if ((int) $locationId !== (int) $shift->location_id) {
+                return null;
+            }
+        }
+
+        return $shift;
     }
 
     public function saveRecord(Employee $employee, array $data, User $actor): AttendanceRecord
@@ -99,23 +113,34 @@ class AttendanceService
          * (employee_id, work_date) key. MySQL is more forgiving, but keeping
          * one code path for both databases prevents a production/test drift.
          */
-        return DB::transaction(
-            fn (): AttendanceRecord => $this->persistDailyRecord(
-                $employee->id,
-                $workDate,
-                $values
-            )
-        );
+        return DB::transaction(function () use ($employee, $workDate, $values): AttendanceRecord {
+            Employee::query()->whereKey($employee->id)->lockForUpdate()->firstOrFail();
+            $this->leaves->assertPayrollEditable($employee, $workDate, $workDate);
+
+            if (EmployeeLeaveRequest::query()->where('employee_id', $employee->id)
+                ->where('status', 'approved')->where('day_fraction', '>=', 1)
+                ->whereDate('start_date', '<=', $workDate->toDateString())
+                ->whereDate('end_date', '>=', $workDate->toDateString())->exists()) {
+                throw ValidationException::withMessages([
+                    'work_date' => 'توجد إجازة كاملة معتمدة لهذا اليوم؛ راجعها قبل تعديل الحضور.',
+                ]);
+            }
+
+            return $this->persistDailyRecord($employee->id, $workDate, $values);
+        });
     }
 
     public function approveRecord(AttendanceRecord $record, User $actor): AttendanceRecord
     {
-        $record->update([
-            'approved_by' => $actor->id,
-            'approved_at' => now(),
-        ]);
+        return DB::transaction(function () use ($record, $actor): AttendanceRecord {
+            $employee = Employee::query()->whereKey($record->employee_id)->lockForUpdate()->firstOrFail();
+            $record = AttendanceRecord::query()->whereKey($record->id)->lockForUpdate()->firstOrFail();
+            $date = $record->work_date->copy()->startOfDay();
+            $this->leaves->assertPayrollEditable($employee, $date, $date);
+            $record->update(['approved_by' => $actor->id, 'approved_at' => now()]);
 
-        return $record->fresh();
+            return $record->fresh();
+        });
     }
 
     public function approveLeave(

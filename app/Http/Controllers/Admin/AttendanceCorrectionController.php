@@ -74,13 +74,9 @@ class AttendanceCorrectionController extends Controller
             return Employee::query();
         }
 
-        $locationId = $user->primaryLocation()?->id;
-        abort_unless($locationId, 403, 'لا يوجد فرع مرتبط بالمستخدم.');
+        abort_unless($user->primaryLocation(), 403, 'لا يوجد فرع مرتبط بالمستخدم.');
 
-        return Employee::query()->whereHas('employeeLocations', fn (Builder $query) => $query
-            ->where('location_id', $locationId)
-            ->where('is_primary', true)
-            ->whereNull('ended_at'));
+        return Employee::query()->accessibleBy($user);
     }
 
     private function assertAccessible(User $user, AttendanceCorrectionRequest $correction): void

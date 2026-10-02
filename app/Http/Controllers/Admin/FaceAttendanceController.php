@@ -552,15 +552,13 @@ class FaceAttendanceController extends Controller
             'لا يوجد فرع مرتبط بالمستخدم.'
         );
 
-        $allowed =
-            $employee
-                ->employeeLocations()
-                ->where(
-                    'location_id',
-                    $locationId
-                )
-                ->whereNull('ended_at')
-                ->exists();
+        $allowed = $employee->employeeLocations()
+            ->where('location_id', $locationId)->where('is_primary', true)
+            ->where(fn ($dates) => $dates->whereNull('started_at')
+                ->orWhereDate('started_at', '<=', now()->toDateString()))
+            ->where(fn ($dates) => $dates->whereNull('ended_at')
+                ->orWhereDate('ended_at', '>=', now()->toDateString()))
+            ->exists();
 
         abort_unless(
             $allowed,

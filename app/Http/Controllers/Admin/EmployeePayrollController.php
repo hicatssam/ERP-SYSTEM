@@ -303,15 +303,8 @@ class EmployeePayrollController extends Controller
             return;
         }
 
-        $locationId = $user->primaryLocation()?->id;
-
         abort_unless(
-            $locationId
-            && $employee->employeeLocations()
-                ->where('location_id', $locationId)
-                ->where('is_primary', true)
-                ->whereNull('ended_at')
-                ->exists(),
+            Employee::query()->accessibleBy($user)->whereKey($employee->id)->exists(),
             403,
             'لا يمكنك الوصول إلى الملف المالي لموظف تابع لموقع آخر.'
         );

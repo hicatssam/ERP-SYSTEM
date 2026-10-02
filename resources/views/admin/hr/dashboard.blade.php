@@ -23,23 +23,23 @@
     </form>
     <div class="hr-summary">
         <div class="card card-body"><small>الموظفون</small><strong>{{ $employeeCount }}</strong></div>
-        <div class="card card-body"><small>إجازات معلقة</small><strong>{{ $leaveCount }}</strong></div>
-        <div class="card card-body"><small>تصحيحات حضور معلقة</small><strong>{{ $correctionCount }}</strong></div>
+        @if($canViewLeaves)<div class="card card-body"><small>إجازات معلقة</small><strong>{{ $leaveCount }}</strong></div>@endif
+        @if($canReviewAttendance)<div class="card card-body"><small>تصحيحات حضور معلقة</small><strong>{{ $correctionCount }}</strong></div>@endif
         <div class="card card-body"><small>غياب مسجل اليوم</small><strong>{{ $absenceCount }}</strong></div>
         <div class="card card-body"><small>على رأس العمل الآن</small><strong>{{ $onDutyCount }}</strong></div>
         <div class="card card-body"><small>بدون سجل اليوم</small><strong>{{ $notRegisteredCount }}</strong></div>
-        <div class="card card-body"><small>دوام ذاتي بانتظار المراجعة</small><strong>{{ $selfAttendanceCount }}</strong></div>
+        @if($canReviewAttendance)<div class="card card-body"><small>دوام ذاتي بانتظار المراجعة</small><strong>{{ $selfAttendanceCount }}</strong></div>@endif
     </div>
     <div class="hr-panels">
-        <section class="card">
+        @if($canViewLeaves)<section class="card">
             <div class="card-header"><span class="card-title">طلبات الإجازة</span>@can('attendance.leaves.view')<a href="{{ route('attendance.leaves.index', ['status' => 'pending']) }}">عرض الجميع</a>@endcan</div>
             <div class="card-body">
                 @forelse($leaves as $leave)
                     <div class="hr-row"><span>{{ $leave->employee?->full_name }} · {{ $leave->start_date?->format('Y-m-d') }} — {{ $leave->end_date?->format('Y-m-d') }}</span><strong>{{ $leave->total_days }} يوم</strong></div>
                 @empty <p>لا توجد طلبات معلقة.</p> @endforelse
             </div>
-        </section>
-        <section class="card">
+        </section>@endif
+        @if($canReviewAttendance)<section class="card">
             <div class="card-header"><span class="card-title">تصحيحات الحضور</span>@can('attendance.approve')<a href="{{ route('attendance.corrections.index') }}">عرض الجميع</a>@endcan</div>
             <div class="card-body">
                 @forelse($corrections as $correction)
@@ -54,7 +54,7 @@
                     <div class="hr-row"><span>{{ $submission->employee?->full_name }} · {{ $submission->work_date?->format('Y-m-d') }}</span><strong>{{ $submission->check_out_at ? 'جاهز للمراجعة' : 'على رأس العمل' }}</strong></div>
                 @empty <p>لا توجد تسجيلات ذاتية معلقة.</p> @endforelse
             </div>
-        </section>
+        </section>@endif
         <section class="card">
             <div class="card-header"><span class="card-title">على رأس العمل الآن</span></div>
             <div class="card-body">

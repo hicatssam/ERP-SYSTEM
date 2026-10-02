@@ -40,23 +40,7 @@ class EmployeeController extends Controller
             : $this->managedLocation($user);
 
         $employees = Employee::query()
-            ->when(
-                ! $canViewAll,
-                function ($query) use ($primaryLocation) {
-                    $query->whereHas(
-                        'employeeLocations',
-                        fn ($employeeLocations) => $employeeLocations
-                            ->where(
-                                'employee_locations.location_id',
-                                $primaryLocation->id
-                            )
-                            ->where(
-                                'employee_locations.is_primary',
-                                true
-                            )
-                    );
-                }
-            )
+            ->accessibleBy($user)
             ->with([
                 'user.roles',
 
@@ -239,9 +223,7 @@ class EmployeeController extends Controller
                 ->whereKey($primaryLocation->id)
                 ->get();
 
-        $primaryLocationId = $employee->employeeLocations
-            ->firstWhere('is_primary', true)
-            ?->location_id;
+        $primaryLocationId = $employee->primaryLocation()?->id;
 
         $isAdmin = $canViewAll;
 
@@ -550,10 +532,8 @@ class EmployeeController extends Controller
 
         $location = $this->managedLocation($user);
 
-        $canAccess = $employee->employeeLocations()
-            ->where('location_id', $location->id)
-            ->where('is_primary', true)
-            ->exists();
+        $canAccess = Employee::query()->accessibleBy($user)
+            ->whereKey($employee->id)->exists();
 
         abort_unless(
             $canAccess,
@@ -605,30 +585,34 @@ class EmployeeController extends Controller
         Employee $employee,
         mixed $locationId
     ): void {
-        $employee->employeeLocations()
+        $current = $employee->employeeLocations()
             ->where('is_primary', true)
-            ->update([
-                'is_primary' => false,
-                'ended_at' => now()->toDateString(),
-            ]);
+            ->where(fn ($query) => $query->whereNull('started_at')
+                ->orWhereDate('started_at', '<=', now()->toDateString()))
+            ->where(fn ($query) => $query->whereNull('ended_at')
+                ->orWhereDate('ended_at', '>=', now()->toDateString()))
+            ->orderByDesc('started_at')->first();
 
-        if (empty($locationId)) {
+        if ($current && (int) $current->location_id === (int) $locationId) {
             return;
         }
 
-        $employeeLocation = EmployeeLocation::query()
-            ->where('employee_id', $employee->id)
-            ->where('location_id', $locationId)
-            ->first();
+        // A correction on the same day changes the new assignment itself;
+        // ending it yesterday would produce an impossible date interval.
+        if ($current?->started_at?->isToday() && $locationId) {
+            $current->update(['location_id' => $locationId]);
+            return;
+        }
+        if ($current?->started_at?->isToday() && ! $locationId) {
+            $current->delete();
+            return;
+        }
 
-        if ($employeeLocation) {
-            $employeeLocation->update([
-                'is_primary' => true,
-                'started_at' => $employeeLocation->started_at
-                    ?? now()->toDateString(),
-                'ended_at' => null,
-            ]);
+        // Keep completed assignments as history; reopening an old branch row
+        // would make its dates span a period when the employee worked elsewhere.
+        $current?->update(['ended_at' => now()->subDay()->toDateString()]);
 
+        if (empty($locationId)) {
             return;
         }
 

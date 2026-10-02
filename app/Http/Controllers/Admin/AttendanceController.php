@@ -10,6 +10,7 @@ use App\Models\WorkShift;
 use App\Services\AttendanceFeatureService;
 use App\Services\AttendanceService;
 use App\Services\FaceAttendanceService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -55,34 +56,17 @@ class AttendanceController extends Controller
         |   موظفو الفرع الأساسي للمستخدم فقط.
         |--------------------------------------------------------------------------
         */
-        $employees = Employee::query()
-            ->when(
-                ! $canViewAllLocations,
-                function ($query) use ($currentLocation): void {
-                    $query->whereHas(
-                        'employeeLocations',
-                        function ($locationQuery) use ($currentLocation): void {
-                            $locationQuery
-                                ->where(
-                                    'location_id',
-                                    $currentLocation->id
-                                )
-                                ->where(
-                                    'is_primary',
-                                    true
-                                )
-                                ->whereNull('ended_at');
-                        }
-                    );
-                }
-            )
+        $employees = $this->scopedEmployees($user)
             ->where('employment_status', 'active')
             ->with([
                 'faceProfile',
                 'employeeLocations' => function ($query): void {
                     $query
                         ->where('is_primary', true)
-                        ->whereNull('ended_at')
+                        ->where(fn ($dates) => $dates->whereNull('started_at')
+                            ->orWhereDate('started_at', '<=', now()->toDateString()))
+                        ->where(fn ($dates) => $dates->whereNull('ended_at')
+                            ->orWhereDate('ended_at', '>=', now()->toDateString()))
                         ->with('location:id,name');
                 },
             ])
@@ -228,7 +212,8 @@ class AttendanceController extends Controller
 
                 $employeeLocationId =
                     $this->employeePrimaryLocationId(
-                        $employee
+                        $employee,
+                        $data['work_date']
                     );
 
                 if (
@@ -316,24 +301,8 @@ class AttendanceController extends Controller
             'لا يوجد فرع مرتبط بالمستخدم.'
         );
 
-        $allowed = Employee::query()
-            ->whereKey($employee->id)
-            ->whereHas(
-                'employeeLocations',
-                function ($query) use ($locationId): void {
-                    $query
-                        ->where(
-                            'location_id',
-                            $locationId
-                        )
-                        ->where(
-                            'is_primary',
-                            true
-                        )
-                        ->whereNull('ended_at');
-                }
-            )
-            ->exists();
+        $allowed = $this->scopedEmployees($user)
+            ->whereKey($employee->id)->exists();
 
         abort_unless(
             $allowed,
@@ -373,12 +342,17 @@ class AttendanceController extends Controller
     |--------------------------------------------------------------------------
     */
     private function employeePrimaryLocationId(
-        Employee $employee
+        Employee $employee,
+        string $date
     ): ?int {
         $locationId = $employee
             ->employeeLocations()
             ->where('is_primary', true)
-            ->whereNull('ended_at')
+            ->where(fn ($query) => $query->whereNull('started_at')
+                ->orWhereDate('started_at', '<=', $date))
+            ->where(fn ($query) => $query->whereNull('ended_at')
+                ->orWhereDate('ended_at', '>=', $date))
+            ->orderByDesc('started_at')
             ->value('location_id');
 
         return $locationId
@@ -398,5 +372,23 @@ class AttendanceController extends Controller
     ): bool {
         return method_exists($user, 'isAdmin')
             && $user->isAdmin();
+    }
+
+    private function scopedEmployees(User $user): Builder
+    {
+        if ($this->canViewAllLocations($user)) {
+            return Employee::query();
+        }
+
+        $locationId = $user->primaryLocation()?->id;
+        abort_unless($locationId, 403, 'لا يوجد فرع مرتبط بالمستخدم.');
+        $date = now()->toDateString();
+
+        return Employee::query()->whereHas('employeeLocations', fn (Builder $query) => $query
+            ->where('location_id', $locationId)->where('is_primary', true)
+            ->where(fn (Builder $dates) => $dates->whereNull('started_at')
+                ->orWhereDate('started_at', '<=', $date))
+            ->where(fn (Builder $dates) => $dates->whereNull('ended_at')
+                ->orWhereDate('ended_at', '>=', $date)));
     }
 }

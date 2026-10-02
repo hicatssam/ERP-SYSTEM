@@ -526,7 +526,7 @@
         <div class="pay-notice">
             <div>
                 <strong>مراجعة قبل الاعتماد</strong>
-                <p>موظفون دون راتب أساسي: {{ $zeroSalaryCount }} · إجازات معلّقة: {{ $pendingLeaves }} · تصحيحات حضور معلّقة: {{ $pendingCorrections }}</p>
+                <p>موظفون دون راتب أساسي: {{ $zeroSalaryCount }} · إجازات معلّقة: {{ $pendingLeaves }} · تصحيحات حضور معلّقة: {{ $pendingCorrections }} · تسجيلات دوام ذاتية معلّقة: {{ $pendingSelfAttendance }}</p>
                 <small>راجع المكونات في الجدول أدناه، ثم اعتمد الدورة إذا كانت البيانات صحيحة. هذه الأرقام ضمن نطاق الموظفين الذين يمكنك عرضهم.</small>
             </div>
         </div>

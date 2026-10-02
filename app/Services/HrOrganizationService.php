@@ -30,14 +30,21 @@ class HrOrganizationService
             }
 
             $primary = $employee->employeeLocations()
-                ->where('is_primary', true)->whereNull('ended_at')
-                ->latest('started_at')->first();
-            if ($primary?->started_at && $from->lt($primary->started_at)) {
+                ->where('is_primary', true)
+                ->where(fn ($query) => $query->whereNull('started_at')
+                    ->orWhereDate('started_at', '<=', $from->toDateString()))
+                ->where(fn ($query) => $query->whereNull('ended_at')
+                    ->orWhereDate('ended_at', '>=', $from->toDateString()))
+                ->orderByDesc('started_at')->first();
+            if (! $primary) {
                 throw ValidationException::withMessages([
-                    'effective_from' => 'تاريخ التكليف يسبق انتقال الموظف إلى فرعه الحالي.',
+                    'effective_from' => 'لا يوجد فرع أساسي للموظف في تاريخ التكليف.',
                 ]);
             }
-            $locationId = $primary?->location_id;
+            $locationId = $primary->location_id;
+            abort_unless($actor->isAdmin() || $actor->can('employees.view_all')
+                || (int) $actor->primaryLocation()?->id === (int) $locationId,
+                403, 'لا يمكنك تكليف موظف في فرع آخر.');
 
             $department = HrDepartment::query()->findOrFail($data['department_id']);
             $position = ! empty($data['position_id'])
@@ -62,7 +69,11 @@ class HrOrganizationService
             if ($manager && ($manager->id === $employee->id
                 || ! $manager->isActive()
                 || ! $manager->employeeLocations()->where('is_primary', true)
-                    ->whereNull('ended_at')->where('location_id', $locationId)->exists())) {
+                    ->where('location_id', $locationId)
+                    ->where(fn ($query) => $query->whereNull('started_at')
+                        ->orWhereDate('started_at', '<=', $from->toDateString()))
+                    ->where(fn ($query) => $query->whereNull('ended_at')
+                        ->orWhereDate('ended_at', '>=', $from->toDateString()))->exists())) {
                 throw ValidationException::withMessages(['manager_employee_id' => 'اختر مديرًا آخر نشطًا في فرع الموظف.']);
             }
             $seen = [$employee->id => true];

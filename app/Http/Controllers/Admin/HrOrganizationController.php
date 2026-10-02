@@ -56,7 +56,11 @@ class HrOrganizationController extends Controller
             'staffOptions' => Employee::query()->accessibleBy($user)
                 ->where('employment_status', 'active')
                 ->with(['employeeLocations' => fn ($query) => $query
-                    ->where('is_primary', true)->whereNull('ended_at')])
+                    ->where('is_primary', true)
+                    ->where(fn ($dates) => $dates->whereNull('started_at')
+                        ->orWhereDate('started_at', '<=', $today))
+                    ->where(fn ($dates) => $dates->whereNull('ended_at')
+                        ->orWhereDate('ended_at', '>=', $today))])
                 ->orderBy('full_name')
                 ->get(['id', 'full_name', 'employee_number']),
             'departmentCounts' => (clone $active)->selectRaw('department_id, COUNT(*) as total')

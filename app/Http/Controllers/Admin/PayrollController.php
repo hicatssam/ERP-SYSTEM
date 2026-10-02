@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Currency;
 use App\Models\AttendanceCorrectionRequest;
+use App\Models\EmployeeSelfAttendanceRequest;
 use App\Models\EmployeeLeaveRequest;
 use App\Models\PaymentMethod;
 use App\Models\PayrollItem;
@@ -104,12 +105,17 @@ class PayrollController extends Controller
             ->where('status', 'pending')
             ->whereDate('work_date', '>=', $period->start_date->toDateString())
             ->whereDate('work_date', '<=', $period->end_date->toDateString())->count();
+        $pendingSelfAttendance = EmployeeSelfAttendanceRequest::query()->whereIn('employee_id', $ids)
+            ->where('status', 'pending')
+            ->whereDate('work_date', '>=', $period->start_date->toDateString())
+            ->whereDate('work_date', '<=', $period->end_date->toDateString())->count();
 
         return view('admin.payroll.show', [
             'period' => $period,
             'canManageGlobal' => $this->access->global($request->user()),
             'pendingLeaves' => $pendingLeaves,
             'pendingCorrections' => $pendingCorrections,
+            'pendingSelfAttendance' => $pendingSelfAttendance,
             'paymentMethods' => PaymentMethod::query()
                 ->where('is_active', true)
                 ->orderBy('sort_order')
