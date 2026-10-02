@@ -81,6 +81,8 @@
                                     <a href="{{ route('invoices.show', $entry->reference_id) }}">فاتورة #{{ $entry->reference_id }}</a>
                                 @elseif($entry->reference_type === 'expenses' && $entry->reference_id && auth()->user()->can('expenses.view'))
                                     <a href="{{ route('costing.expenses.show', $entry->reference_id) }}">مصروف #{{ $entry->reference_id }}</a>
+                                @elseif($entry->reference_type === 'employee_purchases' && $entry->reference_id && auth()->user()->can('accounting.employee_accounts.view'))
+                                    <a href="{{ route('accounting.employee-purchases.show', $entry->reference_id) }}">حساب موظف #{{ $entry->reference_id }}</a>
                                 @else
                                     {{ $entry->reference_type ? $entry->reference_type . ' #' . $entry->reference_id : '—' }}
                                 @endif

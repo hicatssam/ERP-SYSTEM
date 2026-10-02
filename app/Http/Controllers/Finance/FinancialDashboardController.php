@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Currency;
+use App\Models\EmployeePurchase;
+use App\Models\EmployeePurchaseReceipt;
 use App\Models\Invoice;
 use App\Models\Location;
 use App\Models\Payment;
@@ -86,6 +88,15 @@ class FinancialDashboardController extends Controller
             ->whereBetween('processed_at', [$monthStart, $now])->sum('amount');
         $netCollections = round($collections - $refunds, 2);
 
+        // Employee product accounts are their own receivables, separate from
+        // customer invoices and from salary/advance balances.
+        $employeeSales = (float) EmployeePurchase::query()->whereIn('location_id', $locationIds)
+            ->whereBetween('purchased_at', [$monthStart, $now])->sum('total_amount');
+        $employeeCollections = (float) EmployeePurchaseReceipt::query()->whereIn('location_id', $locationIds)
+            ->where('status', 'posted')->whereBetween('posted_at', [$monthStart, $now])->sum('amount');
+        $employeeOutstanding = (float) EmployeePurchase::query()->whereIn('location_id', $locationIds)
+            ->where('status', 'open')->sum('outstanding_amount');
+
         // This is the current open balance, including invoices from previous months.
         $outstanding = (float) Invoice::query()->whereIn('location_id', $locationIds)
             ->where('status', 'active')->sum('remaining_amount');
@@ -95,6 +106,7 @@ class FinancialDashboardController extends Controller
         return compact(
             'grossSales', 'discounts', 'taxes', 'netSales', 'collections', 'netCollections',
             'pendingVerification', 'refunds', 'outstanding',
+            'employeeSales', 'employeeCollections', 'employeeOutstanding',
             'invoiceCount', 'cancelledCount'
         );
     }

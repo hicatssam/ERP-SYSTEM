@@ -52,6 +52,7 @@ class PermissionUi
             'payments' => 'المدفوعات',
             'cash_sessions' => 'جلسات الكاش',
             'financial' => 'الإدارة المالية',
+            'accounting' => 'المحاسبة وحسابات الموظفين',
             'payment_methods' => 'طرق الدفع',
             'reports' => 'التقارير',
             'locations' => 'الفروع والمصنع',
@@ -83,6 +84,10 @@ class PermissionUi
     public static function permissionLabels(): array
     {
         return [
+            'accounting.employee_accounts.view' => 'عرض مشتريات الموظفين وأقساطهم',
+            'accounting.employee_accounts.create' => 'صرف منتجات على حساب الموظف',
+            'accounting.employee_accounts.receive' => 'تسجيل سداد مشتريات الموظف',
+            'accounting.employee_accounts.verify' => 'اعتماد أو رفض دفعات الموظفين المعلقة',
             // لوحة التحكم
             'dashboard.view' => 'الدخول إلى لوحة التحكم',
             'dashboard.orders' => 'إظهار بطاقة طلبات اليوم',

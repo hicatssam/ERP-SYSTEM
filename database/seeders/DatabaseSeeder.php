@@ -2161,6 +2161,8 @@ SVG;
             'inventory.expiry-alerts.receive_all','inventory.expiry-alerts.settings',
             'cash_sessions.manage','receiving_invoices.view',
             'financial.cash.view','financial.cash.movements.manage','financial.cash.close',
+            'accounting.employee_accounts.view','accounting.employee_accounts.create',
+            'accounting.employee_accounts.receive','accounting.employee_accounts.verify',
             'chat.view','chat.send','chat.attachments','chat.view_all_branches','chat.manage',
             'chat.direct.start_all','chat.direct.start_location',
             'crm.view','crm.view_all','crm.manage','crm.interactions.manage',
@@ -2229,7 +2231,7 @@ SVG;
 
         $grantByPrefixes('General Manager', [
             'dashboard.','locations.','employees.','hr.','products.','categories.','customers.',
-            'orders.','inventory.','stock_','reports.','financial.','invoices.','payments.',
+            'orders.','inventory.','stock_','reports.','financial.','accounting.','invoices.','payments.',
             'suppliers.','supplier_','purchase_','goods_','procurement.','recipes.','production.','quality_control.',
             'payroll.','employee_ledger.','attendance.','restaurant.','kitchen.','kds.',
             'chat.','crm.','loyalty.','delivery.','costing.','expenses.','expense_categories.',
@@ -2239,7 +2241,7 @@ SVG;
             'dashboard.','employees.','hr.','products.','categories.','customers.','orders.',
             'inventory.','stock_','reports.','invoices.','payments.','restaurant.','kitchen.','kds.',
             'attendance.','chat.','crm.','loyalty.','delivery.','customer_display.','cash_sessions.',
-        ], ['financial.cash.view'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage','hr.organization.manage']);
+        ], ['financial.cash.view','accounting.employee_accounts.view','accounting.employee_accounts.create','accounting.employee_accounts.receive'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage','hr.organization.manage']);
         $grantByPrefixes('Cashier', ['orders.','customers.','payments.','invoices.','restaurant.pos.'], [
             'products.view','categories.view','payment_methods.view',
         ], ['orders.confirm','orders.cancel','orders.delete','customers.view_all']);
@@ -2247,7 +2249,7 @@ SVG;
             'inventory.','stock_','products.','categories.','suppliers.','supplier_','purchase_','goods_','receiving_',
         ], ['production.view']);
         $grantByPrefixes('Accountant', [
-            'financial.','invoices.','payments.','payment_methods.','reports.','suppliers.',
+            'financial.','accounting.','invoices.','payments.','payment_methods.','reports.','suppliers.',
             'purchase_','supplier_','payroll.','employee_ledger.','recipes.cost.','production.cost.',
         ], ['attendance.view']);
         $grantByPrefixes('Factory Manager', [

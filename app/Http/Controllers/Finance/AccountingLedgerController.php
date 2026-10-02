@@ -48,6 +48,11 @@ class AccountingLedgerController extends Controller
             ->where('entry_date', '<', $endExclusive)
             ->when($filters['entry_type'] ?? null, fn ($q, $type) => $q->where('entry_type', $type));
 
+        $employeeTypes = [LedgerEntryType::EmployeePurchase->value, LedgerEntryType::EmployeeCollection->value];
+        if (! $user->can('accounting.employee_accounts.view')) {
+            $query->whereNotIn('entry_type', $employeeTypes);
+        }
+
         // Keep currencies and posting types separate: sales, receipts and expenses
         // are different measures and cannot be totaled into one account balance.
         $summary = (clone $query)
@@ -62,7 +67,10 @@ class AccountingLedgerController extends Controller
                 ->orderByDesc('entry_date')->orderByDesc('id')
                 ->paginate(30)->withQueryString(),
             'summary' => $summary,
-            'types' => LedgerEntryType::cases(),
+            'types' => $user->can('accounting.employee_accounts.view')
+                ? LedgerEntryType::cases()
+                : array_values(array_filter(LedgerEntryType::cases(),
+                    fn (LedgerEntryType $type) => ! in_array($type->value, $employeeTypes, true))),
             'locations' => $canViewAll ? Location::query()->orderBy('name')->get() : collect(),
             'locationId' => $locationId,
             'entryType' => $filters['entry_type'] ?? null,

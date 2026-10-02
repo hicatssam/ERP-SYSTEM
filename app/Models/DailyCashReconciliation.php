@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class DailyCashReconciliation extends Model
 {
     protected $fillable = [
-        'location_id', 'business_date', 'opening_balance', 'sales', 'customer_receipts',
+        'location_id', 'business_date', 'opening_balance', 'sales', 'customer_receipts', 'employee_receipts',
         'other_income', 'expenses', 'supplier_payments', 'refunds', 'transfer_in',
         'transfer_out', 'expected_closing', 'actual_closing', 'variance', 'note',
         'closed_by', 'closed_at',
@@ -19,7 +19,7 @@ class DailyCashReconciliation extends Model
         return [
             'business_date' => 'date', 'closed_at' => 'datetime',
             ...array_fill_keys([
-                'opening_balance', 'sales', 'customer_receipts', 'other_income',
+                'opening_balance', 'sales', 'customer_receipts', 'employee_receipts', 'other_income',
                 'expenses', 'supplier_payments', 'refunds', 'transfer_in', 'transfer_out',
                 'expected_closing', 'actual_closing', 'variance',
             ], 'decimal:2'),

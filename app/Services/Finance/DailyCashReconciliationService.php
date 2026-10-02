@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 class DailyCashReconciliationService
 {
     public const COMPONENTS = [
-        'sales', 'customer_receipts', 'other_income', 'expenses',
+        'sales', 'customer_receipts', 'employee_receipts', 'other_income', 'expenses',
         'supplier_payments', 'refunds', 'transfer_in', 'transfer_out',
     ];
 
@@ -33,6 +33,13 @@ class DailyCashReconciliationService
             ->where('pm.type', 'cash')
             ->where('cp.paid_at', '>=', $start)->where('cp.paid_at', '<', $end)
             ->sum('cp.amount');
+
+        $employeeReceipts = DB::table('employee_purchase_receipts as er')
+            ->join('payment_methods as pm', 'pm.id', '=', 'er.payment_method_id')
+            ->where('er.location_id', $locationId)->where('er.status', 'posted')
+            ->where('pm.type', 'cash')
+            ->where('er.posted_at', '>=', $start)->where('er.posted_at', '<', $end)
+            ->sum('er.amount');
 
         $refunds = DB::table('refunds as r')
             ->join('payments as p', 'p.id', '=', 'r.payment_id')
@@ -84,6 +91,7 @@ class DailyCashReconciliationService
             'components' => [
                 'sales' => round((float) $cashSales, 2),
                 'customer_receipts' => round((float) $customerReceipts, 2),
+                'employee_receipts' => round((float) $employeeReceipts, 2),
                 'other_income' => round((float) ($manual['other_income'] ?? 0), 2),
                 'expenses' => round((float) $cashExpenses + (float) $cashPayroll, 2),
                 'supplier_payments' => round((float) $cashSupplierPayments, 2),
@@ -101,11 +109,11 @@ class DailyCashReconciliationService
     public function expected(string|float $opening, array $components): float
     {
         $cents = (int) round((float) $opening * 100);
-        foreach (['sales', 'customer_receipts', 'other_income', 'transfer_in'] as $key) {
-            $cents += (int) round($components[$key] * 100);
+        foreach (['sales', 'customer_receipts', 'employee_receipts', 'other_income', 'transfer_in'] as $key) {
+            $cents += (int) round(($components[$key] ?? 0) * 100);
         }
         foreach (['expenses', 'supplier_payments', 'refunds', 'transfer_out'] as $key) {
-            $cents -= (int) round($components[$key] * 100);
+            $cents -= (int) round(($components[$key] ?? 0) * 100);
         }
 
         return $cents / 100;

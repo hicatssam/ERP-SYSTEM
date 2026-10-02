@@ -16,6 +16,8 @@ enum LedgerEntryType: string
     case CarryForward       = 'carry_forward';
     case Expense            = 'expense';
     case ExpenseReversal    = 'expense_reversal';
+    case EmployeePurchase   = 'employee_purchase';
+    case EmployeeCollection = 'employee_collection';
 
     public function label(): string
     {
@@ -32,6 +34,8 @@ enum LedgerEntryType: string
             self::CarryForward      => 'ترحيل',
             self::Expense           => 'مصروف',
             self::ExpenseReversal   => 'عكس مصروف',
+            self::EmployeePurchase  => 'مشتريات موظف',
+            self::EmployeeCollection => 'سداد مشتريات موظف',
         };
     }
 }

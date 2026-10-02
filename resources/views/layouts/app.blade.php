@@ -1906,7 +1906,7 @@ a.app-page-btn:hover {
 
             @endif
 
-            @if($moduleEnabled('finance') || $moduleEnabled('payments') || $moduleEnabled('invoices'))
+            @if($moduleEnabled('finance') || $moduleEnabled('payments') || $moduleEnabled('invoices') || $moduleEnabled('accounting'))
 
             @canany([
 
@@ -1933,6 +1933,8 @@ a.app-page-btn:hover {
                 'financial.cash.view',
 
                 'financial.periods.view',
+
+                'accounting.employee_accounts.view',
 
             ])
 
@@ -2125,6 +2127,12 @@ a.app-page-btn:hover {
                     @endif
 
                     @if($moduleEnabled('accounting'))
+                    @can('accounting.employee_accounts.view')
+                        <a href="{{ route('accounting.employee-purchases.index') }}" class="nav-item {{ request()->routeIs('accounting.employee-purchases.*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M5 18c1-2 7-2 8 0m2-8h4m-4 4h4"/></svg>
+                            <span>مشتريات الموظفين وأقساطهم</span>
+                        </a>
+                    @endcan
                     @can('financial.reports.view')
                         <a href="{{ route('accounting.ledger.index') }}" class="nav-item {{ request()->routeIs('accounting.ledger.*') ? 'active' : '' }}">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h16v18H4zM8 8h8M8 12h8M8 16h5"/></svg>

@@ -17,6 +17,7 @@ enum MovementReason: string
     case PurchaseReturn = 'purchase_return';
     case Order = 'order';
     case OrderSale = 'order_sale';
+    case EmployeePurchase = 'employee_purchase';
     case SaleReturn = 'sale_return';
     case OrderCancellation = 'order_cancellation';
     case Damaged = 'damaged';
@@ -48,6 +49,7 @@ enum MovementReason: string
             self::PurchaseReceipt => 'استلام مشتريات',
             self::PurchaseReturn => 'إرجاع إلى المورد',
             self::Order, self::OrderSale => 'بيع',
+            self::EmployeePurchase => 'صرف منتج لموظف',
             self::SaleReturn => 'مردود مبيعات',
             self::OrderCancellation => 'إلغاء طلب',
             self::Damaged, self::Damage => 'تالف',

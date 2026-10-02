@@ -32,6 +32,7 @@ use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\FinancialPeriodController;
 use App\Http\Controllers\Finance\FinancialDashboardController;
 use App\Http\Controllers\Finance\AccountingLedgerController;
+use App\Http\Controllers\Finance\EmployeePurchaseController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Reports\ReportScheduleController;
 use App\Http\Controllers\ProfileController;
@@ -587,6 +588,19 @@ Route::post(
         Route::get('financial/accounting/ledger', [AccountingLedgerController::class, 'index'])
             ->middleware('can:financial.reports.view')
             ->name('accounting.ledger.index');
+
+        Route::prefix('financial/accounting/employee-purchases')->name('accounting.employee-purchases.')->group(function () {
+            Route::get('/', [EmployeePurchaseController::class, 'index'])->middleware('can:accounting.employee_accounts.view')->name('index');
+            Route::get('/create', [EmployeePurchaseController::class, 'create'])->middleware('can:accounting.employee_accounts.create')->name('create');
+            Route::get('/employees', [EmployeePurchaseController::class, 'employees'])->middleware('can:accounting.employee_accounts.create')->name('employees');
+            Route::get('/products', [EmployeePurchaseController::class, 'products'])->middleware('can:accounting.employee_accounts.create')->name('products');
+            Route::post('/', [EmployeePurchaseController::class, 'store'])->middleware('can:accounting.employee_accounts.create')->name('store');
+            Route::get('/receipts/{receipt}/proof', [EmployeePurchaseController::class, 'proof'])->middleware('can:accounting.employee_accounts.view')->name('receipts.proof');
+            Route::post('/receipts/{receipt}/verify', [EmployeePurchaseController::class, 'verify'])->middleware('can:accounting.employee_accounts.verify')->name('receipts.verify');
+            Route::post('/receipts/{receipt}/reject', [EmployeePurchaseController::class, 'reject'])->middleware('can:accounting.employee_accounts.verify')->name('receipts.reject');
+            Route::get('/{purchase}', [EmployeePurchaseController::class, 'show'])->middleware('can:accounting.employee_accounts.view')->name('show');
+            Route::post('/{purchase}/receipts', [EmployeePurchaseController::class, 'receive'])->middleware('can:accounting.employee_accounts.receive')->name('receipts.store');
+        });
 
       Route::middleware('can:financial.periods.view')->group(function () {
 

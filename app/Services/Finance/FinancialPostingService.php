@@ -4,6 +4,8 @@ namespace App\Services\Finance;
 
 use App\Enums\LedgerEntryType;
 use App\Models\FinancialPeriod;
+use App\Models\EmployeePurchase;
+use App\Models\EmployeePurchaseReceipt;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Refund;
@@ -97,6 +99,39 @@ class FinancialPostingService
         );
     }
 
+    public function employeePurchase(EmployeePurchase $purchase, User $actor): void
+    {
+        $this->post(
+            key: "employee-purchase:{$purchase->id}:sale",
+            type: LedgerEntryType::EmployeePurchase,
+            amount: (float) $purchase->total_amount,
+            date: $purchase->purchased_at,
+            locationId: (int) $purchase->location_id,
+            actorId: $actor->id,
+            referenceType: 'employee_purchases',
+            referenceId: $purchase->id,
+            description: "مشتريات الموظف {$purchase->number}",
+            currencyCode: $purchase->currency->code,
+        );
+    }
+
+    public function employeeCollection(EmployeePurchaseReceipt $receipt, User $actor): void
+    {
+        $purchase = $receipt->purchase;
+        $this->post(
+            key: "employee-purchase-receipt:{$receipt->id}",
+            type: LedgerEntryType::EmployeeCollection,
+            amount: (float) $receipt->amount,
+            date: $receipt->posted_at,
+            locationId: (int) $receipt->location_id,
+            actorId: $actor->id,
+            referenceType: 'employee_purchase_receipts',
+            referenceId: $receipt->id,
+            description: "سداد مشتريات الموظف {$purchase->number}",
+            currencyCode: $purchase->currency->code,
+        );
+    }
+
     private function post(
         string $key,
         LedgerEntryType $type,
@@ -110,6 +145,7 @@ class FinancialPostingService
         ?int $orderId = null,
         ?int $specialCakeOrderId = null,
         ?string $description = null,
+        string $currencyCode = 'ILS',
     ): void {
         if (! Schema::hasTable('sales_ledger_entries') || $amount <= 0) {
             return;
@@ -134,7 +170,7 @@ class FinancialPostingService
                 'order_id' => $orderId,
                 'special_cake_order_id' => $specialCakeOrderId,
                 'description' => $description,
-                'currency_code' => 'ILS',
+                'currency_code' => $currencyCode,
                 'created_by' => $actorId,
                 'created_at' => now(),
             ]

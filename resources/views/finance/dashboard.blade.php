@@ -74,6 +74,20 @@
     </div>
 </div>
 
+@can('accounting.employee_accounts.view')
+<div class="card" style="margin-top:1rem">
+    <div class="card-header"><span class="card-title">ذمم مشتريات الموظفين</span></div>
+    <div class="card-body">
+        <div class="kpi-grid">
+            <div class="kpi-item"><div class="kpi-label">مشتريات هذا الشهر</div><div class="kpi-value">{{ $currencySymbol }}{{ number_format($data['employeeSales'] ?? 0, 2) }}</div></div>
+            <div class="kpi-item"><div class="kpi-label">سداد هذا الشهر</div><div class="kpi-value green">{{ $currencySymbol }}{{ number_format($data['employeeCollections'] ?? 0, 2) }}</div></div>
+            <div class="kpi-item"><div class="kpi-label">المتبقي على الموظفين</div><div class="kpi-value orange">{{ $currencySymbol }}{{ number_format($data['employeeOutstanding'] ?? 0, 2) }}</div></div>
+        </div>
+        <a href="{{ route('accounting.employee-purchases.index') }}" class="btn btn-outline btn-sm" style="margin-top:1rem">عرض حسابات الموظفين</a>
+    </div>
+</div>
+@endcan
+
 {{-- ── Financial activity and current receivables ── --}}
 <div class="card" style="margin-top:1.25rem">
     <div class="card-header">
