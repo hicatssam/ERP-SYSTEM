@@ -81,7 +81,7 @@ class RestaurantPosCatalogTest extends TestCase
         $response = $this->actingAs($cashier)->get(route('restaurant.pos.index'));
         $response->assertOk()->assertSee('rbProductOptionsModal')->assertSee('rbLoadMore');
 
-        preg_match('/const products = (.*?);\s*const oldItems/s', $response->getContent(), $match);
+        preg_match('/let products = (.*?);\s*const catalogUrl/s', $response->getContent(), $match);
         $this->assertCount(2, $match);
         $catalog = json_decode($match[1], true, 512, JSON_THROW_ON_ERROR);
 
@@ -100,6 +100,64 @@ class RestaurantPosCatalogTest extends TestCase
 
         $this->actingAs($cashier)->get(route('restaurant.pos.index', ['location_id' => $other->id]))
             ->assertForbidden();
+    }
+
+    #[Test]
+    public function paged_catalog_search_and_draft_lookup_respect_branch_and_menu_visibility(): void
+    {
+        $branch = $this->branch('A');
+        $other = $this->branch('B');
+        $cashier = $this->cashier($branch);
+        $category = $this->category();
+        $brand = Brand::query()->create([
+            'code' => 'POS-BRAND', 'name' => 'Brand', 'name_ar' => 'ماركة', 'is_active' => true,
+        ]);
+
+        for ($index = 1; $index <= 53; $index++) {
+            $product = $this->product($category, 'ITEM-'.$index, [
+                'brand_id' => $index === 53 ? $brand->id : null,
+            ]);
+            $this->onMenu($branch, $product, $index, $index === 53
+                ? ['display_name_ar' => 'آخر منتج في المنيو'] : []);
+            $this->atBranch($branch, $product, true, $index === 53 ? 27 : null);
+            if ($index === 53) {
+                $last = $product;
+            }
+        }
+
+        $foreign = $this->product($category, 'OTHER-BRANCH');
+        $hidden = $this->product($category, 'HIDDEN-ITEM');
+        $this->onMenu($other, $foreign, 0);
+        $this->onMenu($branch, $hidden, 0, ['show_in_pos' => false]);
+        $this->atBranch($other, $foreign, true);
+        $this->atBranch($branch, $hidden, true);
+
+        $initial = $this->actingAs($cashier)->get(route('restaurant.pos.index'))->assertOk();
+        preg_match('/let products = (.*?);\s*const catalogUrl/s', $initial->getContent(), $match);
+        $firstPage = json_decode($match[1], true, 512, JSON_THROW_ON_ERROR);
+        $this->assertCount(48, $firstPage);
+        $this->assertSame('ITEM-1', $firstPage[0]['sku']);
+
+        $page2 = $this->getJson(route('restaurant.pos.catalog', ['page' => 2]))->assertOk()
+            ->assertJsonPath('total', 53)->assertJsonPath('has_more', false);
+        $this->assertCount(5, $page2->json('products'));
+        $this->assertSame($last->id, $page2->json('products.4.id'));
+
+        $this->getJson(route('restaurant.pos.catalog', [
+            'q' => 'آخر منتج', 'category_id' => $category->id, 'brand_id' => $brand->id,
+        ]))->assertOk()->assertJsonPath('total', 1)
+            ->assertJsonPath('products.0.id', $last->id)
+            ->assertJsonPath('products.0.price', 27);
+
+        $lookup = $this->getJson(route('restaurant.pos.catalog', [
+            'ids' => [$last->id, $foreign->id, $hidden->id],
+        ]))->assertOk();
+        $this->assertSame([$last->id], array_column($lookup->json('products'), 'id'));
+
+        $this->getJson(route('restaurant.pos.catalog', ['location_id' => $other->id]))
+            ->assertForbidden();
+        $this->getJson(route('restaurant.pos.catalog', ['ids' => [$last->id, $last->id]]))
+            ->assertUnprocessable();
     }
 
     #[Test]

@@ -102,6 +102,11 @@ Route::middleware([
                 [RestaurantPosController::class, 'index']
             )->name('pos.index');
 
+            Route::get(
+                '/pos/catalog',
+                [RestaurantPosController::class, 'catalog']
+            )->name('pos.catalog');
+
             Route::post(
                 '/pos/orders',
                 [RestaurantPosController::class, 'store']

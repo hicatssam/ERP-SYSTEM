@@ -10,10 +10,10 @@ use App\Models\Customer;
 use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Models\Product;
-use App\Models\RestaurantMenuItem;
 use App\Models\RestaurantTable;
 use App\Models\SalesChannel;
 use App\Services\Restaurant\RestaurantContextService;
+use App\Services\Restaurant\RestaurantPosCatalogService;
 use App\Services\Restaurant\RestaurantOrderService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -22,7 +22,8 @@ class RestaurantPosController extends Controller
 {
     public function __construct(
         private readonly RestaurantContextService $context,
-        private readonly RestaurantOrderService $restaurantOrders
+        private readonly RestaurantOrderService $restaurantOrders,
+        private readonly RestaurantPosCatalogService $catalog,
     ) {
     }
 
@@ -37,53 +38,8 @@ class RestaurantPosController extends Controller
             $request->user()
         );
 
-        $products = Product::query()
-            ->active()
-            ->whereHas(
-                'restaurantMenuItems',
-                fn ($menuItem) => $menuItem
-                    ->where('location_id', $location->id)
-                    ->where('is_active', true)
-                    ->where('show_in_pos', true)
-            )
-            ->whereHas(
-                'locationProducts',
-                fn ($query) => $query
-                    ->where('location_id', $location->id)
-                    ->where('is_available', true)
-            )
-            ->with([
-                'category:id,name,name_ar',
-                'brand:id,name,name_ar',
-
-                'restaurantMenuItems' => fn ($menuItem) => $menuItem
-                    ->where('location_id', $location->id)
-                    ->where('is_active', true)
-                    ->where('show_in_pos', true),
-
-                'locationProducts' => fn ($query) => $query
-                    ->where('location_id', $location->id),
-
-                'activeVariants.size',
-                'activeVariants.attributeValues.attribute',
-
-                'modifierGroupLinks' => fn ($query) => $query
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->orderBy('id'),
-
-                'modifierGroupLinks.group.modifiers' => fn ($query) => $query
-                    ->where('is_active', true)
-                    ->orderBy('sort_order')
-                    ->orderBy('id'),
-            ])
-            ->orderBy(RestaurantMenuItem::query()
-                ->select('sort_order')
-                ->whereColumn('restaurant_menu_items.product_id', 'products.id')
-                ->where('location_id', $location->id)
-                ->limit(1))
-            ->orderBy('products.id')
-            ->get();
+        $firstPage = $this->catalog->page($location->id);
+        $facets = $this->catalog->facets($location->id);
 
         $customers = Customer::query()
             ->availableAt($location->id)
@@ -135,7 +91,10 @@ class RestaurantPosController extends Controller
             [
                 'location' => $location,
                 'locations' => $locations,
-                'products' => $products,
+                'productPayload' => $this->catalog->payload($firstPage->getCollection()),
+                'catalogTotal' => $firstPage->total(),
+                'catalogHasMore' => $firstPage->hasMorePages(),
+                'catalogFacets' => $facets,
                 'customers' => $customers,
                 'paymentMethods' => $paymentMethods,
                 'salesChannels' => $salesChannels,
@@ -145,6 +104,46 @@ class RestaurantPosController extends Controller
                 'paymentArrangements' => PaymentArrangement::cases(),
             ]
         );
+    }
+
+    public function catalog(Request $request)
+    {
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:150'],
+            'category_id' => ['nullable', 'integer', 'min:1'],
+            'brand_id' => ['nullable', 'integer', 'min:1'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'ids' => ['nullable', 'array', 'max:100'],
+            'ids.*' => ['integer', 'distinct', 'min:1'],
+        ]);
+
+        $location = $this->context->resolveLocation(
+            $request->user(),
+            $request->integer('location_id') ?: null
+        );
+
+        if (isset($data['ids'])) {
+            return response()->json([
+                'products' => $this->catalog->payload(
+                    $this->catalog->byIds($location->id, $data['ids'])
+                ),
+            ]);
+        }
+
+        $page = $this->catalog->page(
+            $location->id,
+            (int) ($data['page'] ?? 1),
+            $data['q'] ?? null,
+            isset($data['category_id']) ? (int) $data['category_id'] : null,
+            isset($data['brand_id']) ? (int) $data['brand_id'] : null,
+        );
+
+        return response()->json([
+            'products' => $this->catalog->payload($page->getCollection()),
+            'total' => $page->total(),
+            'page' => $page->currentPage(),
+            'has_more' => $page->hasMorePages(),
+        ]);
     }
 
     public function store(

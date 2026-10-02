@@ -7,55 +7,6 @@
 @php
     $selectedTableId = (int) old('restaurant_table_id', request('table_id', 0));
 
-    $resolveProductImage = static fn (?string $image): ?string => \App\Support\PublicImageUrl::url($image);
-
-    $productPayload = $products->map(function ($product) use ($resolveProductImage) {
-        $menuItem = $product->restaurantMenuItems->first();
-        $price = (float) ($product->locationProducts->first()?->local_selling_price ?? $product->base_selling_price);
-
-        return [
-            // Keep product id because RestaurantOrderService / inventory / invoice workflows use product_id.
-            'id'       => (int) $product->id,
-            'name'     => $menuItem?->display_name_ar
-                ?: $menuItem?->display_name
-                ?: $product->name_ar
-                ?: $product->name,
-            'category' => $product->category?->name_ar ?: $product->category?->name ?: 'بدون فئة',
-            'price'    => $price,
-            'image'    => $resolveProductImage($menuItem?->image ?: $product->image),
-            'sku'      => $product->sku,
-            'barcode'  => $product->barcode,
-            'description' => $menuItem?->effectiveDescription(),
-            'brand'    => $product->brand?->displayName(),
-            'requires_variant' => $product->isVariantProduct() && $product->activeVariants->isNotEmpty(),
-            'variants' => $product->activeVariants->map(fn ($variant) => [
-                'id' => (int) $variant->id,
-                'name' => $variant->displayName(),
-                'price' => (float) ($variant->selling_price ?? $price),
-                'is_default' => (bool) $variant->is_default,
-            ])->values(),
-            'modifier_groups' => $product->modifierGroupLinks
-                ->filter(fn ($link) => $link->group && $link->group->is_active)
-                ->map(fn ($link) => [
-                    'id' => (int) $link->group->id,
-                    'product_variant_id' => $link->product_variant_id ? (int) $link->product_variant_id : null,
-                    'name' => $link->group->name_ar ?: $link->group->name,
-                    'selection_type' => $link->group->selection_type?->value ?? (string) $link->group->selection_type,
-                    'is_required' => $link->is_required_override ?? (bool) $link->group->is_required,
-                    'min_selections' => $link->min_selections_override ?? (int) $link->group->min_selections,
-                    'max_selections' => $link->max_selections_override ?? $link->group->max_selections,
-                    'modifiers' => $link->group->modifiers->map(fn ($modifier) => [
-                        'id' => (int) $modifier->id,
-                        'name' => $modifier->name_ar ?: $modifier->name,
-                        'price_delta' => (float) $modifier->price_delta,
-                        'allow_quantity' => (bool) $modifier->allow_quantity,
-                        'max_quantity' => (int) $modifier->max_quantity,
-                        'is_default' => (bool) $modifier->is_default,
-                    ])->values(),
-                ])->values(),
-        ];
-    })->values();
-
     $cashierName =
         auth()->user()?->employee?->full_name
         ?? auth()->user()?->display_name
@@ -189,6 +140,7 @@
                             id="rbProductSearch"
                             placeholder="ابحث بالاسم أو الرمز أو الباركود — F2"
                             aria-label="البحث في منتجات المنيو"
+                            maxlength="150"
                             autocomplete="off"
                         >
                     </label>
@@ -2309,7 +2261,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (rbDrawerNode && rbDrawerNode.parentElement !== document.body) {
         document.body.appendChild(rbDrawerNode);
     }
-    const products = @json($productPayload);
+    let products = @json($productPayload);
+    const catalogUrl = @json(route('restaurant.pos.catalog'));
+    const categories = @json($catalogFacets['categories']);
+    const brands = @json($catalogFacets['brands']);
     const oldItems = @json(old('items', []));
     const locationId = @json((int) $location->id);
     const cashierName = @json($cashierName);
@@ -2394,9 +2349,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeBrand = '__all__';
     let pendingAction = 'bill_payment';
     let drawerMode = 'all';
-    let shownProducts = 48;
+    let matchingTotal = @json($catalogTotal);
+    let hasMoreProducts = @json($catalogHasMore);
+    let nextCatalogPage = 2;
+    let catalogLoading = false;
+    let catalogError = false;
+    let catalogRequest = 0;
+    let catalogAbort = null;
+    let searchTimer = null;
     let pendingProduct = null;
     let previousFocus = null;
+    const productCache = new Map(products.map(product => [Number(product.id), product]));
 
     function normalizeSearch(value) {
         return String(value || '').toLocaleLowerCase('ar')
@@ -2409,24 +2372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .trim();
     }
 
-    products.forEach(product => {
-        product.searchIndex = normalizeSearch([
-            product.name, product.category, product.brand, product.description,
-            product.sku, product.barcode, ...product.variants.map(variant => variant.name),
-        ].join(' '));
-    });
-
     const draftKey = `restaurant_pos_draft_${locationId}`;
-
-    oldItems.forEach(item => {
-        const product = products.find(p => Number(p.id) === Number(item.product_id));
-        if (!product) return;
-        const row = makeCartItem(product, item.product_variant_id, item.modifiers, item.quantity, item.kitchen_notes);
-        if (row) cart.set(row.key, row);
-    });
-
-    const categories = [...new Set(products.map(p => p.category || 'بدون فئة'))];
-    const brands = [...new Set(products.map(p => p.brand).filter(Boolean))];
 
     function escapeHtml(value) {
         const div = document.createElement('div');
@@ -2792,7 +2738,7 @@ document.addEventListener('DOMContentLoaded', () => {
         categorySelect.innerHTML = `
             <option value="__all__">كل الفئات</option>
             ${categories.map(category => `
-                <option value="${escapeHtml(category)}">${escapeHtml(category)}</option>
+                <option value="${category.id}">${escapeHtml(category.name)}</option>
             `).join('')}
         `;
         categorySelect.value = activeCategory;
@@ -2800,7 +2746,7 @@ document.addEventListener('DOMContentLoaded', () => {
         brandSelect.innerHTML = `
             <option value="__all__">كل العلامات</option>
             ${brands.map(brand => `
-                <option value="${escapeHtml(brand)}">${escapeHtml(brand)}</option>
+                <option value="${brand.id}">${escapeHtml(brand.name)}</option>
             `).join('')}
         `;
         brandSelect.value = activeBrand;
@@ -2808,16 +2754,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabCategories = categories.slice(0, 8);
         categoryTabs.innerHTML = `
             <button type="button" class="rb-category-tab ${activeCategory === '__all__' ? 'active' : ''}" data-category="__all__" aria-pressed="${activeCategory === '__all__'}">
-                عرض الكل (${products.length})
+                عرض الكل (${categories.reduce((total, category) => total + category.count, 0)})
             </button>
             ${tabCategories.map(category => `
                 <button
                     type="button"
-                    class="rb-category-tab ${activeCategory === category ? 'active' : ''}"
-                    data-category="${escapeHtml(category)}"
-                    aria-pressed="${activeCategory === category}"
+                    class="rb-category-tab ${activeCategory === String(category.id) ? 'active' : ''}"
+                    data-category="${category.id}"
+                    aria-pressed="${activeCategory === String(category.id)}"
                 >
-                    ${escapeHtml(category)} (${products.filter(product => product.category === category).length})
+                    ${escapeHtml(category.name)} (${category.count})
                 </button>
             `).join('')}
         `;
@@ -2825,32 +2771,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderProducts() {
-        const query = normalizeSearch(productSearch.value);
+        visibleProductCount.textContent = products.length;
+        matchingProductCount.textContent = matchingTotal;
+        loadMoreButton.hidden = !hasMoreProducts;
+        loadMoreButton.disabled = catalogLoading;
+        loadMoreButton.textContent = catalogLoading ? 'جار التحميل...' : 'عرض المزيد من المنتجات';
 
-        const filtered = products.filter(product => {
-            const categoryOk = activeCategory === '__all__' || product.category === activeCategory;
-            const brandOk = activeBrand === '__all__' || product.brand === activeBrand;
-            const searchOk = !query || product.searchIndex.includes(query);
-            return categoryOk && brandOk && searchOk;
-        });
-
-        const visible = filtered.slice(0, shownProducts);
-        visibleProductCount.textContent = visible.length;
-        matchingProductCount.textContent = filtered.length;
-        loadMoreButton.hidden = filtered.length <= visible.length;
-
-        if (!filtered.length) {
+        if (!products.length) {
             productGrid.innerHTML = `
                 <div class="rb-products-empty">
-                    ${products.length
-                        ? 'لا توجد منتجات مطابقة. جرّب اسمًا أو رمزًا آخر.<button type="button" data-reset-products>مسح البحث والفلاتر</button>'
-                        : 'لا توجد منتجات متاحة للبيع في منيو هذا الفرع.'}
+                    ${catalogLoading ? 'جار تحميل منتجات المنيو...'
+                        : catalogError
+                            ? 'تعذر تحميل المنتجات.<button type="button" data-retry-products>إعادة المحاولة</button>'
+                            : matchingTotal
+                                ? 'لا توجد منتجات في هذه الصفحة.'
+                                : categories.length
+                                    ? 'لا توجد منتجات مطابقة. جرّب اسمًا أو رمزًا آخر.<button type="button" data-reset-products>مسح البحث والفلاتر</button>'
+                                    : 'لا توجد منتجات متاحة للبيع في منيو هذا الفرع.'}
                 </div>
             `;
             return;
         }
 
-        productGrid.innerHTML = visible.map(product => {
+        productGrid.innerHTML = products.map(product => {
             const qty = [...cart.values()]
                 .filter(item => Number(item.id) === Number(product.id))
                 .reduce((total, item) => total + Number(item.quantity), 0);
@@ -2896,6 +2839,69 @@ document.addEventListener('DOMContentLoaded', () => {
                 </button>
             `;
         }).join('');
+    }
+
+    async function loadCatalog(page = 1, append = false) {
+        clearTimeout(searchTimer);
+        searchTimer = null;
+        const requestNumber = ++catalogRequest;
+        catalogAbort?.abort();
+        catalogAbort = new AbortController();
+        catalogLoading = true;
+        catalogError = false;
+        if (!append) {
+            products = [];
+            matchingTotal = 0;
+            hasMoreProducts = false;
+        }
+        renderProducts();
+
+        const url = new URL(catalogUrl, window.location.origin);
+        url.searchParams.set('location_id', locationId);
+        url.searchParams.set('page', page);
+        if (productSearch.value.trim()) url.searchParams.set('q', productSearch.value.trim());
+        if (activeCategory !== '__all__') url.searchParams.set('category_id', activeCategory);
+        if (activeBrand !== '__all__') url.searchParams.set('brand_id', activeBrand);
+
+        try {
+            const response = await fetch(url, {
+                headers: { Accept: 'application/json' },
+                signal: catalogAbort.signal,
+            });
+            if (!response.ok) throw new Error(`Catalog HTTP ${response.status}`);
+            const data = await response.json();
+            if (requestNumber !== catalogRequest) return null;
+
+            products = append ? [...products, ...data.products] : data.products;
+            data.products.forEach(product => productCache.set(Number(product.id), product));
+            matchingTotal = data.total;
+            hasMoreProducts = data.has_more;
+            nextCatalogPage = data.page + 1;
+            catalogLoading = false;
+            renderProducts();
+            return data;
+        } catch (error) {
+            if (requestNumber !== catalogRequest || error.name === 'AbortError') return null;
+            catalogLoading = false;
+            catalogError = true;
+            renderProducts();
+            statusMessage('تعذر تحميل منتجات المنيو. أعد المحاولة.', 'error');
+            return null;
+        }
+    }
+
+    async function loadProductsByIds(ids) {
+        const uniqueIds = [...new Set(ids.map(Number).filter(id => Number.isInteger(id) && id > 0))].slice(0, 100);
+        if (!uniqueIds.length) return [];
+
+        const url = new URL(catalogUrl, window.location.origin);
+        url.searchParams.set('location_id', locationId);
+        uniqueIds.forEach(id => url.searchParams.append('ids[]', id));
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error(`Catalog HTTP ${response.status}`);
+        const data = await response.json();
+        data.products.forEach(product => productCache.set(Number(product.id), product));
+        return data.products;
     }
 
     function syncHiddenItems() {
@@ -2995,7 +3001,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function addProduct(productId) {
         const id = Number(productId);
-        const product = products.find(p => Number(p.id) === id);
+        const product = productCache.get(id);
         if (!product) return;
 
         if (product.requires_variant || product.modifier_groups.length) {
@@ -3018,7 +3024,7 @@ document.addEventListener('DOMContentLoaded', () => {
         activeCategory = '__all__';
         activeBrand = '__all__';
         renderFilters();
-        renderProducts();
+        loadCatalog();
         statusMessage('تم فتح طلب جديد.');
     }
 
@@ -3302,16 +3308,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function restoreLocalDraft() {
+    async function restoreLocalDraft() {
         const draft = loadLocalDraft();
         if (!draft || !Array.isArray(draft.items)) {
             window.alert('المسودة غير متاحة أو تالفة.');
             return;
         }
 
+        let availableProducts;
+        try {
+            availableProducts = await loadProductsByIds(draft.items.map(row => row.id));
+        } catch (error) {
+            statusMessage('تعذر التحقق من منتجات المسودة. أعد المحاولة.', 'error');
+            return;
+        }
+
+        const available = new Map(availableProducts.map(product => [Number(product.id), product]));
         cart.clear();
         draft.items.forEach(row => {
-            const product = products.find(p => Number(p.id) === Number(row.id));
+            const product = available.get(Number(row.id));
             if (!product) return;
             const item = makeCartItem(product, row.product_variant_id, row.modifiers, row.quantity, row.kitchen_notes);
             if (item) cart.set(item.key, item);
@@ -3329,7 +3344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncPayment();
         renderCart();
         closeDrawer();
-        statusMessage('تم استرجاع المسودة.');
+        statusMessage(cart.size ? 'تم استرجاع المسودة بالمنتجات المتاحة في الفرع.' : 'منتجات المسودة لم تعد متاحة للبيع.', cart.size ? 'success' : 'error');
     }
 
     function deleteLocalDraft() {
@@ -3818,13 +3833,16 @@ async function submitOrder(action) {
     // Product listeners
     // -----------------------------
     productGrid.addEventListener('click', event => {
+        if (event.target.closest('[data-retry-products]')) {
+            loadCatalog();
+            return;
+        }
         if (event.target.closest('[data-reset-products]')) {
             productSearch.value = '';
             activeCategory = '__all__';
             activeBrand = '__all__';
-            shownProducts = 48;
             renderFilters();
-            renderProducts();
+            loadCatalog();
             productSearch.focus();
             return;
         }
@@ -3834,24 +3852,30 @@ async function submitOrder(action) {
     });
 
     productSearch.addEventListener('input', () => {
-        shownProducts = 48;
-        renderProducts();
+        clearTimeout(searchTimer);
+        searchTimer = window.setTimeout(() => loadCatalog(), 250);
     });
-    productSearch.addEventListener('keydown', event => {
+    productSearch.addEventListener('keydown', async event => {
         if (event.key !== 'Enter') return;
         event.preventDefault();
+        clearTimeout(searchTimer);
         const scanned = normalizeSearch(productSearch.value);
-        const match = products.find(product => scanned && [product.barcode, product.sku]
+        if (!scanned) return;
+        let match = [...productCache.values()].find(product => [product.barcode, product.sku]
             .some(value => normalizeSearch(value) === scanned));
+        if (!match) {
+            const result = await loadCatalog();
+            if (!result) return;
+            match = products.find(product => [product.barcode, product.sku]
+                .some(value => normalizeSearch(value) === scanned));
+        }
         if (!match) return;
         addProduct(match.id);
         productSearch.value = '';
-        shownProducts = 48;
-        renderProducts();
+        loadCatalog();
     });
     loadMoreButton.addEventListener('click', () => {
-        shownProducts += 48;
-        renderProducts();
+        if (!catalogLoading && hasMoreProducts) loadCatalog(nextCatalogPage, true);
     });
 
     categoryTabs.addEventListener('click', event => {
@@ -3860,22 +3884,19 @@ async function submitOrder(action) {
 
         activeCategory = button.dataset.category;
         categorySelect.value = activeCategory;
-        shownProducts = 48;
         renderFilters();
-        renderProducts();
+        loadCatalog();
     });
 
     categorySelect.addEventListener('change', () => {
         activeCategory = categorySelect.value;
-        shownProducts = 48;
         renderFilters();
-        renderProducts();
+        loadCatalog();
     });
 
     brandSelect.addEventListener('change', () => {
         activeBrand = brandSelect.value;
-        shownProducts = 48;
-        renderProducts();
+        loadCatalog();
     });
 
     productOptionsBody.addEventListener('change', event => {
@@ -4074,6 +4095,21 @@ async function submitOrder(action) {
     syncServiceType();
     syncPayment();
     renderLocalDraftCard();
+    if (Array.isArray(oldItems) && oldItems.length) {
+        loadProductsByIds(oldItems.map(item => item.product_id))
+            .then(availableProducts => {
+                const available = new Map(availableProducts.map(product => [Number(product.id), product]));
+                oldItems.forEach(item => {
+                    const product = available.get(Number(item.product_id));
+                    if (!product) return;
+                    const row = makeCartItem(product, item.product_variant_id, item.modifiers,
+                        item.quantity, item.kitchen_notes);
+                    if (row) cart.set(row.key, row);
+                });
+                renderCart();
+            })
+            .catch(() => statusMessage('تعذر استرجاع أصناف الطلب السابق.', 'error'));
+    }
 });
 </script>
 @endsection
