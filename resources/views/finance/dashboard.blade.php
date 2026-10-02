@@ -138,11 +138,9 @@
                 الفترات المالية
             </a>
             @endcan
-            @if($moduleEnabled('accounting'))
-                @can('financial.reports.view')
-                    <a href="{{ route('accounting.ledger.index') }}" class="btn btn-outline btn-full">سجل الترحيلات المالية</a>
-                @endcan
-            @endif
+            @can('financial.reports.view')
+                <a href="{{ route('accounting.ledger.index') }}" class="btn btn-outline btn-full">سجل الترحيلات المالية</a>
+            @endcan
             @can('reports.view')
             <a href="{{ route('reports.show', 'collections') }}" class="btn btn-outline btn-full">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
