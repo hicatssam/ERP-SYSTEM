@@ -233,7 +233,7 @@ class EmployeeLeaveService
             })->exists();
         if ($locked) {
             throw ValidationException::withMessages([
-                'start_date' => 'تتداخل الإجازة مع دورة رواتب معتمدة؛ لا يمكن تعديل أثر الحضور بعدها.',
+                'start_date' => 'تتداخل الفترة مع دورة رواتب معتمدة؛ لا يمكن تعديل أثر الحضور بعدها.',
             ]);
         }
     }

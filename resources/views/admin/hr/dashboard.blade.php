@@ -10,6 +10,7 @@
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
             @can('employees.manage')<a class="btn btn-outline" href="{{ route('employees.index') }}">الموظفون</a>@endcan
             @can('hr.organization.view')<a class="btn btn-outline" href="{{ route('hr.organization.index') }}">الهيكل الوظيفي</a>@endcan
+            @can('attendance.approve')<a class="btn btn-outline" href="{{ route('attendance.self-requests.index') }}">مراجعة تسجيل الدوام</a>@endcan
         </div>
     </div>
     @if($errors->any())
@@ -25,6 +26,9 @@
         <div class="card card-body"><small>إجازات معلقة</small><strong>{{ $leaveCount }}</strong></div>
         <div class="card card-body"><small>تصحيحات حضور معلقة</small><strong>{{ $correctionCount }}</strong></div>
         <div class="card card-body"><small>غياب مسجل اليوم</small><strong>{{ $absenceCount }}</strong></div>
+        <div class="card card-body"><small>على رأس العمل الآن</small><strong>{{ $onDutyCount }}</strong></div>
+        <div class="card card-body"><small>بدون سجل اليوم</small><strong>{{ $notRegisteredCount }}</strong></div>
+        <div class="card card-body"><small>دوام ذاتي بانتظار المراجعة</small><strong>{{ $selfAttendanceCount }}</strong></div>
     </div>
     <div class="hr-panels">
         <section class="card">
@@ -41,6 +45,31 @@
                 @forelse($corrections as $correction)
                     <div class="hr-row"><span>{{ $correction->employee?->full_name }}</span><strong>{{ $correction->work_date?->format('Y-m-d') }}</strong></div>
                 @empty <p>لا توجد تصحيحات معلقة.</p> @endforelse
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-header"><span class="card-title">تسجيلات الدوام الذاتية</span>@can('attendance.approve')<a href="{{ route('attendance.self-requests.index') }}">مراجعة الطلبات</a>@endcan</div>
+            <div class="card-body">
+                @forelse($selfAttendanceRequests as $submission)
+                    <div class="hr-row"><span>{{ $submission->employee?->full_name }} · {{ $submission->work_date?->format('Y-m-d') }}</span><strong>{{ $submission->check_out_at ? 'جاهز للمراجعة' : 'على رأس العمل' }}</strong></div>
+                @empty <p>لا توجد تسجيلات ذاتية معلقة.</p> @endforelse
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-header"><span class="card-title">على رأس العمل الآن</span></div>
+            <div class="card-body">
+                @forelse($onDutyEmployees as $person)
+                    <div class="hr-row"><span>{{ $person->full_name }}</span><small>{{ $person->job_title ?: 'موظف' }}</small></div>
+                @empty <p>لا يوجد حضور مفتوح حاليًا.</p> @endforelse
+            </div>
+        </section>
+        <section class="card">
+            <div class="card-header"><span class="card-title">لا يوجد لهم سجل اليوم</span></div>
+            <div class="card-body">
+                <p class="page-subheading">هذا تنبيه متابعة؛ عدم وجود سجل وحده لا يعني الغياب.</p>
+                @forelse($withoutTodayRecordEmployees as $person)
+                    <div class="hr-row"><span>{{ $person->full_name }}</span><small>{{ $person->job_title ?: 'موظف' }}</small></div>
+                @empty <p>كل الموظفين ضمن نطاقك لديهم سجل أو تسجيل مبدئي اليوم.</p> @endforelse
             </div>
         </section>
         @can('hr.documents.view')
@@ -64,7 +93,7 @@
     </div>
 </div>
 <style>
-.hr-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.8rem;margin:1rem 0}
+.hr-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:.8rem;margin:1rem 0}
 .hr-summary .card{display:flex;flex-direction:column;gap:.3rem}.hr-summary strong{font-size:1.5rem}
 .hr-panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}
 .hr-row{display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;padding:.65rem 0;border-bottom:1px solid var(--border)}

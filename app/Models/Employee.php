@@ -70,6 +70,16 @@ class Employee extends Model
         return $this->hasMany(EmployeeLocation::class);
     }
 
+    public function attendanceRecords(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
+    public function selfAttendanceRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EmployeeSelfAttendanceRequest::class);
+    }
+
     public function hrProfile(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(EmployeeHrProfile::class);
@@ -129,7 +139,12 @@ class Employee extends Model
                     'employee_locations.is_primary',
                     true
                 )
-                ->whereNull('employee_locations.ended_at')
+                ->where(fn (Builder $dates) => $dates
+                    ->whereNull('employee_locations.started_at')
+                    ->orWhereDate('employee_locations.started_at', '<=', now()->toDateString()))
+                ->where(fn (Builder $dates) => $dates
+                    ->whereNull('employee_locations.ended_at')
+                    ->orWhereDate('employee_locations.ended_at', '>=', now()->toDateString()))
         );
     }
 
@@ -137,6 +152,13 @@ class Employee extends Model
     {
         return $this->locations()
             ->wherePivot('is_primary', true)
+            ->where(fn (Builder $query) => $query
+                ->whereNull('employee_locations.started_at')
+                ->orWhereDate('employee_locations.started_at', '<=', now()->toDateString()))
+            ->where(fn (Builder $query) => $query
+                ->whereNull('employee_locations.ended_at')
+                ->orWhereDate('employee_locations.ended_at', '>=', now()->toDateString()))
+            ->orderByPivot('started_at', 'desc')
             ->first();
     }
 

@@ -7,6 +7,8 @@ use App\Http\Controllers\Admin\HrOrganizationController;
 use App\Http\Controllers\Admin\AttendanceCorrectionController;
 use App\Http\Controllers\Employee\MyHrController;
 use App\Http\Controllers\Employee\EmployeeFaceAttendanceController;
+use App\Http\Controllers\Employee\EmployeeSelfAttendanceController;
+use App\Http\Controllers\Admin\EmployeeSelfAttendanceReviewController;
 use App\Http\Controllers\Admin\AttendancePayrollController;
 use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\LeaveTypeController;
@@ -53,6 +55,8 @@ Route::middleware([
             ->middleware(EnsureAttendanceEnabled::class)->name('leaves.store');
         Route::post('/corrections', [MyHrController::class, 'correction'])
             ->middleware(EnsureAttendanceEnabled::class)->name('corrections.store');
+        Route::post('/punch', [EmployeeSelfAttendanceController::class, 'punch'])
+            ->middleware([EnsureAttendanceEnabled::class, 'throttle:6,1'])->name('punch');
         Route::post('/face/challenge', [EmployeeFaceAttendanceController::class, 'challenge'])
             ->middleware([EnsureBiometricAttendanceEnabled::class, 'throttle:10,1'])
             ->name('face.challenge');
@@ -105,6 +109,13 @@ Route::middleware([
             Route::post('/records/{record}/approve', [AttendanceController::class, 'approve'])
                 ->middleware('can:attendance.approve')
                 ->name('approve');
+
+            Route::get('/self-requests', [EmployeeSelfAttendanceReviewController::class, 'index'])
+                ->middleware('can:attendance.approve')->name('self-requests.index');
+            Route::post('/self-requests/{submission}/approve', [EmployeeSelfAttendanceReviewController::class, 'approve'])
+                ->middleware('can:attendance.approve')->name('self-requests.approve');
+            Route::post('/self-requests/{submission}/reject', [EmployeeSelfAttendanceReviewController::class, 'reject'])
+                ->middleware('can:attendance.approve')->name('self-requests.reject');
 
             Route::get('/face/kiosk', [FaceAttendanceController::class, 'kiosk'])
                 ->middleware([

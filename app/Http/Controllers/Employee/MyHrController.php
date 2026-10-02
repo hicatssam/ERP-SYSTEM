@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceCorrectionRequest;
 use App\Models\AttendanceRecord;
 use App\Models\EmployeeLeaveRequest;
+use App\Models\EmployeeSelfAttendanceRequest;
 use App\Models\EmployeeAdvance;
 use App\Models\LeaveType;
 use App\Models\PayrollItem;
@@ -33,12 +34,23 @@ class MyHrController extends Controller
     ): View {
         $employee = $this->employee($request->user());
         $types = LeaveType::query()->where('is_active', true)->orderBy('name')->get();
+        $today = now()->toDateString();
+        $openSelfRequest = EmployeeSelfAttendanceRequest::query()
+            ->where('employee_id', $employee->id)->where('status', 'pending')
+            ->whereNull('check_out_at')
+            ->where('check_in_at', '>=', now()->subDay())
+            ->latest('check_in_at')->first();
+        $todaySelfRequest = EmployeeSelfAttendanceRequest::query()
+            ->where('employee_id', $employee->id)->whereDate('work_date', $today)->first();
 
         return view('employee.my-hr.index', [
             'employee' => $employee,
             'shift' => $attendance->shiftFor($employee, now()->toDateString()),
             'todayRecord' => AttendanceRecord::query()->where('employee_id', $employee->id)
-                ->whereDate('work_date', now()->toDateString())->first(),
+                ->whereDate('work_date', $today)->first(),
+            'selfPunchEnabled' => $features->employeeSelfPunchEnabled(),
+            'selfAttendanceRequest' => $openSelfRequest ?? $todaySelfRequest,
+            'todaySelfRequest' => $todaySelfRequest,
             'facePunchEnabled' => $features->employeeFacePunchEnabled(),
             'faceConfigured' => $face->configured(),
             'faceProfileActive' => $employee->faceProfile?->isActive() === true
@@ -52,6 +64,8 @@ class MyHrController extends Controller
                 ->latest()->limit(10)->get(),
             'corrections' => AttendanceCorrectionRequest::query()
                 ->where('employee_id', $employee->id)->latest()->limit(10)->get(),
+            'selfAttendanceRequests' => EmployeeSelfAttendanceRequest::query()
+                ->where('employee_id', $employee->id)->latest('work_date')->limit(10)->get(),
             'payslips' => PayrollItem::query()->where('employee_id', $employee->id)
                 ->whereHas('period', fn ($query) => $query
                     ->whereIn('status', ['approved', 'paid', 'closed']))

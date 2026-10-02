@@ -708,6 +708,10 @@
 
         <div class="att-head-actions">
 
+            @can('attendance.approve')
+                <a class="btn btn-outline" href="{{ route('attendance.self-requests.index') }}">مراجعة تسجيلات الموظفين</a>
+            @endcan
+
             @if(
                 app(
                     \App\Services\AttendanceFeatureService::class

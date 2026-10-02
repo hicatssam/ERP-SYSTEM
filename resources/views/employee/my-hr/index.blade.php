@@ -17,6 +17,7 @@
         </div>
     </div>
 
+    @if(session('success'))<div class="alert alert-success" role="status">{{ session('success') }}</div>@endif
     @if($errors->any())
         <div class="alert alert-danger" role="alert">
             @foreach($errors->all() as $error)<div>{{ $error }}</div>@endforeach
@@ -27,15 +28,33 @@
         <div class="card-header"><span class="card-title">دوامي اليوم · {{ now()->format('Y-m-d') }}</span></div>
         <div class="card-body">
             <div class="myhr-punch-times">
-                <div><small>الحضور</small><strong>{{ $todayRecord?->check_in_at?->format('H:i') ?? 'لم يُسجّل' }}</strong></div>
-                <div><small>الانصراف</small><strong>{{ $todayRecord?->check_out_at?->format('H:i') ?? 'لم يُسجّل' }}</strong></div>
-                <div><small>الحالة</small><strong>{{ $todayRecord ? match($todayRecord->status) {'present' => 'حاضر', 'leave' => 'إجازة', 'absent' => 'غائب', 'holiday' => 'عطلة', default => $todayRecord->status} : 'بانتظار أول تسجيل' }}</strong></div>
+                <div><small>الحضور</small><strong>{{ $todayRecord?->check_in_at?->format('H:i') ?? $selfAttendanceRequest?->check_in_at?->format('H:i') ?? 'لم يُسجّل' }}</strong></div>
+                <div><small>الانصراف</small><strong>{{ $todayRecord?->check_out_at?->format('H:i') ?? $selfAttendanceRequest?->check_out_at?->format('H:i') ?? 'لم يُسجّل' }}</strong></div>
+                <div><small>الحالة</small><strong>{{ $todayRecord ? match($todayRecord->status) {'present' => 'حاضر', 'leave' => 'إجازة', 'absent' => 'غائب', 'holiday' => 'عطلة', default => $todayRecord->status} : ($selfAttendanceRequest ? match($selfAttendanceRequest->status) {'approved' => 'معتمد', 'rejected' => 'مرفوض', default => ($selfAttendanceRequest->check_out_at ? 'بانتظار اعتماد المسؤول' : 'حضور مسجل مبدئيًا')} : 'بانتظار أول تسجيل') }}</strong></div>
             </div>
+            @if($selfAttendanceRequest && $selfAttendanceRequest->work_date->toDateString() !== now()->toDateString())
+                <p class="page-subheading">التسجيل المعروض بدأ بتاريخ {{ $selfAttendanceRequest->work_date->format('Y-m-d') }}.</p>
+            @endif
             <div class="myhr-punch-options">
+                <div>
+                    <strong>تسجيل حضوري من البوابة</strong>
+                    <small>نحفظ وقت الخادم عند دخولك وخروجك. يظهر حضورك مبدئيًا، وبعد الانصراف يراجعه المسؤول قبل اعتماده في سجل الرواتب.</small>
+                    @if($selfAttendanceRequest?->status === 'pending' && !$selfAttendanceRequest->check_out_at)
+                        <form method="POST" action="{{ route('my-hr.punch') }}">@csrf<input type="hidden" name="action" value="check_out"><button class="btn btn-gold" type="submit">تسجيل انصرافي الآن</button></form>
+                    @elseif(!$selfPunchEnabled)
+                        <small>هذه الطريقة غير مفعلة في إعدادات الحضور.</small>
+                    @elseif(!$todayRecord && !$todaySelfRequest)
+                        <form method="POST" action="{{ route('my-hr.punch') }}">@csrf<input type="hidden" name="action" value="check_in"><button class="btn btn-gold" type="submit">حضرت للدوام الآن</button></form>
+                    @else
+                        <small>تم تسجيل دوام اليوم. تفاصيل الطلب وحالة الاعتماد تظهر أدناه.</small>
+                    @endif
+                    @if($selfAttendanceRequest?->decision_note)<small>ملاحظة المسؤول: {{ $selfAttendanceRequest->decision_note }}</small>@endif
+                </div>
                 <div>
                     <strong>بصمة الوجه</strong>
                     <small>تفتح الكاميرا وتتحقق من وجهك المسجّل قبل تسجيل الحضور أو الانصراف في سجلك.</small>
                     @if($facePunchEnabled && $faceConfigured && $faceProfileActive
+                        && !($selfAttendanceRequest?->status === 'pending' && (!$selfAttendanceRequest->check_out_at || $todaySelfRequest))
                         && (!$todayRecord || (!$todayRecord->approved_at && $todayRecord->status === 'present' && !$todayRecord->check_out_at)))
                         <button class="btn btn-gold" type="button" data-myhr-open="myFaceDialog">{{ $todayRecord?->check_in_at ? 'تسجيل الانصراف بالوجه' : 'تسجيل الحضور بالوجه' }}</button>
                     @elseif(!$facePunchEnabled)
@@ -44,6 +63,8 @@
                         <small>خدمة بصمة الوجه غير مهيأة بعد.</small>
                     @elseif(!$faceProfileActive)
                         <small>اطلب من مسؤول الحضور تسجيل بصمة وجهك أولًا.</small>
+                    @elseif($selfAttendanceRequest?->status === 'pending' && (!$selfAttendanceRequest->check_out_at || $todaySelfRequest))
+                        <small>أنهِ أو راجع طلب الدوام الذاتي الحالي قبل استخدام الوجه.</small>
                     @else
                         <small>لا يمكن تعديل سجل اليوم بعد اكتماله أو اعتماده.</small>
                     @endif
@@ -189,7 +210,15 @@
                         @if($correction->decision_note)<small>{{ $correction->decision_note }}</small>@endif
                     </div>
                 @endforeach
-                @if($leaveRequests->isEmpty() && $corrections->isEmpty())<p>لم تقدّم طلبات بعد.</p>@endif
+                @foreach($selfAttendanceRequests as $attendanceRequest)
+                    <div class="myhr-row">
+                        <span>تسجيل دوام · {{ $attendanceRequest->work_date->format('Y-m-d') }}</span>
+                        <strong>{{ match($attendanceRequest->status) {'approved' => 'معتمد', 'rejected' => 'مرفوض', default => ($attendanceRequest->check_out_at ? 'بانتظار المراجعة' : 'على رأس العمل')} }}</strong>
+                        <small>حضور: {{ $attendanceRequest->check_in_at->format('H:i') }} · انصراف: {{ $attendanceRequest->check_out_at?->format('H:i') ?? '—' }}</small>
+                        @if($attendanceRequest->decision_note)<small>{{ $attendanceRequest->decision_note }}</small>@endif
+                    </div>
+                @endforeach
+                @if($leaveRequests->isEmpty() && $corrections->isEmpty() && $selfAttendanceRequests->isEmpty())<p>لم تقدّم طلبات بعد.</p>@endif
             </div>
         </section>
     </div>
@@ -212,8 +241,8 @@
 .myhr-dialog-head{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--border)}
 .myhr-dialog-head h2{margin:0;font-size:1.2rem}.myhr-dialog-head button{font-size:1.6rem;background:transparent;border:0;color:inherit;cursor:pointer}
 .myhr-dialog-actions{display:flex;justify-content:flex-end;gap:.5rem}
-.myhr-punch-card{margin-bottom:1rem}.myhr-punch-times{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin-bottom:1rem}.myhr-punch-times>div{padding:.8rem;border:1px solid var(--border);border-radius:12px}.myhr-punch-times small,.myhr-punch-options small{display:block;color:var(--text-muted)}.myhr-punch-times strong{display:block;margin-top:.3rem}.myhr-punch-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}.myhr-punch-options>div{display:grid;align-content:start;gap:.65rem;padding:1rem;border:1px solid var(--border);border-radius:12px}.myhr-punch-options .btn{justify-self:start}.myhr-face-content{display:grid;gap:.8rem}.myhr-face-camera{position:relative;background:#101820;border-radius:12px;overflow:hidden;min-height:220px;display:grid;place-items:center;color:#fff}.myhr-face-camera video{width:100%;max-height:360px;object-fit:cover;transform:scaleX(-1)}.myhr-face-camera span{position:absolute;inset:0;display:grid;place-items:center;padding:1rem;text-align:center}.myhr-face-camera.live span{display:none}#myFaceStatus{min-height:1.5rem;margin:0}
-@media(max-width:850px){.myhr-grid{grid-template-columns:1fr}}
+.myhr-punch-card{margin-bottom:1rem}.myhr-punch-times{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin-bottom:1rem}.myhr-punch-times>div{padding:.8rem;border:1px solid var(--border);border-radius:12px}.myhr-punch-times small,.myhr-punch-options small{display:block;color:var(--text-muted)}.myhr-punch-times strong{display:block;margin-top:.3rem}.myhr-punch-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}.myhr-punch-options>div{display:grid;align-content:start;gap:.65rem;padding:1rem;border:1px solid var(--border);border-radius:12px}.myhr-punch-options .btn{justify-self:start}.myhr-face-content{display:grid;gap:.8rem}.myhr-face-camera{position:relative;background:#101820;border-radius:12px;overflow:hidden;min-height:220px;display:grid;place-items:center;color:#fff}.myhr-face-camera video{width:100%;max-height:360px;object-fit:cover;transform:scaleX(-1)}.myhr-face-camera span{position:absolute;inset:0;display:grid;place-items:center;padding:1rem;text-align:center}.myhr-face-camera.live span{display:none}#myFaceStatus{min-height:1.5rem;margin:0}
+@media(max-width:850px){.myhr-grid,.myhr-punch-options{grid-template-columns:1fr}}
 @media(max-width:530px){.myhr-dates,.myhr-punch-options{grid-template-columns:1fr}.myhr-punch-times{gap:.35rem}.myhr-punch-times>div{padding:.5rem}.myhr-header-actions{justify-content:flex-start}}
 </style>
 <script>

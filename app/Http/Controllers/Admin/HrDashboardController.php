@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeHrProfile;
 use App\Models\EmployeeLeaveRequest;
+use App\Models\EmployeeSelfAttendanceRequest;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -67,10 +68,26 @@ class HrDashboardController extends Controller
         $ids = (clone $staff)->select('employees.id');
         $today = now()->toDateString();
         $deadline = now()->addDays(30)->toDateString();
+        $activeStaff = (clone $staff)->where('employment_status', 'active');
+        $onDuty = (clone $activeStaff)->where(fn ($query) => $query
+            ->whereHas('attendanceRecords', fn ($records) => $records
+                ->whereDate('work_date', $today)->where('status', 'present')
+                ->whereNotNull('check_in_at')->whereNull('check_out_at'))
+            ->orWhereHas('selfAttendanceRequests', fn ($submissions) => $submissions
+                ->where('status', 'pending')->whereNull('check_out_at')
+                ->where('check_in_at', '>=', now()->subDay())));
+        $withoutTodayRecord = (clone $activeStaff)
+            ->whereDoesntHave('attendanceRecords', fn ($records) => $records
+                ->whereDate('work_date', $today))
+            ->whereDoesntHave('selfAttendanceRequests', fn ($submissions) => $submissions
+                ->whereDate('work_date', $today)
+                ->whereIn('status', ['pending', 'approved']));
 
         $leave = EmployeeLeaveRequest::query()->whereIn('employee_id', clone $ids)
             ->where('status', 'pending');
         $corrections = AttendanceCorrectionRequest::query()->whereIn('employee_id', clone $ids)
+            ->where('status', 'pending');
+        $selfRequests = EmployeeSelfAttendanceRequest::query()->whereIn('employee_id', clone $ids)
             ->where('status', 'pending');
         $absences = AttendanceRecord::query()->whereIn('employee_id', clone $ids)
             ->whereDate('work_date', $today)->where('status', 'absent');
@@ -82,11 +99,17 @@ class HrDashboardController extends Controller
 
         return view('admin.hr.dashboard', [
             'employeeCount' => (clone $staff)->count(),
+            'onDutyCount' => (clone $onDuty)->count(),
+            'notRegisteredCount' => (clone $withoutTodayRecord)->count(),
+            'onDutyEmployees' => (clone $onDuty)->orderBy('full_name')->limit(8)->get(['id', 'full_name', 'job_title']),
+            'withoutTodayRecordEmployees' => (clone $withoutTodayRecord)->orderBy('full_name')->limit(8)->get(['id', 'full_name', 'job_title']),
+            'selfAttendanceCount' => (clone $selfRequests)->count(),
             'leaveCount' => (clone $leave)->count(),
             'correctionCount' => (clone $corrections)->count(),
             'absenceCount' => (clone $absences)->count(),
             'leaves' => (clone $leave)->with('employee')->oldest()->limit(10)->get(),
             'corrections' => (clone $corrections)->with('employee')->oldest()->limit(10)->get(),
+            'selfAttendanceRequests' => (clone $selfRequests)->with('employee')->oldest()->limit(10)->get(),
             'documents' => $request->user()->can('hr.documents.view')
                 ? $documents->with('employee')->orderBy('expires_on')->limit(10)->get()
                 : collect(),

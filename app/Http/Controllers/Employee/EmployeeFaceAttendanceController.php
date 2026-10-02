@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Employee;
 
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
+use App\Models\EmployeeSelfAttendanceRequest;
 use App\Models\Location;
 use App\Services\ActivityLogger;
 use App\Services\AttendanceFeatureService;
@@ -114,6 +115,14 @@ class EmployeeFaceAttendanceController extends Controller
 
         $employee = $request->user()->employee;
         abort_unless($employee && $employee->isActive(), 403, 'الحساب غير مرتبط بموظف نشط.');
+        abort_if(EmployeeSelfAttendanceRequest::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'pending')
+            ->where(fn ($query) => $query
+                ->whereDate('work_date', now()->toDateString())
+                ->orWhere(fn ($open) => $open->whereNull('check_out_at')
+                    ->where('check_in_at', '>=', now()->subDay())))
+            ->exists(), 409, 'لديك تسجيل ذاتي مفتوح أو قيد المراجعة؛ راجع المسؤول قبل استخدام بصمة الوجه.');
         $profile = $employee->faceProfile;
         abort_unless($profile && $profile->isActive() && $profile->provider === $this->face->provider(),
             403, 'سجّل بصمة وجهك لدى المسؤول قبل استخدام هذا الخيار.');

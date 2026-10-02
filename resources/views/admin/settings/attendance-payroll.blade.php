@@ -84,6 +84,18 @@
                             <span class="att-slider"></span>
                         </label>
                     </div>
+
+                    <div class="att-toggle-row">
+                        <div class="att-toggle-copy">
+                            <strong>تسجيل الموظف حضوره من بوابته</strong>
+                            <small>يسجل الموظف وقت الحضور والانصراف من حسابه. يظهر لمسؤول الحضور للمراجعة بعد الانصراف، ولا يدخل في الرواتب قبل الاعتماد. هذا الإجراء لا يثبت تواجده داخل الفرع؛ فعّله وفق سياسة شركتك.</small>
+                        </div>
+                        <label class="att-switch">
+                            <input type="checkbox" name="attendance_employee_self_punch_enabled" value="1"
+                                @checked(old('attendance_employee_self_punch_enabled', $settings['attendance_employee_self_punch_enabled']))>
+                            <span class="att-slider"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
