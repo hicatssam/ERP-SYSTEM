@@ -1928,6 +1928,8 @@ a.app-page-btn:hover {
 
                 'financial.dashboard.view',
 
+                'financial.reports.view',
+
                 'financial.cash.view',
 
                 'financial.periods.view',
@@ -2120,6 +2122,15 @@ a.app-page-btn:hover {
 
                     @endcan
 
+                    @endif
+
+                    @if($moduleEnabled('accounting'))
+                    @can('financial.reports.view')
+                        <a href="{{ route('accounting.ledger.index') }}" class="nav-item {{ request()->routeIs('accounting.ledger.*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h16v18H4zM8 8h8M8 12h8M8 16h5"/></svg>
+                            <span>سجل الترحيلات</span>
+                        </a>
+                    @endcan
                     @endif
 
                 </div>

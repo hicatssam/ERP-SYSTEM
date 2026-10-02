@@ -31,6 +31,7 @@ use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\FinancialPeriodController;
 use App\Http\Controllers\Finance\FinancialDashboardController;
+use App\Http\Controllers\Finance\AccountingLedgerController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Reports\ReportScheduleController;
 use App\Http\Controllers\ProfileController;
@@ -582,6 +583,10 @@ Route::post(
             Route::get('financial/dashboard', [FinancialDashboardController::class, 'index'])->name('financial.dashboard');
             Route::get('financial/dashboard/{location}', [FinancialDashboardController::class, 'branch'])->name('financial.dashboard.branch');
         });
+
+        Route::get('financial/accounting/ledger', [AccountingLedgerController::class, 'index'])
+            ->middleware('can:financial.reports.view')
+            ->name('accounting.ledger.index');
 
       Route::middleware('can:financial.periods.view')->group(function () {
 
