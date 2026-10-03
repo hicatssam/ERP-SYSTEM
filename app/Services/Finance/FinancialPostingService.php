@@ -16,7 +16,10 @@ use Illuminate\Support\Facades\Schema;
 
 class FinancialPostingService
 {
-    public function __construct(private readonly FinancialPeriodResolver $periods) {}
+    public function __construct(
+        private readonly FinancialPeriodResolver $periods,
+        private readonly OperationalJournalService $journals,
+    ) {}
 
     public function sale(Invoice $invoice, User $actor): void
     {
@@ -156,7 +159,7 @@ class FinancialPostingService
             $periodId = $this->periods->openForDate($date, true)->id;
         }
 
-        SalesLedgerEntry::query()->firstOrCreate(
+        $entry = SalesLedgerEntry::query()->firstOrCreate(
             ['idempotency_key' => $key],
             [
                 'location_id' => $locationId,
@@ -175,5 +178,6 @@ class FinancialPostingService
                 'created_at' => now(),
             ]
         );
+        $this->journals->post($entry, User::query()->findOrFail($actorId));
     }
 }

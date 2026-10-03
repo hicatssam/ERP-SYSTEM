@@ -71,8 +71,21 @@ class AccountingReportService
         $cumulativeEarnings = $groups['revenue'] - $groups['expense'];
         $liabilitiesEquity = $groups['liability'] + $groups['equity'] + $cumulativeEarnings;
 
+        $unlinkedOperations = DB::table('sales_ledger_entries as legacy')
+            ->leftJoin('accounting_journals as posted', function ($join): void {
+                $join->on('posted.source_id', '=', 'legacy.id')
+                    ->where('posted.source_type', '=', 'sales_ledger_entries');
+            })
+            ->whereIn('legacy.location_id', $locationIds)
+            ->where('legacy.entry_date', '<', $endExclusive)
+            ->whereIn('legacy.entry_type', [
+                'sale', 'sale_cancellation', 'payment_collection', 'payment_reversal',
+                'refund', 'expense', 'expense_reversal', 'employee_purchase', 'employee_collection',
+            ])->whereNull('posted.id')->count();
+
         return [
             'currency' => $currency,
+            'unlinked_operations' => $unlinkedOperations,
             'rows' => $rows, 'trial' => $trial,
             'income' => ['revenue' => $periodRevenue, 'expenses' => $periodExpense,
                 'net' => $periodRevenue - $periodExpense],

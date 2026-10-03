@@ -16,6 +16,7 @@ class ExpenseWorkflowService
 {
     public function __construct(
         private FinancialPeriodResolver $periods,
+        private OperationalJournalService $journals,
     ) {}
 
     public function createDraft(array $data, User $user): Expense
@@ -208,7 +209,7 @@ class ExpenseWorkflowService
             $period = $this->periods->openForDate($locked->expense_date, true);
             $key = 'expense:' . $locked->id . ':post';
 
-            SalesLedgerEntry::query()->firstOrCreate(
+            $entry = SalesLedgerEntry::query()->firstOrCreate(
                 ['idempotency_key' => $key],
                 [
                     'location_id' => $locked->location_id,
@@ -223,6 +224,7 @@ class ExpenseWorkflowService
                     'created_by' => $user->id,
                 ]
             );
+            $this->journals->post($entry, $user);
 
             $locked->update([
                 'financial_period_id' => $period->id,
@@ -259,7 +261,7 @@ class ExpenseWorkflowService
             $period = $this->periods->openForDate(now(), true);
             $key = 'expense:' . $locked->id . ':void';
 
-            SalesLedgerEntry::query()->firstOrCreate(
+            $entry = SalesLedgerEntry::query()->firstOrCreate(
                 ['idempotency_key' => $key],
                 [
                     'location_id' => $locked->location_id,
@@ -274,6 +276,7 @@ class ExpenseWorkflowService
                     'created_by' => $user->id,
                 ]
             );
+            $this->journals->post($entry, $user);
 
             $locked->update([
                 'status' => ExpenseStatus::Void,

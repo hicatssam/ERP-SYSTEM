@@ -9,6 +9,7 @@ use App\Models\Currency;
 use App\Models\DailyCashReconciliation;
 use App\Models\Location;
 use App\Models\PaymentMethod;
+use App\Models\SalesLedgerEntry;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use Illuminate\Http\UploadedFile;
@@ -168,6 +169,29 @@ class AccountingBookService
 
             return $this->postJournal($data['location_id'], $data['entry_date'], 'manual',
                 trim($data['description']), $data['lines'], $actor, requestKey: $data['request_key']);
+        });
+    }
+
+    /** Post an operational source once, in the same transaction as its source record. */
+    public function postOperationalEntry(SalesLedgerEntry $entry, array $lines, User $actor): AccountingJournal
+    {
+        return DB::transaction(function () use ($entry, $lines, $actor): AccountingJournal {
+            $existing = AccountingJournal::query()
+                ->where('source_type', 'sales_ledger_entries')->where('source_id', $entry->id)->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            $currency = $this->baseCurrency();
+            if ($entry->currency_code !== $currency->code) {
+                throw ValidationException::withMessages(['currency' => 'يجب إعداد تحويل العملة قبل ترحيل هذه العملية إلى دفتر الأستاذ.']);
+            }
+
+            return $this->postJournal(
+                (int) $entry->location_id, $entry->entry_date->toDateString(), 'operational',
+                $entry->description ?: 'حركة تشغيلية', $lines, $actor,
+                'sales_ledger_entries', (int) $entry->id,
+            );
         });
     }
 

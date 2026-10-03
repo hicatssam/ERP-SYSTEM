@@ -9,11 +9,14 @@ use App\Models\Currency;
 use App\Models\DailyCashReconciliation;
 use App\Models\Employee;
 use App\Models\FinancialPeriod;
+use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Services\Finance\AccountingReportService;
 use App\Services\Finance\DailyCashReconciliationService;
+use App\Services\Finance\FinancialPostingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +28,43 @@ use Tests\TestCase;
 class AccountingBooksTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_new_invoice_and_confirmed_cash_collection_post_once_into_the_same_balanced_ledger(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $this->openPeriod($user);
+        $cash = $this->method('cash');
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'GL-TEST-001', 'invoice_type' => 'regular_order',
+            'order_type' => 'order', 'order_id' => 98701, 'location_id' => $branch->id,
+            'status' => 'active', 'subtotal' => 120, 'total_amount' => 120,
+            'issued_by' => $user->id, 'issued_at' => now(),
+        ]);
+        $posting = app(FinancialPostingService::class);
+        $posting->sale($invoice, $user);
+        $posting->sale($invoice, $user);
+
+        $payment = Payment::query()->create([
+            'order_type' => 'order', 'order_id' => $invoice->order_id,
+            'location_id' => $branch->id, 'payment_method_id' => $cash->id,
+            'amount' => 30, 'status' => 'confirmed', 'paid_at' => now(),
+            'received_by' => $user->id,
+        ]);
+        $posting->collection($payment, $user);
+        $posting->collection($payment, $user);
+
+        $this->assertSame(2, AccountingJournal::query()->count());
+        $this->assertEquals(120, AccountingJournal::query()->where('kind', 'operational')->firstOrFail()->total_debit);
+        $report = app(AccountingReportService::class)->report([$branch->id], '2026-10-01', '2026-10-02');
+        $this->assertSame(0, $report['unlinked_operations']);
+        $this->assertSame(12000, $report['income']['net']);
+        $this->assertSame(12000, $report['position']['assets']);
+        $this->assertSame(0, $report['position']['difference']);
+        $this->assertEquals(30, AccountingJournal::query()->where('kind', 'operational')->latest('id')
+            ->firstOrFail()->lines()->whereHas('account', fn ($q) => $q->where('code', '1000'))->value('debit'));
+    }
 
     public function test_draft_cash_receipt_posts_balanced_entry_once_and_reverses_before_cash_close(): void
     {

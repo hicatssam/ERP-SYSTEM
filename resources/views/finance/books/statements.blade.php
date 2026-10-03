@@ -9,7 +9,7 @@
     <label>إلى<input type="date" name="to" value="{{ $to }}" class="form-input" max="{{ today()->toDateString() }}" required></label>
     <button class="btn btn-primary">عرض</button>
 </form><p class="page-subheading" style="margin-top:.75rem">الرصيد الافتتاحي = القيود قبل {{ $from }}. الحركة = قيود الفترة. الرصيد الختامي = كل القيود حتى {{ $to }}.</p>
-<p class="page-subheading"><strong>حدود التقرير:</strong> فواتير البيع والتحصيلات والرواتب والمخزون والموردون السابقة ليست مُرحّلة تلقائيًا إلى هذا الدفتر بعد؛ لذلك هذه القوائم لا تمثل المركز المالي الكامل للشركة حتى استكمال الربط وترحيل الأرصدة الافتتاحية الصحيحة.</p>
+<p class="page-subheading"><strong>حدود التقرير:</strong> ترتبط العمليات الجديدة المدعومة من المبيعات والتحصيلات ومشتريات الموظفين والمصروفات بهذا الدفتر عند توفر فترة مالية وعملة أساس. يوجد {{ $report['unlinked_operations'] }} حركة تشغيلية سابقة أو غير مرحّلة حتى تاريخ التقرير. معاملات الرواتب والموردين والمخزون والأرصدة الافتتاحية لا تظهر تلقائيًا بعد؛ لا تعتمد هذه القوائم كمركز مالي كامل للشركة.</p>
 </div></div>
 <div class="card" style="margin-bottom:1rem"><div class="card-header"><span class="card-title">ميزان المراجعة</span></div><div class="card-body"><div class="table-wrap"><table class="data-table"><thead><tr><th>الحساب</th><th>التصنيف</th><th>افتتاحي مدين</th><th>افتتاحي دائن</th><th>حركة مدين</th><th>حركة دائن</th><th>ختامي مدين</th><th>ختامي دائن</th></tr></thead><tbody>
     @forelse($report['rows'] as $row)<tr><td>{{ $row['account']->code }} · {{ $row['account']->name }}</td><td>{{ $row['account']->typeLabel() }}</td>
