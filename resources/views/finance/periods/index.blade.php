@@ -19,6 +19,7 @@
             فتح الفترات ومتابعة حالتها من نفس الصفحة.
         </p>
     </div>
+    @can('financial.periods.open')<button type="button" class="btn btn-gold" data-open-dialog="period-create-dialog">فتح فترة مالية</button>@endcan
 </div>
 
 @if(session('success'))
@@ -51,37 +52,20 @@
 @endif
 
 @can('financial.periods.open')
-    <div class="card" style="margin-bottom:1.25rem">
-        <div class="card-header">
-            <div>
-                <div class="card-title">
-                    فتح فترة مالية جديدة
-                </div>
-                <div
-                    style="
-                        margin-top:.2rem;
-                        font-size:.78rem;
-                        color:var(--text-muted)
-                    "
-                >
-                    أدخل السنة والشهر والرصيد الافتتاحي.
-                </div>
-            </div>
-        </div>
-
-        <div class="card-body">
+    <x-action-dialog id="period-create-dialog" title="فتح فترة مالية جديدة" description="أدخل السنة والشهر والرصيد الافتتاحي بعد مراجعته.">
             <form
                 action="{{ route('financial-periods.store') }}"
                 method="POST"
             >
                 @csrf
+                <input type="hidden" name="_modal" value="period-create-dialog">
 
                 <div
                     class="financial-period-form-grid"
                     style="
                         display:grid;
                         grid-template-columns:
-                            repeat(4,minmax(0,1fr));
+                            repeat(2,minmax(0,1fr));
                         gap:1rem;
                         align-items:end
                     "
@@ -215,8 +199,7 @@
                     @enderror
                 </div>
             </form>
-        </div>
-    </div>
+    </x-action-dialog>
 @endcan
 
 <div class="card">

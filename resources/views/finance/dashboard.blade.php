@@ -138,8 +138,13 @@
     </div>
 
     <div class="card">
-        <div class="card-header"><span class="card-title">روابط سريعة</span></div>
+        <div class="card-header"><span class="card-title">الأقسام المالية</span></div>
         <div class="card-body" style="display:grid;gap:.625rem">
+            @can('financial.cash.view')<a href="{{ route('daily-cash.index') }}" class="btn btn-outline btn-full">مطابقة خزينة الفرع</a>@endcan
+            @can('payments.view')<a href="{{ route('payments.index') }}" class="btn btn-outline btn-full">المدفوعات والتحقق</a>@endcan
+            @can('expenses.view')<a href="{{ route('costing.expenses.index') }}" class="btn btn-outline btn-full">المصروفات</a>@endcan
+            @can('accounting.books.view')<a href="{{ route('accounting.books.vouchers') }}" class="btn btn-outline btn-full">سندات القبض والصرف</a>@endcan
+            @can('accounting.reports.view')<a href="{{ route('accounting.books.statements') }}" class="btn btn-outline btn-full">ميزان المراجعة والقوائم</a>@endcan
             @can('invoices.view')
             <a href="{{ route('invoices.index') }}" class="btn btn-outline btn-full">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>

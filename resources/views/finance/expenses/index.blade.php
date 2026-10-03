@@ -13,10 +13,24 @@
             <a class="btn btn-outline btn-sm" href="{{ route('costing.expense-categories.index') }}">تصنيفات المصروفات</a>
         @endcan
         @can('expenses.create')
-            <a class="btn btn-gold" href="{{ route('costing.expenses.create') }}">+ مصروف جديد</a>
+            <button type="button" class="btn btn-gold" data-open-dialog="expense-create-dialog">+ مصروف جديد</button>
         @endcan
     </div>
 </div>
+
+@can('expenses.create')
+<x-action-dialog id="expense-create-dialog" title="إنشاء مسودة مصروف" description="راجع الموقع والتصنيف وطريقة الدفع قبل حفظ المسودة.">
+    <form method="POST" action="{{ route('costing.expenses.store') }}">
+        @csrf
+        <input type="hidden" name="_modal" value="expense-create-dialog">
+        @include('finance.expenses.fields', ['expense' => new \App\Models\Expense()])
+        <div class="form-actions" style="display:flex;justify-content:flex-end;gap:.75rem">
+            <button type="button" class="btn btn-ghost" data-close-dialog>إلغاء</button>
+            <button type="submit" class="btn btn-gold">حفظ المسودة</button>
+        </div>
+    </form>
+</x-action-dialog>
+@endcan
 
 <div class="card" style="margin-bottom:1rem">
     <div class="card-body">

@@ -81,6 +81,7 @@ class ExpenseController extends Controller
         return view('finance.expenses.form', [
             'expense' => new Expense(),
             'categories' => ExpenseCategory::active()->orderBy('sort_order')->orderBy('name')->get(),
+            'paymentMethods' => PaymentMethod::active()->orderBy('sort_order')->get(),
             'locations' => $this->visibleLocations($request),
             'locationId' => $this->resolvedLocationId($request),
             'mode' => 'create',

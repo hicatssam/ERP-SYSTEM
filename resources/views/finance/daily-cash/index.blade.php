@@ -90,8 +90,10 @@
 </div>
 
 @if($canEditDay && $canClose)
-<div class="card" style="margin-bottom:1rem"><div class="card-header"><span class="card-title">إقفال اليوم</span></div><div class="card-body">
+<div style="margin-bottom:1rem"><button type="button" class="btn btn-gold" data-open-dialog="daily-close-dialog">مراجعة وإقفال اليوم</button></div>
+<x-action-dialog id="daily-close-dialog" title="مطابقة النقد وإقفال اليوم" description="راجع الرصيد المتوقع والنقد الفعلي قبل حفظ الإقفال النهائي.">
     <form id="cashCloseForm" data-net="{{ $netMovement }}" data-opening="{{ $opening ?? '' }}" action="{{ route('daily-cash.close') }}" method="POST" style="display:flex;flex-wrap:wrap;gap:1rem;align-items:end">@csrf
+        <input type="hidden" name="_modal" value="daily-close-dialog">
         <input type="hidden" name="location_id" value="{{ $locationId }}"><input type="hidden" name="date" value="{{ $date }}">
         @if($opening === null)
             <div class="form-group"><label class="form-label">الرصيد الافتتاحي لأول يوم *</label><input id="cashOpening" type="number" name="opening_balance" step="0.01" min="0" value="{{ old('opening_balance') }}" class="form-input" required></div>
@@ -104,12 +106,14 @@
     </form>
     <p id="cashPreview" style="margin-top:.75rem"></p>
     <p style="margin-top:.75rem;color:var(--text-muted)">الإقفال يحفظ نسخة ثابتة من الأرقام، ويرحّل النقد الفعلي لافتتاح اليوم التالي. أي تصحيح بعده يتطلب حركة موثقة في يوم لاحق.</p>
-</div></div>
+</x-action-dialog>
 @endif
 
 @if($canEditDay && $canManageMovements)
-<div class="card" style="margin-bottom:1rem"><div class="card-header"><span class="card-title">تسجيل حركة نقدية أخرى</span></div><div class="card-body">
+<div style="margin-bottom:1rem"><button type="button" class="btn btn-outline" data-open-dialog="cash-movement-dialog">تسجيل حركة نقدية أخرى</button></div>
+<x-action-dialog id="cash-movement-dialog" title="تسجيل حركة نقدية" description="تستخدم للنقد الفعلي فقط؛ لا تسجل عمليات العملاء والموردين مرة ثانية.">
     <form action="{{ route('daily-cash.movements.store') }}" method="POST" class="form-grid">@csrf
+        <input type="hidden" name="_modal" value="cash-movement-dialog">
         <input type="hidden" name="location_id" value="{{ $locationId }}"><input type="hidden" name="date" value="{{ $date }}">
         <div class="form-group"><label class="form-label">النوع *</label><select name="type" class="form-input" required>
             <option value="other_income">دخل نقدي آخر</option><option value="transfer_in">تحويل نقدي داخل</option><option value="transfer_out">تحويل نقدي خارج</option>
@@ -120,7 +124,7 @@
         <div class="form-group"><button class="btn btn-outline">إضافة الحركة</button></div>
     </form>
     <p style="margin-top:.75rem;color:var(--text-muted)">لا تسجل دفعة طلب أو عميل أو موظف أو مورد أو سند قبض/صرف أو مصروف راتب هنا مرة ثانية. التحويل المقصود نقد مادي، وليس حوالة بنكية بين حسابات. هذا سجل مطابقة للصندوق ولا ينشئ قيد إيراد أو قيد بنك محاسبيًا.</p>
-</div></div>
+</x-action-dialog>
 @endif
 
 <div class="card"><div class="card-header"><span class="card-title">الحركات النقدية اليدوية لهذا اليوم</span></div><div class="card-body"><div class="table-wrap"><table class="data-table">

@@ -413,12 +413,15 @@
                 </div>
 
                 @can('users.manage')
+                    <button type="button" class="btn btn-gold btn-sm" data-open-dialog="employee-user-dialog">إنشاء حساب دخول</button>
+                    <x-action-dialog id="employee-user-dialog" title="إنشاء حساب للموظف" description="اختر اسم المستخدم والدور المناسب لصلاحياته.">
                     <form
                         action="{{ route('employees.create-user', $employee) }}"
                         method="POST"
                         class="create-user-form"
                     >
                         @csrf
+                        <input type="hidden" name="_modal" value="employee-user-dialog">
 
                         <div style="display:grid;gap:1rem">
                             <div class="form-group">
@@ -478,8 +481,10 @@
                             >
                                 إنشاء حساب للموظف
                             </button>
+                            <button type="button" class="btn btn-outline btn-sm" data-close-dialog>إلغاء</button>
                         </div>
                     </form>
+                    </x-action-dialog>
                 @endcan
             @endif
         </div>
