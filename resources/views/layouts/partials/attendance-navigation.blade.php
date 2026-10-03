@@ -9,7 +9,7 @@
         @if(\Illuminate\Support\Facades\Route::has('attendance.index'))
             <a
                 href="{{ route('attendance.index') }}"
-                class="nav-item {{ request()->routeIs('attendance.*') ? 'active' : '' }}"
+                class="nav-item {{ request()->routeIs('attendance.*') && !request()->routeIs('attendance.leaves.*', 'attendance.corrections.*') ? 'active' : '' }}"
             >
                 <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="12" cy="12" r="9"/>

@@ -28,6 +28,20 @@ class HrIntegrityTest extends TestCase
 {
     use RefreshDatabase;
 
+    #[Test]
+    public function attendance_sidebar_marks_only_the_open_section_active(): void
+    {
+        $branch = $this->branch('NAV');
+        $user = $this->user($branch, [
+            'attendance.view', 'attendance.leaves.view', 'attendance.approve',
+        ]);
+
+        foreach (['attendance.index', 'attendance.leaves.index', 'attendance.corrections.index'] as $name) {
+            $response = $this->actingAs($user)->get(route($name))->assertOk();
+            $this->assertSame(1, substr_count($response->getContent(), 'class="nav-item active"'), $name);
+        }
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
