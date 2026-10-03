@@ -1930,6 +1930,15 @@ body.rb-pos-mode {
 }
 
 .rb-drawer {
+    /* The drawer sits outside .rb-pos, so it needs its own theme tokens. */
+    --rb-orange: var(--theme-accent, var(--gold, #C98516));
+    --rb-text: var(--theme-text, var(--text-main, #172435));
+    --rb-muted: var(--theme-text-muted, var(--text-muted, #687482));
+    --rb-border: var(--theme-border, var(--border, #DDE2E7));
+    --rb-bg: var(--theme-bg, var(--bg, #F5F6F8));
+    --rb-white: var(--theme-surface, var(--card-bg, #FFFFFF));
+    --rb-soft: color-mix(in srgb, var(--rb-white) 88%, var(--rb-bg) 12%);
+    --rb-danger: var(--theme-danger, var(--error, #E22929));
     position: fixed;
     top: 0;
     right: 0;
@@ -1962,14 +1971,14 @@ body.rb-pos-mode {
 
 .rb-drawer-head h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: 18px;
     font-weight: 900;
 }
 
 .rb-drawer-head p {
     margin: 3px 0 0;
     color: var(--rb-muted);
-    font-size: 9px;
+    font-size: 12px;
 }
 
 .rb-drawer-head button {
@@ -1996,10 +2005,16 @@ body.rb-pos-mode {
     overflow: visible;
 }
 
+.rb-drawer-section:last-child {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
 .rb-drawer-section-title {
     margin-bottom: 8px;
     color: var(--rb-muted);
-    font-size: 9px;
+    font-size: 12px;
     font-weight: 850;
 }
 
@@ -2029,14 +2044,14 @@ body.rb-pos-mode {
     margin: 10px 0 0;
     padding: 8px 18px 0 0;
     border-top: 1px solid var(--rb-border);
-    font-size: 11px;
+    font-size: 13px;
 }
 
 .rb-qr-order-open {
     display: inline-block;
     margin-top: 8px;
     color: var(--rb-orange);
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 800;
 }
 
@@ -2054,7 +2069,7 @@ body.rb-pos-mode {
 
 .rb-server-order-top strong,
 .rb-local-draft-top strong {
-    font-size: 10px;
+    font-size: 14px;
     font-weight: 900;
 }
 
@@ -2064,7 +2079,7 @@ body.rb-pos-mode {
     color: var(--rb-muted);
     background: var(--rb-soft);
     border-radius: 999px;
-    font-size: 8px;
+    font-size: 11px;
     font-weight: 800;
 }
 
@@ -2075,7 +2090,7 @@ body.rb-pos-mode {
     flex-wrap: wrap;
     margin-top: 7px;
     color: var(--rb-muted);
-    font-size: 8px;
+    font-size: 12px;
 }
 
 .rb-local-draft-actions {
@@ -2109,7 +2124,7 @@ body.rb-pos-mode {
     padding: 24px 10px;
     color: var(--rb-muted);
     text-align: center;
-    font-size: 9.5px;
+    font-size: 13px;
 }
 
 /* Responsive */
