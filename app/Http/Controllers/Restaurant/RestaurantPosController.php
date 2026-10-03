@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Restaurant;
 use App\Enums\PaymentArrangement;
 use App\Enums\RestaurantServiceType;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Requests\Restaurant\StoreRestaurantPosOrderRequest;
 use App\Models\Customer;
 use App\Models\Order;
@@ -15,6 +16,7 @@ use App\Models\SalesChannel;
 use App\Services\Restaurant\RestaurantContextService;
 use App\Services\Restaurant\RestaurantPosCatalogService;
 use App\Services\Restaurant\RestaurantOrderService;
+use App\Services\ModuleService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -25,6 +27,31 @@ class RestaurantPosController extends Controller
         private readonly RestaurantOrderService $restaurantOrders,
         private readonly RestaurantPosCatalogService $catalog,
     ) {
+    }
+
+    public function printInvoice(Request $request, Order $order, InvoiceController $invoices)
+    {
+        $this->authorizePosPrint($request, $order);
+
+        return $invoices->print($order->invoice()->firstOrFail());
+    }
+
+    public function printKitchen(Request $request, Order $order)
+    {
+        $this->authorizePosPrint($request, $order);
+        $order->load(['location', 'restaurantTable', 'kitchenTickets.station', 'kitchenTickets.items']);
+        abort_unless($order->kitchenTickets->isNotEmpty(), 404);
+
+        return view('restaurant.pos.kitchen-print', compact('order'));
+    }
+
+    private function authorizePosPrint(Request $request, Order $order): void
+    {
+        $location = $this->context->resolveLocation($request->user(), (int) $order->location_id);
+        abort_unless($order->isRestaurantOrder()
+            && (int) $order->location_id === (int) $location->id
+            && ((int) $order->created_by === (int) $request->user()->id
+                || $request->user()->can('invoices.view')), 403);
     }
 
     public function index(Request $request)
@@ -208,6 +235,29 @@ class RestaurantPosController extends Controller
 
         $data = $request->validated();
 
+        $action = $data['pos_action'] ?? 'bill_payment';
+        if ($action === 'kot_print') {
+            if (! app(ModuleService::class)->isEnabled('kitchen')) {
+                throw ValidationException::withMessages([
+                    'kitchen' => 'وحدة المطبخ غير مفعلة. فعّلها قبل إرسال الطلب.',
+                ]);
+            }
+            $data['payment_arrangement'] = 'pay_on_pickup';
+            unset($data['payment_method_id'], $data['paid_amount'], $data['reference_number'],
+                $data['payment_proof'], $data['payment_received_confirmed']);
+        }
+
+        if ($action === 'bill_print' && (
+            $data['payment_arrangement'] === 'pending_verification'
+            || (! empty($data['payment_method_id'])
+                && PaymentMethod::query()->whereKey($data['payment_method_id'])
+                    ->where('requires_verification', true)->exists())
+        )) {
+            throw ValidationException::withMessages([
+                'payment_arrangement' => 'لا يمكن طباعة الفاتورة قبل التحقق من الدفع. استخدم «الفاتورة والدفع» لتسجيل الطلب بانتظار التحقق.',
+            ]);
+        }
+
         $data['location_id'] = $location->id;
         $data['payment_proof'] = $request->file(
             'payment_proof'
@@ -316,7 +366,7 @@ class RestaurantPosController extends Controller
                 $request->user()
             );
 
-        $order->loadMissing('invoice');
+        $order->loadMissing(['invoice', 'kitchenTickets']);
 
         $status =
             $order->status instanceof \BackedEnum
@@ -348,18 +398,20 @@ class RestaurantPosController extends Controller
 
                 'status' => $status,
 
+                'kitchen_dispatched' => $order->kitchenTickets->isNotEmpty(),
+
+                'kitchen_print_url' => $order->kitchenTickets->isNotEmpty()
+                    ? route('restaurant.pos.orders.kitchen-print', $order)
+                    : null,
+
                 'redirect_url' =>
-                    route(
-                        'orders.show',
-                        $order
-                    ),
+                    $request->user()->can('orders.view')
+                        ? route('orders.show', $order)
+                        : route('restaurant.pos.index', ['order_created' => $order->order_number]),
 
                 'invoice_print_url' =>
                     $order->invoice
-                        ? route(
-                            'invoices.print',
-                            $order->invoice
-                        )
+                        ? route('restaurant.pos.orders.invoice-print', $order)
                         : null,
             ], 201);
         }

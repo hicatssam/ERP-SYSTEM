@@ -9,6 +9,8 @@ use App\Models\Employee;
 use App\Models\Location;
 use App\Models\LocationProduct;
 use App\Models\Inventory;
+use App\Models\KitchenStation;
+use App\Models\Module;
 use App\Models\LocationPaymentMethod;
 use App\Models\PaymentMethod;
 use App\Models\SalesChannel;
@@ -23,6 +25,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -187,21 +190,96 @@ class RestaurantPosCatalogTest extends TestCase
             'quantity' => 10, 'reserved_quantity' => 0, 'unit_cost' => 4,
         ]);
 
-        $this->actingAs($cashier)->postJson(route('restaurant.pos.orders.store'), [
+        $checkout = $this->actingAs($cashier)->postJson(route('restaurant.pos.orders.store'), [
+            'pos_action' => 'bill_print',
             'location_id' => $branch->id, 'service_type' => 'takeaway',
             'payment_arrangement' => 'pay_now', 'payment_method_id' => $method->id,
             'payment_received_confirmed' => 1, 'reference_number' => 'WALLET-PAID-1',
             'sales_channel_id' => $channel->id,
             'items' => [['product_id' => $product->id, 'quantity' => 1]],
-        ])->assertCreated()->assertJsonPath('status', 'confirmed');
+        ])->assertCreated()->assertJsonPath('status', 'confirmed')
+            ->assertJsonStructure(['invoice_print_url']);
 
         $order = Order::query()->sole();
+        $this->assertSame(route('restaurant.pos.orders.invoice-print', $order), $checkout->json('invoice_print_url'));
+        $this->assertSame(route('restaurant.pos.index', ['order_created' => $order->order_number]), $checkout->json('redirect_url'));
+        $this->actingAs($cashier)->get($checkout->json('invoice_print_url'))->assertOk();
         $this->assertEquals(9, $order->total_amount);
         $this->assertEquals(9, $order->invoice?->total_amount);
         $this->assertEquals(9, $order->invoice?->paid_amount);
         $this->assertEquals(9, $order->payments()->sole()->amount);
         $this->assertSame('confirmed', $order->payments()->sole()->statusValue());
         $this->assertEquals(9, Inventory::query()->where('product_id', $product->id)->sole()->quantity);
+    }
+
+    #[Test]
+    public function kitchen_action_creates_confirmed_unpaid_order_and_real_kitchen_ticket(): void
+    {
+        $branch = $this->branch('KOT');
+        $cashier = $this->cashier($branch);
+        $cashier->givePermissionTo(Permission::findOrCreate('orders.create', 'web'));
+        Module::query()->create(['code' => 'kitchen', 'name' => 'Kitchen', 'type' => 'industry', 'is_active' => true]);
+        Cache::forget('modules:registry:v1');
+        KitchenStation::query()->create([
+            'location_id' => $branch->id, 'name' => 'Main', 'code' => 'MAIN',
+            'is_default' => true, 'is_active' => true,
+        ]);
+        $channel = SalesChannel::query()->create([
+            'name' => 'Counter', 'slug' => 'pos-kot', 'type' => 'direct', 'is_active' => true,
+        ]);
+        $product = $this->product($this->category(), 'KOT-ITEM');
+        $this->onMenu($branch, $product, 1);
+        $this->atBranch($branch, $product, true);
+        Inventory::query()->create([
+            'location_id' => $branch->id, 'product_id' => $product->id,
+            'quantity' => 10, 'reserved_quantity' => 0, 'unit_cost' => 4,
+        ]);
+
+        $response = $this->actingAs($cashier)->postJson(route('restaurant.pos.orders.store'), [
+            'pos_action' => 'kot_print', 'location_id' => $branch->id,
+            'service_type' => 'takeaway', 'payment_arrangement' => 'pay_now',
+            'sales_channel_id' => $channel->id,
+            'items' => [['product_id' => $product->id, 'quantity' => 1]],
+        ])->assertCreated()->assertJsonPath('status', 'confirmed')
+            ->assertJsonPath('kitchen_dispatched', true);
+
+        $order = Order::query()->sole();
+        $this->assertSame($order->order_number, $response->json('order_number'));
+        $this->assertSame(route('restaurant.pos.orders.kitchen-print', $order), $response->json('kitchen_print_url'));
+        $this->actingAs($cashier)->get($response->json('kitchen_print_url'))
+            ->assertOk()->assertSee($order->order_number);
+        $this->assertSame('pay_on_pickup', $order->payment_arrangement->value);
+        $this->assertEquals(0, $order->payments()->count());
+        $this->assertNotNull($order->invoice);
+        $this->assertEquals(1, $order->kitchenTickets()->count());
+    }
+
+    #[Test]
+    public function invoice_print_rejects_unverified_payment_before_creating_order(): void
+    {
+        $branch = $this->branch('PRINT');
+        $cashier = $this->cashier($branch);
+        $cashier->givePermissionTo(Permission::findOrCreate('orders.create', 'web'));
+        $channel = SalesChannel::query()->create([
+            'name' => 'Print', 'slug' => 'pos-print', 'type' => 'direct', 'is_active' => true,
+        ]);
+        $method = PaymentMethod::query()->create([
+            'name' => 'Transfer', 'code' => 'pos-print-transfer',
+            'type' => 'bank_transfer', 'is_active' => true, 'requires_verification' => true,
+        ]);
+        $product = $this->product($this->category(), 'PRINT-ITEM');
+        $this->onMenu($branch, $product, 1);
+        $this->atBranch($branch, $product, true);
+
+        $this->actingAs($cashier)->postJson(route('restaurant.pos.orders.store'), [
+            'pos_action' => 'bill_print', 'location_id' => $branch->id,
+            'service_type' => 'takeaway', 'payment_arrangement' => 'pending_verification',
+            'payment_method_id' => $method->id, 'reference_number' => 'PRINT-001',
+            'payment_proof' => UploadedFile::fake()->image('transfer.jpg'),
+            'sales_channel_id' => $channel->id,
+            'items' => [['product_id' => $product->id, 'quantity' => 1]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('payment_arrangement');
+        $this->assertDatabaseCount('orders', 0);
     }
 
     #[Test]

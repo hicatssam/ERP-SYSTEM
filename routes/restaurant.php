@@ -110,6 +110,12 @@ Route::middleware([
             Route::get('/pos/qr-orders', [RestaurantPosController::class, 'qrOrders'])
                 ->name('pos.qr-orders');
 
+            Route::get('/pos/orders/{order}/invoice-print', [RestaurantPosController::class, 'printInvoice'])
+                ->name('pos.orders.invoice-print');
+
+            Route::get('/pos/orders/{order}/kitchen-print', [RestaurantPosController::class, 'printKitchen'])
+                ->name('pos.orders.kitchen-print');
+
             Route::post(
                 '/pos/orders',
                 [RestaurantPosController::class, 'store']

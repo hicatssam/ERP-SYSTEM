@@ -89,6 +89,10 @@
         </div>
     </div>
 
+    @if(request()->filled('order_created'))
+        <div class="rb-pos-alert" role="status">تم حفظ الطلب {{ request('order_created') }}. يمكنك فتحه من الطلبات الأخيرة حسب صلاحياتك.</div>
+    @endif
+
     @if($errors->any())
         <div class="rb-pos-alert" role="alert">
             <strong>تعذر تنفيذ الطلب.</strong>
@@ -292,7 +296,7 @@
 
                     <div class="rb-order-actions">
                         <button type="button" class="rb-action rb-action-kot" id="rbKotPrintBtn">
-                            إرسال للمطبخ وطباعة
+                            إرسال للمطبخ وطباعة (الدفع لاحقًا)
                         </button>
 
                         <button type="button" class="rb-action rb-action-draft" id="rbSaveDraftBtn">
@@ -300,7 +304,7 @@
                                 <path d="M5 3h11l3 3v15H5z"></path>
                                 <path d="M8 8h8"></path>
                             </svg>
-                            مسودة
+                            حفظ مسودة على هذا الجهاز
                         </button>
 
                         <button type="button" class="rb-action rb-action-payment" id="rbBillPaymentBtn">
@@ -3528,94 +3532,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.style.overflow = '';
     }
 
-    function buildPrintableHtml(type = 'bill') {
-        const totals = getTotals();
-        const rows = [...cart.values()];
-        const tableText = tableSelect.options[tableSelect.selectedIndex]?.text?.trim() || '—';
-        const serviceText = serviceType.options[serviceType.selectedIndex]?.text?.trim() || serviceType.value;
-        const title = type === 'kot' ? 'تذكرة المطبخ' : 'فاتورة نقطة البيع';
-
-        return `
-            <!doctype html>
-            <html lang="ar" dir="rtl">
-            <head>
-                <meta charset="utf-8">
-                <title>${title}</title>
-                <style>
-                    *{box-sizing:border-box}
-                    body{font-family:Arial,Tahoma,sans-serif;margin:0;padding:18px;color:#111}
-                    .receipt{width:80mm;max-width:100%;margin:auto}
-                    h1{font-size:18px;margin:0 0 4px;text-align:center}
-                    .muted{text-align:center;color:#666;font-size:11px;margin-bottom:14px}
-                    .meta{font-size:11px;line-height:1.8;border-top:1px dashed #999;border-bottom:1px dashed #999;padding:7px 0;margin-bottom:8px}
-                    table{width:100%;border-collapse:collapse;font-size:11px}
-                    td{padding:5px 0;border-bottom:1px dotted #ccc;vertical-align:top}
-                    td:last-child{text-align:left;white-space:nowrap}
-                    .note{font-size:10px;color:#555;padding-top:2px}
-                    .totals{margin-top:10px;font-size:11px;line-height:1.9}
-                    .total{font-size:15px;font-weight:700;border-top:1px dashed #777;padding-top:5px;margin-top:4px}
-                    .footer{text-align:center;font-size:10px;color:#666;margin-top:14px}
-                    @media print{body{padding:0}.receipt{width:80mm}}
-                </style>
-            </head>
-            <body>
-                <div class="receipt">
-                    <h1>${escapeHtml(locationName)}</h1>
-                    <div class="muted">${escapeHtml(title)}</div>
-                    <div class="meta">
-                        <div>الكاشير: ${escapeHtml(cashierName)}</div>
-                        <div>الخدمة: ${escapeHtml(serviceText)}</div>
-                        ${serviceType.value === 'dine_in' ? `<div>الطاولة: ${escapeHtml(tableText)}</div>` : ''}
-                        <div>الوقت: ${escapeHtml(new Date().toLocaleString('ar'))}</div>
-                    </div>
-                    <table>
-                        <tbody>
-                            ${rows.map(item => `
-                                <tr>
-                                    <td>
-                                        <strong>${escapeHtml(item.name)}</strong>
-                                        ${item.modifiers.length ? `<div class="note">${escapeHtml(item.modifiers.map(modifier => modifier.name).join('، '))}</div>` : ''}
-                                        ${item.kitchen_notes ? `<div class="note">ملاحظة: ${escapeHtml(item.kitchen_notes)}</div>` : ''}
-                                    </td>
-                                    <td>${Number(item.quantity)} × ${money(item.price)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                    ${type === 'bill' ? `
-                        <div class="totals">
-                            <div>الإجمالي الفرعي: ${money(totals.subtotal)}</div>
-                            <div>الخصم: ${money(totals.discount)}</div>
-                            <div class="total">الإجمالي: ${money(totals.total)}</div>
-                        </div>
-                    ` : ''}
-                    <div class="footer">طباعة مباشرة من شاشة الكاشير</div>
-                </div>
-            </body>
-            </html>
-        `;
-    }
-
-    function printCurrent(type = 'bill') {
-        const printWindow = window.open('', '_blank', 'width=420,height=720');
-        if (!printWindow) {
-            window.alert('المتصفح منع نافذة الطباعة. اسمح بالنوافذ المنبثقة ثم حاول مرة أخرى.');
-            return false;
-        }
-
-        printWindow.document.open();
-        printWindow.document.write(buildPrintableHtml(type));
-        printWindow.document.close();
-        printWindow.focus();
-
-        window.setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 180);
-
-        return true;
-    }
-
    let rbSubmitting = false;
 
 async function submitOrder(action) {
@@ -3630,15 +3546,6 @@ async function submitOrder(action) {
     actionInput.value = action;
 
     if (action === 'kot_print') {
-        if (
-            ['pay_now', 'deposit', 'partial_payment']
-                .includes(paymentArrangement.value)
-        ) {
-            paymentArrangement.value = 'pay_on_pickup';
-        }
-
-        syncPayment();
-
         const salesChannel = form.querySelector(
             '[name="sales_channel_id"]'
         );
@@ -3856,24 +3763,16 @@ async function submitOrder(action) {
         if (
             action === 'kot_print'
             && printWindow
+            && data?.kitchen_dispatched
         ) {
-            printWindow.document.open();
-
-            printWindow.document.write(
-                buildPrintableHtml('kot')
-            );
-
-            printWindow.document.close();
-
-            window.setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-            }, 250);
+            printWindow.location.href = data.kitchen_print_url;
         }
 
         statusMessage(
-            data?.message
-            || 'تم تنفيذ الطلب بنجاح.',
+            (data?.message || 'تم تنفيذ الطلب بنجاح.')
+                + ((action === 'bill_print' || action === 'kot_print') && !printWindow
+                    ? ' تعذرت الطباعة لأن المتصفح منع النافذة المنبثقة؛ افتح الطلب للطباعة مجددًا.'
+                    : ''),
             'success'
         );
 

@@ -22,6 +22,7 @@ class StoreRestaurantPosOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'pos_action' => ['nullable', Rule::in(['kot_print', 'bill_payment', 'bill_print'])],
             'location_id' => ['nullable', 'integer', 'exists:locations,id'],
             'service_type' => [
                 'required',
@@ -61,6 +62,20 @@ class StoreRestaurantPosOrderRequest extends FormRequest
             'discount_type' => ['nullable', Rule::in(['none', 'percentage', 'fixed'])],
             'discount_value' => ['nullable', 'numeric', 'min:0'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->input('pos_action') === 'kot_print') {
+            // Kitchen orders are confirmed as unpaid, regardless of stale checkout fields.
+            $this->merge([
+                'payment_arrangement' => 'pay_on_pickup',
+                'payment_method_id' => null,
+                'paid_amount' => null,
+                'reference_number' => null,
+                'payment_received_confirmed' => null,
+            ]);
+        }
     }
 
     public function withValidator($validator): void
