@@ -82,14 +82,14 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
         foreach (range(1, 35) as $number) {
             Product::query()->create([
                 'category_id' => $sweets->id, 'name' => 'Baklava '.$number,
-                'sku' => 'BKL-'.$number, 'is_active' => true,
+                'sku' => 'BKL-'.$number, 'barcode' => 'BKL-'.$number, 'is_active' => true,
             ]);
         }
         $cake = Product::query()->create([
-            'category_id' => $cakes->id, 'name' => 'Baklava cake', 'is_active' => true,
+            'category_id' => $cakes->id, 'name' => 'Baklava cake', 'barcode' => 'BKL-CAKE', 'is_active' => true,
         ]);
         $inactive = Product::query()->create([
-            'category_id' => $sweets->id, 'name' => 'Baklava hidden', 'is_active' => false,
+            'category_id' => $sweets->id, 'name' => 'Baklava hidden', 'barcode' => 'BKL-HIDDEN', 'is_active' => false,
         ]);
 
         $this->actingAs($this->actor)->get(route('showroom-sweets-requests.create'))
