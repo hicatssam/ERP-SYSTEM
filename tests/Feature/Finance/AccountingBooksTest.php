@@ -14,6 +14,7 @@ use App\Models\FinancialPeriod;
 use App\Models\Invoice;
 use App\Models\Location;
 use App\Models\Payment;
+use App\Models\PaymentCorrection;
 use App\Models\PaymentMethod;
 use App\Models\Refund;
 use App\Models\SalesLedgerEntry;
@@ -256,6 +257,50 @@ class AccountingBooksTest extends TestCase
         $this->assertSame(-1235, $second['income']['net']);
         $this->assertSame(0, $second['trial']['closing_debit']);
         $this->assertSame(1, $second['unlinked_operations']);
+    }
+
+    public function test_cash_correction_on_next_day_does_not_rewrite_original_closing(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $this->openPeriod($user);
+        $cash = $this->method('cash');
+        $payment = Payment::query()->create([
+            'order_type' => 'order', 'order_id' => 98706, 'location_id' => $branch->id,
+            'payment_method_id' => $cash->id, 'amount' => 40,
+            'status' => 'confirmed', 'paid_at' => now(), 'received_by' => $user->id,
+        ]);
+        $posting = app(FinancialPostingService::class);
+        $posting->collection($payment, $user);
+        $this->assertEquals(40, app(DailyCashReconciliationService::class)
+            ->forDay($branch->id, '2026-10-02')['components']['sales']);
+
+        $this->travelTo(now()->setDate(2026, 10, 3)->setTime(10, 0));
+        PaymentCorrection::query()->create([
+            'original_payment_id' => $payment->id, 'original_amount' => 40,
+            'corrected_amount' => 45, 'reason' => 'فرق خمسة', 'corrected_by' => $user->id,
+        ]);
+        $payment->update(['amount' => 45, 'status' => 'corrected']);
+        $posting->collection($payment, $user, 'correction-1', 5);
+        $this->assertEquals(40, app(DailyCashReconciliationService::class)
+            ->forDay($branch->id, '2026-10-02')['components']['sales']);
+        $this->assertEquals(5, app(DailyCashReconciliationService::class)
+            ->forDay($branch->id, '2026-10-03')['components']['sales']);
+        $this->assertSame('2026-10-03', AccountingJournal::query()->latest('id')->firstOrFail()->entry_date->toDateString());
+
+        PaymentCorrection::query()->create([
+            'original_payment_id' => $payment->id, 'original_amount' => 45,
+            'corrected_amount' => 43, 'reason' => 'تسوية سالب اثنين', 'corrected_by' => $user->id,
+        ]);
+        $payment->update(['amount' => 43]);
+        $posting->paymentReversal($payment, $user, 'correction-2', 2);
+        $this->assertEquals(40, app(DailyCashReconciliationService::class)
+            ->forDay($branch->id, '2026-10-02')['components']['sales']);
+        $this->assertEquals(3, app(DailyCashReconciliationService::class)
+            ->forDay($branch->id, '2026-10-03')['components']['sales']);
+        $this->assertSame(0, app(AccountingReportService::class)
+            ->report([$branch->id], '2026-10-02', '2026-10-03')['position']['difference']);
     }
 
     public function test_draft_cash_receipt_posts_balanced_entry_once_and_reverses_before_cash_close(): void

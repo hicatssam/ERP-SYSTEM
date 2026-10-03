@@ -44,7 +44,7 @@ class FinancialPostingService
             key: "payment:{$payment->id}:collection".($keySuffix ? ":{$keySuffix}" : ''),
             type: LedgerEntryType::PaymentCollection,
             amount: $amount ?? (float) $payment->amount,
-            date: $payment->paid_at ?? now(),
+            date: $keySuffix ? now() : ($payment->paid_at ?? now()),
             locationId: (int) $payment->location_id,
             actorId: $actor->id,
             referenceType: 'payments',

@@ -27,6 +27,24 @@ class DailyCashReconciliationService
             ->where('p.paid_at', '>=', $start)->where('p.paid_at', '<', $end)
             ->sum('p.amount');
 
+        // A correction changes payments.amount in place. Restore the original
+        // day's amount and recognize each difference on its correction date.
+        $correctionsForOriginalDay = DB::table('payment_corrections as pc')
+            ->join('payments as p', 'p.id', '=', 'pc.original_payment_id')
+            ->join('payment_methods as pm', 'pm.id', '=', 'p.payment_method_id')
+            ->where('p.location_id', $locationId)->where('pm.type', 'cash')
+            ->whereIn('p.status', ['confirmed', 'corrected', 'refunded'])
+            ->where('p.paid_at', '>=', $start)->where('p.paid_at', '<', $end)
+            ->selectRaw('SUM(pc.corrected_amount - pc.original_amount) as delta')->value('delta');
+        $correctionsOnDay = DB::table('payment_corrections as pc')
+            ->join('payments as p', 'p.id', '=', 'pc.original_payment_id')
+            ->join('payment_methods as pm', 'pm.id', '=', 'p.payment_method_id')
+            ->where('p.location_id', $locationId)->where('pm.type', 'cash')
+            ->whereIn('p.status', ['confirmed', 'corrected', 'refunded'])
+            ->where('pc.created_at', '>=', $start)->where('pc.created_at', '<', $end)
+            ->selectRaw('SUM(pc.corrected_amount - pc.original_amount) as delta')->value('delta');
+        $cashSales = round((float) $cashSales - (float) $correctionsForOriginalDay + (float) $correctionsOnDay, 2);
+
         $customerReceipts = DB::table('customer_payments as cp')
             ->join('payment_methods as pm', 'pm.id', '=', 'cp.payment_method_id')
             ->where('cp.location_id', $locationId)->where('cp.status', 'confirmed')
