@@ -1112,19 +1112,19 @@ body.rb-pos-mode {
 .rb-product-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 9px;
+    gap: 12px;
 }
 
 .rb-product-card {
     position: relative;
     min-width: 0;
-    min-height: 204px;
+    min-height: 236px;
     overflow: hidden;
     padding: 0;
     color: var(--rb-text);
     background: var(--rb-white);
     border: 1px solid var(--rb-border);
-    border-radius: 6px;
+    border-radius: 12px;
     box-shadow: 0 1px 4px color-mix(in srgb, var(--rb-text) 4%, transparent);
     text-align: right;
     cursor: pointer;
@@ -1144,18 +1144,19 @@ body.rb-pos-mode {
 }
 
 .rb-product-image {
-    height: 125px;
+    height: 145px;
     display: grid;
     place-items: center;
     overflow: hidden;
-    padding: 9px 10px 4px;
-    background: transparent;
+    padding: 12px;
+    background: color-mix(in srgb, var(--rb-orange) 5%, var(--rb-white));
+    border-bottom: 1px solid color-mix(in srgb, var(--rb-orange) 9%, var(--rb-border));
 }
 
 .rb-product-image img {
     width: 100%;
     height: 100%;
-    max-width: 138px;
+    max-width: 100%;
     margin: auto;
     object-fit: contain;
     object-position: center;
@@ -1165,27 +1166,27 @@ body.rb-pos-mode {
 }
 
 .rb-product-placeholder {
-    width: 58px;
-    height: 58px;
-    display: grid;
-    place-items: center;
-    color: color-mix(in srgb, var(--rb-muted) 45%, transparent);
-    border: 1px dashed var(--rb-border);
-    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    color: var(--rb-muted);
+    font-size: 10px;
 }
 
 .rb-product-placeholder[hidden] { display: none; }
 
 .rb-product-placeholder svg {
-    width: 27px;
-    height: 27px;
+    width: 36px;
+    height: 36px;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.4;
 }
 
 .rb-product-info {
-    padding: 9px 11px 11px;
+    padding: 10px 12px 12px;
     direction: rtl;
     text-align: right;
 }
@@ -1212,7 +1213,7 @@ body.rb-pos-mode {
     display: block;
     overflow: hidden;
     color: var(--rb-text);
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 800;
     line-height: 1.5;
     min-height: 36px;
@@ -1241,13 +1242,15 @@ body.rb-pos-mode {
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    margin-top: 5px;
+    margin-top: 9px;
+    padding-top: 8px;
+    border-top: 1px solid var(--rb-border);
     direction: rtl;
 }
 
 .rb-product-price {
     color: var(--rb-orange);
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 900;
     direction: ltr;
 }
@@ -2725,33 +2728,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function productImage(product) {
+        const placeholder = `
+            <div class="rb-product-placeholder" ${product.image ? 'hidden' : ''}>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <path d="m21 15-5-5L5 21"></path>
+                </svg>
+                <span>صورة غير متوفرة</span>
+            </div>
+        `;
+
         if (product.image) {
             return `
                 <img
                     src="${escapeHtml(product.image)}"
                     alt="${escapeHtml(product.name)}"
                     loading="lazy"
+                    decoding="async"
                     onerror="this.style.display='none';this.nextElementSibling.hidden=false;"
                 >
-                <div class="rb-product-placeholder" hidden>
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <rect x="3" y="3" width="18" height="18" rx="3"></rect>
-                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                        <path d="m21 15-5-5L5 21"></path>
-                    </svg>
-                </div>
+                ${placeholder}
             `;
         }
 
-        return `
-            <div class="rb-product-placeholder">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <rect x="3" y="3" width="18" height="18" rx="3"></rect>
-                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                    <path d="m21 15-5-5L5 21"></path>
-                </svg>
-            </div>
-        `;
+        return placeholder;
     }
 
     function renderFilters() {

@@ -22,6 +22,7 @@ use App\Models\RestaurantMenuItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -29,6 +30,33 @@ use Tests\TestCase;
 class RestaurantPosCatalogTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[Test]
+    public function catalog_serves_uploaded_images_and_falls_back_to_product_when_menu_image_is_missing(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('products/cake.png', 'product image');
+        Storage::disk('public')->put('restaurant-menu/menu.png', 'menu image');
+
+        $branch = $this->branch('IMAGE');
+        $cashier = $this->cashier($branch);
+        $product = $this->product($this->category(), 'IMAGE-CAKE', [
+            'image' => 'storage/products/cake.png',
+        ]);
+        $this->onMenu($branch, $product, 1, ['image' => 'restaurant-menu/missing.png']);
+        $this->atBranch($branch, $product, true);
+
+        $productUrl = route('customer-menu.assets.show', ['path' => 'products/cake.png'], false);
+        $menuUrl = route('customer-menu.assets.show', ['path' => 'restaurant-menu/menu.png'], false);
+        $this->actingAs($cashier)->getJson(route('restaurant.pos.catalog'))
+            ->assertOk()->assertJsonPath('products.0.image', $productUrl);
+        $this->assertSame('product image', $this->get($productUrl)->assertOk()->streamedContent());
+
+        $product->restaurantMenuItems()->first()->update(['image' => 'storage/restaurant-menu/menu.png']);
+        $this->getJson(route('restaurant.pos.catalog'))
+            ->assertOk()->assertJsonPath('products.0.image', $menuUrl);
+        $this->assertSame('menu image', $this->get($menuUrl)->assertOk()->streamedContent());
+    }
 
     #[Test]
     public function cashier_only_sees_branch_payment_methods_and_cannot_submit_another_branch_method(): void

@@ -161,7 +161,7 @@ class RestaurantPosCatalogService
                     ?: $product->name_ar ?: $product->name,
                 'category' => $product->category?->name_ar ?: $product->category?->name ?: 'بدون فئة',
                 'price' => $price,
-                'image' => PublicImageUrl::url($menuItem?->image ?: $product->image),
+                'image' => PublicImageUrl::url($menuItem?->image) ?? PublicImageUrl::url($product->image),
                 'sku' => $product->sku,
                 'barcode' => $product->barcode,
                 'description' => $menuItem?->description ?: $product->description,
