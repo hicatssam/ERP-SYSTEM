@@ -9,6 +9,7 @@ use App\Services\FaceAttendanceService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\View\View;
 
 class AttendancePayrollSettingsController extends Controller
@@ -66,6 +67,7 @@ class AttendancePayrollSettingsController extends Controller
                 'min:0',
                 'max:10',
             ],
+            'compreface_api_key' => ['nullable', 'string', 'max:500'],
         ]);
 
         $values = [
@@ -115,6 +117,13 @@ class AttendancePayrollSettingsController extends Controller
                 );
             }
         });
+
+        if (filled($data['compreface_api_key'] ?? null)) {
+            SystemSetting::set(
+                'compreface_api_key_encrypted',
+                Crypt::encryptString(trim($data['compreface_api_key']))
+            );
+        }
 
         SystemSetting::flushCache();
 

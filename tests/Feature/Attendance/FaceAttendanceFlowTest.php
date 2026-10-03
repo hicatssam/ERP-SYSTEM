@@ -929,6 +929,35 @@ class FaceAttendanceFlowTest extends TestCase
             ->where('key', 'attendance_employee_face_punch_enabled')->value('value'));
     }
 
+    #[Test]
+    public function settings_manager_can_configure_face_service_key_without_exposing_plaintext(): void
+    {
+        $manager = $this->makeManager($this->makeLocation('FACE-SETUP'), ['settings.manage']);
+        config()->set('attendance-face.compreface.api_key', null);
+        $values = [
+            'attendance_enabled' => 1,
+            'attendance_biometric_enabled' => 1,
+            'attendance_employee_face_punch_enabled' => 1,
+            'payroll_standard_work_days_per_month' => 26,
+            'payroll_standard_hours_per_day' => 8,
+            'payroll_overtime_multiplier' => 1.5,
+            'compreface_api_key' => 'private-face-key',
+        ];
+
+        $this->actingAs($manager)->put(route('settings.attendance-payroll.update'), $values)
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $stored = SystemSetting::query()->where('key', 'compreface_api_key_encrypted')->value('value');
+        $this->assertNotSame('private-face-key', $stored);
+        $this->assertSame('private-face-key', app(\App\Services\CompreFaceClient::class)->apiKey());
+        $this->actingAs($manager)->get(route('settings.attendance-payroll.edit'))
+            ->assertOk()->assertDontSee('private-face-key');
+
+        unset($values['compreface_api_key']);
+        $this->actingAs($manager)->put(route('settings.attendance-payroll.update'), $values)
+            ->assertSessionHasNoErrors();
+        $this->assertSame($stored, SystemSetting::query()->where('key', 'compreface_api_key_encrypted')->value('value'));
+    }
+
     private function recognition(
         string $subject,
         float $similarity,

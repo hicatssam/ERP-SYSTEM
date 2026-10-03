@@ -216,6 +216,17 @@
                     </div>
 
                     <div class="att-toggle-row">
+                        <div class="att-toggle-copy" style="width:100%">
+                            <label for="comprefaceApiKey"><strong>مفتاح Face Recognition API</strong></label>
+                            <small>انسخ المفتاح من خدمة CompreFace بعد تشغيلها. يُحفظ مشفرًا ولا يظهر مرة أخرى؛ اترك الحقل فارغًا للاحتفاظ بالمفتاح الحالي.</small>
+                            <input id="comprefaceApiKey" name="compreface_api_key" type="password" class="form-input"
+                                   autocomplete="new-password" maxlength="500" placeholder="مفتاح خدمة التعرف على الوجه"
+                                   style="margin-top:.55rem;direction:ltr;text-align:left">
+                            @error('compreface_api_key')<small class="form-error">{{ $message }}</small>@enderror
+                        </div>
+                    </div>
+
+                    <div class="att-toggle-row">
                         <div class="att-toggle-copy">
                             <strong>حد مطابقة الوجه</strong>
                             <small>

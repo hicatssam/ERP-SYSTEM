@@ -33,6 +33,14 @@ http://127.0.0.1:8001/login
 6. Create a **Face Recognition** service inside that application.
 7. Copy that service's API key.
 
+In the ERP, open **Settings → Attendance & Payroll → CompreFace** and paste
+the key into **Face Recognition API key**. Save, then click **Test connection**.
+The field stays empty on later visits; an empty submission retains the saved
+key. The database value is encrypted with Laravel's `APP_KEY`. Keep that key
+backed up, or saved service credentials cannot be decrypted after a key change.
+The environment variable below is still supported for deployments that manage
+secrets outside the application. A key saved in Settings takes precedence.
+
 ## Laravel environment
 
 Add to `.env`:
@@ -40,7 +48,7 @@ Add to `.env`:
 ```env
 ATTENDANCE_FACE_PROVIDER=compreface
 COMPREFACE_BASE_URL=http://127.0.0.1:8001
-COMPREFACE_API_KEY=YOUR_FACE_RECOGNITION_SERVICE_KEY
+COMPREFACE_API_KEY=
 COMPREFACE_TIMEOUT_SECONDS=12
 COMPREFACE_DET_PROB_THRESHOLD=0.80
 COMPREFACE_SIMILARITY_THRESHOLD=0.78

@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\SystemSetting;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
@@ -27,11 +29,12 @@ class CompreFaceClient
 
     public function apiKey(): string
     {
-        return trim(
-            (string) config(
-                'attendance-face.compreface.api_key'
-            )
-        );
+        $stored = SystemSetting::get('compreface_api_key_encrypted');
+        if (is_string($stored) && $stored !== '') {
+            return trim(Crypt::decryptString($stored));
+        }
+
+        return trim((string) config('attendance-face.compreface.api_key'));
     }
 
     public function ping(): bool
