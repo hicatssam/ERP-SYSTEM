@@ -179,6 +179,11 @@ class AccountingBookService
             $existing = AccountingJournal::query()
                 ->where('source_type', 'sales_ledger_entries')->where('source_id', $entry->id)->first();
             if ($existing) {
+                if ((int) $existing->location_id !== (int) $entry->location_id
+                    || $existing->entry_date->toDateString() !== $entry->entry_date->toDateString()
+                    || $this->cents($existing->total_debit) !== $this->cents($entry->amount)) {
+                    throw ValidationException::withMessages(['accounting' => 'القيد المسجل لا يطابق الحركة الأصلية؛ راجع التسوية قبل المتابعة.']);
+                }
                 return $existing;
             }
 

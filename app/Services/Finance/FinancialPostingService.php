@@ -183,6 +183,15 @@ class FinancialPostingService
                     'created_at' => now(),
                 ]
             );
+            if (! $entry->wasRecentlyCreated && (
+                (int) round((float) $entry->amount * 100) !== (int) round($amount * 100)
+                || (int) $entry->location_id !== $locationId
+                || $entry->currency_code !== $currencyCode
+            )) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'amount' => 'تغيّرت بيانات حركة مالية مرحّلة؛ سجّل تسوية موثقة بدلاً من إعادة استخدامها.',
+                ]);
+            }
             $this->journals->post($entry, User::query()->findOrFail($actorId));
         });
     }

@@ -51,6 +51,14 @@ class AccountingBooksTest extends TestCase
         $posting = app(FinancialPostingService::class);
         $posting->sale($invoice, $user);
         $posting->sale($invoice, $user);
+        $invoice->total_amount = 121;
+        try {
+            $posting->sale($invoice, $user);
+            $this->fail('A changed invoice must not silently reuse the old journal.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('amount', $exception->errors());
+        }
+        $invoice->total_amount = 120;
 
         $payment = Payment::query()->create([
             'order_type' => 'order', 'order_id' => $invoice->order_id,
