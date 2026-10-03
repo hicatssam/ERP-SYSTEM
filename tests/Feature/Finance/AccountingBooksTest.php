@@ -8,15 +8,19 @@ use App\Models\AccountingVoucher;
 use App\Models\Currency;
 use App\Models\DailyCashReconciliation;
 use App\Models\Employee;
+use App\Models\Expense;
+use App\Models\ExpenseCategory;
 use App\Models\FinancialPeriod;
 use App\Models\Invoice;
 use App\Models\Location;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\Refund;
 use App\Models\User;
 use App\Services\Finance\AccountingReportService;
 use App\Services\Finance\DailyCashReconciliationService;
 use App\Services\Finance\FinancialPostingService;
+use App\Services\Finance\ExpenseWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -64,6 +68,46 @@ class AccountingBooksTest extends TestCase
         $this->assertSame(0, $report['position']['difference']);
         $this->assertEquals(30, AccountingJournal::query()->where('kind', 'operational')->latest('id')
             ->firstOrFail()->lines()->whereHas('account', fn ($q) => $q->where('code', '1000'))->value('debit'));
+    }
+
+    public function test_expense_and_void_use_opposite_accounts_and_refund_uses_its_own_method(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $this->openPeriod($user);
+        $category = ExpenseCategory::query()->create(['code' => 'TEST-OPS', 'name' => 'تشغيل']);
+        $expense = Expense::query()->create([
+            'expense_number' => 'EXP-GL-001', 'expense_category_id' => $category->id,
+            'location_id' => $branch->id, 'amount' => 25, 'expense_date' => today(),
+            'description' => 'مصروف آجل', 'status' => 'approved', 'created_by' => $user->id,
+        ]);
+        $workflow = app(ExpenseWorkflowService::class);
+        $workflow->post($expense, $user);
+        $workflow->post($expense, $user);
+        $this->assertSame(1, AccountingJournal::query()->count());
+        $this->assertEquals(25, AccountingJournal::query()->firstOrFail()->lines()
+            ->whereHas('account', fn ($q) => $q->where('code', '2200'))->value('credit'));
+        $workflow->void($expense, 'تصحيح', $user);
+        $this->assertSame(2, AccountingJournal::query()->count());
+        $this->assertSame(0, app(AccountingReportService::class)
+            ->report([$branch->id], '2026-10-01', '2026-10-02')['income']['expenses']);
+
+        $cash = $this->method('cash');
+        $bank = $this->method('bank_transfer');
+        $payment = Payment::query()->create([
+            'order_type' => 'order', 'order_id' => 90871, 'location_id' => $branch->id,
+            'payment_method_id' => $cash->id, 'amount' => 10,
+            'status' => 'confirmed', 'paid_at' => now(), 'received_by' => $user->id,
+        ]);
+        $refund = Refund::query()->create([
+            'payment_id' => $payment->id, 'order_type' => 'order', 'order_id' => 90871,
+            'payment_method_id' => $bank->id, 'amount' => 5,
+            'reason' => 'استرداد بنكي', 'processed_by' => $user->id, 'processed_at' => now(),
+        ]);
+        app(FinancialPostingService::class)->refund($refund, $payment, $user);
+        $this->assertEquals(5, AccountingJournal::query()->latest('id')->firstOrFail()->lines()
+            ->whereHas('account', fn ($q) => $q->where('code', '1010'))->value('credit'));
     }
 
     public function test_draft_cash_receipt_posts_balanced_entry_once_and_reverses_before_cash_close(): void

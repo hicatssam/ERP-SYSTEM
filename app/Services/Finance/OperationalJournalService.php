@@ -70,7 +70,7 @@ class OperationalJournalService
             default => Payment::query()->whereKey($entry->reference_id)->value('payment_method_id'),
         };
 
-        $method = $id ? PaymentMethod::query()->find($id) : null;
+        $method = $id ? PaymentMethod::withTrashed()->find($id) : null;
         if (! $method) {
             throw ValidationException::withMessages(['payment_method_id' => 'طريقة دفع العملية غير متاحة للترحيل.']);
         }
@@ -82,7 +82,7 @@ class OperationalJournalService
     {
         $id = Expense::query()->whereKey($entry->reference_id)->value('payment_method_id');
 
-        return $id ? $this->treasuryCode(PaymentMethod::query()->findOrFail($id)) : '2200';
+        return $id ? $this->treasuryCode(PaymentMethod::withTrashed()->findOrFail($id)) : '2200';
     }
 
     private function treasuryCode(PaymentMethod $method): string
