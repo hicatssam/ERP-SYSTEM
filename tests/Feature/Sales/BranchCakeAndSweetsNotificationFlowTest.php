@@ -86,10 +86,10 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
             ]);
         }
         $cake = Product::query()->create([
-            'category_id' => $cakes->id, 'name' => 'Baklava cake', 'barcode' => 'BKL-CAKE', 'is_active' => true,
+            'category_id' => $cakes->id, 'name' => 'Baklava cake', 'sku' => 'BKL-CAKE', 'barcode' => 'BKL-CAKE', 'is_active' => true,
         ]);
         $inactive = Product::query()->create([
-            'category_id' => $sweets->id, 'name' => 'Baklava hidden', 'barcode' => 'BKL-HIDDEN', 'is_active' => false,
+            'category_id' => $sweets->id, 'name' => 'Baklava hidden', 'sku' => 'BKL-HIDDEN', 'barcode' => 'BKL-HIDDEN', 'is_active' => false,
         ]);
 
         $this->actingAs($this->actor)->get(route('showroom-sweets-requests.create'))
