@@ -159,12 +159,13 @@ class FinancialPostingService
             $date, $key, $type, $amount, $locationId, $actorId, $referenceType,
             $referenceId, $invoiceId, $orderId, $specialCakeOrderId, $description, $currencyCode
         ): void {
+            $existing = SalesLedgerEntry::query()->where('idempotency_key', $key)->first();
             $periodId = null;
-            if (FinancialPeriod::query()->exists()) {
+            if (! $existing && FinancialPeriod::query()->exists()) {
                 $periodId = $this->periods->openForDate($date, true)->id;
             }
 
-            $entry = SalesLedgerEntry::query()->firstOrCreate(
+            $entry = $existing ?? SalesLedgerEntry::query()->firstOrCreate(
                 ['idempotency_key' => $key],
                 [
                     'location_id' => $locationId,

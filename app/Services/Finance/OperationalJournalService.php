@@ -4,6 +4,7 @@ namespace App\Services\Finance;
 
 use App\Enums\LedgerEntryType;
 use App\Models\AccountingAccount;
+use App\Models\AccountingJournal;
 use App\Models\Currency;
 use App\Models\EmployeePurchaseReceipt;
 use App\Models\Expense;
@@ -28,6 +29,15 @@ class OperationalJournalService
         }
         $currency = Currency::query()->where('is_base', true)->where('is_active', true)->first();
         if (! $currency || ! FinancialPeriod::query()->exists() || $entry->currency_code !== $currency->code) {
+            return;
+        }
+
+        // A retry must validate the existing source without requiring accounts that were
+        // deactivated after the original posting.
+        if (AccountingJournal::query()->where('source_type', 'sales_ledger_entries')
+            ->where('source_id', $entry->id)->exists()) {
+            $this->books->postOperationalEntry($entry, [], $actor);
+
             return;
         }
 

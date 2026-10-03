@@ -22,6 +22,8 @@ use App\Services\Finance\AccountingReportService;
 use App\Services\Finance\DailyCashReconciliationService;
 use App\Services\Finance\FinancialPostingService;
 use App\Services\Finance\ExpenseWorkflowService;
+use App\Services\Finance\AccountingBookService;
+use App\Services\Finance\OperationalJournalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -141,6 +143,119 @@ class AccountingBooksTest extends TestCase
             $this->assertSame(0, SalesLedgerEntry::query()->count());
             $this->assertSame(0, AccountingJournal::query()->count());
         }
+    }
+
+    public function test_retry_after_period_close_is_idempotent_but_a_new_post_is_rejected(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $period = $this->openPeriod($user);
+        $first = Invoice::query()->create([
+            'invoice_number' => 'GL-CLOSE-1', 'invoice_type' => 'regular_order',
+            'order_type' => 'order', 'order_id' => 98703, 'location_id' => $branch->id,
+            'status' => 'active', 'subtotal' => 17, 'total_amount' => 17,
+            'issued_by' => $user->id, 'issued_at' => now(),
+        ]);
+        $posting = app(FinancialPostingService::class);
+        $posting->sale($first, $user);
+        $period->update(['status' => 'closed']);
+        $posting->sale($first, $user);
+        $this->assertSame(1, AccountingJournal::query()->count());
+
+        $second = $first->replicate();
+        $second->invoice_number = 'GL-CLOSE-2';
+        $second->order_id = 98704;
+        $second->save();
+        try {
+            $posting->sale($second, $user);
+            $this->fail('A new journal in a closed period must fail.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('financial_period', $exception->errors());
+        }
+        $this->assertSame(1, AccountingJournal::query()->count());
+        $this->assertSame(1, SalesLedgerEntry::query()->count());
+    }
+
+    public function test_corrections_and_refund_keep_the_trial_balance_and_cash_bank_separate(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $this->openPeriod($user);
+        $cash = $this->method('cash');
+        $bank = $this->method('bank_transfer');
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'GL-MIXED-1', 'invoice_type' => 'regular_order',
+            'order_type' => 'order', 'order_id' => 98705, 'location_id' => $branch->id,
+            'status' => 'active', 'subtotal' => 100, 'total_amount' => 100,
+            'issued_by' => $user->id, 'issued_at' => now(),
+        ]);
+        $posting = app(FinancialPostingService::class);
+        $posting->sale($invoice, $user);
+        $payment = Payment::query()->create([
+            'order_type' => 'order', 'order_id' => $invoice->order_id,
+            'location_id' => $branch->id, 'payment_method_id' => $cash->id,
+            'amount' => 40, 'status' => 'confirmed', 'paid_at' => now(), 'received_by' => $user->id,
+        ]);
+        $posting->collection($payment, $user);
+        $posting->collection($payment, $user, 'correction-1', 10);
+        $posting->paymentReversal($payment, $user, 'correction-2', 3);
+        $refund = Refund::query()->create([
+            'payment_id' => $payment->id, 'order_type' => 'order', 'order_id' => $invoice->order_id,
+            'payment_method_id' => $bank->id, 'amount' => 5, 'reason' => 'جزئي',
+            'processed_by' => $user->id, 'processed_at' => now(),
+        ]);
+        $posting->refund($refund, $payment, $user);
+        $posting->refund($refund, $payment, $user);
+
+        $report = app(AccountingReportService::class)->report([$branch->id], '2026-10-02', '2026-10-02');
+        $balances = collect($report['rows'])->mapWithKeys(fn ($row) => [
+            $row['account']->code => $row['closing_debit'] - $row['closing_credit'],
+        ]);
+        $this->assertSame(5, AccountingJournal::query()->count());
+        $this->assertSame(0, $report['unlinked_operations']);
+        $this->assertSame(10000, $report['income']['net']);
+        $this->assertSame(5800, $balances['1100']);
+        $this->assertSame(4700, $balances['1000']);
+        $this->assertSame(-500, $balances['1010']);
+        $this->assertSame($report['trial']['closing_debit'], $report['trial']['closing_credit']);
+        $this->assertSame(0, $report['position']['difference']);
+    }
+
+    public function test_reports_scope_legacy_gaps_and_reversal_across_date_and_branch(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        [$other] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $this->openPeriod($user);
+        $journal = app(AccountingBookService::class)->createManualJournal([
+            'request_key' => (string) Str::uuid(), 'location_id' => $branch->id,
+            'entry_date' => '2026-10-02', 'description' => 'تسوية مبيعات الفرع',
+            'lines' => [
+                ['account_id' => $this->account('1100')->id, 'debit' => '12.35', 'credit' => 0],
+                ['account_id' => $this->account('4000')->id, 'debit' => 0, 'credit' => '12.35'],
+            ],
+        ], $user);
+        SalesLedgerEntry::query()->create([
+            'location_id' => $branch->id, 'entry_date' => '2026-10-02',
+            'entry_type' => 'sale', 'amount' => 7, 'currency_code' => 'ILS',
+            'idempotency_key' => 'historical-unlinked', 'created_by' => $user->id,
+        ]);
+        $first = app(AccountingReportService::class)->report([$branch->id], '2026-10-02', '2026-10-02');
+        $this->assertSame(1235, $first['income']['net']);
+        $this->assertSame(1, $first['unlinked_operations']);
+        $this->assertSame(0, app(AccountingReportService::class)
+            ->report([$other->id], '2026-10-02', '2026-10-02')['unlinked_operations']);
+
+        $this->travelTo(now()->setDate(2026, 10, 3)->setTime(10, 0));
+        app(AccountingBookService::class)->reverseJournal($journal, 'تسوية خاطئة', $user);
+        $second = app(AccountingReportService::class)->report([$branch->id], '2026-10-03', '2026-10-03');
+        $this->assertSame(1235, $second['trial']['opening_debit']);
+        $this->assertSame(-1235, $second['income']['net']);
+        $this->assertSame(0, $second['trial']['closing_debit']);
+        $this->assertSame(1, $second['unlinked_operations']);
     }
 
     public function test_draft_cash_receipt_posts_balanced_entry_once_and_reverses_before_cash_close(): void
