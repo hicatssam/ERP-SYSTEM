@@ -52,6 +52,12 @@ class RestaurantPosController extends Controller
 
         $paymentMethods = PaymentMethod::query()
             ->active()
+            ->where(function ($query) use ($location): void {
+                $query->whereDoesntHave('locationPaymentMethods')
+                    ->orWhereHas('locationPaymentMethods', fn ($assignment) => $assignment
+                        ->where('location_id', $location->id)
+                        ->where('is_active', true));
+            })
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -98,6 +104,12 @@ class RestaurantPosController extends Controller
                 'customers' => $customers,
                 'paymentMethods' => $paymentMethods,
                 'salesChannels' => $salesChannels,
+                'channelDiscountRules' => $salesChannels->mapWithKeys(fn ($channel) => [
+                    $channel->id => [
+                        'discount_type' => $channel->discount_type?->value,
+                        'discount_value' => (float) $channel->discount_value,
+                    ],
+                ]),
                 'tables' => $tables,
                 'recentOrders' => $recentOrders,
                 'serviceTypes' => RestaurantServiceType::cases(),
@@ -146,6 +158,40 @@ class RestaurantPosController extends Controller
         ]);
     }
 
+    public function qrOrders(Request $request)
+    {
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $location = $this->context->resolveLocation(
+            $request->user(), $request->integer('location_id') ?: null
+        );
+        $orders = Order::query()
+            ->where('location_id', $location->id)
+            ->where('order_source', 'customer_menu')
+            ->with(['customer', 'restaurantTable'])
+            ->when(trim($data['q'] ?? '') !== '', fn ($query) => $query
+                ->where(fn ($search) => $search
+                    ->where('order_number', 'like', '%'.trim($data['q']).'%')
+                    ->orWhere('guest_name', 'like', '%'.trim($data['q']).'%')
+                    ->orWhereHas('customer', fn ($customer) => $customer
+                        ->where('name', 'like', '%'.trim($data['q']).'%'))))
+            ->latest()
+            ->paginate(20, ['*'], 'page', (int) ($data['page'] ?? 1));
+
+        return response()->json([
+            'orders' => $orders->getCollection()->map(fn (Order $order) => [
+                'number' => $order->order_number,
+                'status' => $order->status?->label() ?? $order->statusValue(),
+                'service' => $order->restaurant_service_type?->label() ?? 'طلب QR',
+                'customer' => $order->customer?->name ?: $order->guest_name ?: 'عميل نقدي',
+                'url' => route('orders.show', $order),
+            ])->values(),
+            'has_more' => $orders->hasMorePages(),
+        ]);
+    }
+
     public function store(
         StoreRestaurantPosOrderRequest $request
     ) {
@@ -160,6 +206,19 @@ class RestaurantPosController extends Controller
         $data['payment_proof'] = $request->file(
             'payment_proof'
         );
+
+        if (! in_array($data['payment_arrangement'], ['pay_on_pickup', 'on_account'], true)
+            && ! empty($data['payment_method_id'])) {
+            $method = PaymentMethod::query()->active()->find($data['payment_method_id']);
+            if (! $method || ($method->locationPaymentMethods()->exists()
+                && ! $method->locationPaymentMethods()
+                    ->where('location_id', $location->id)
+                    ->where('is_active', true)->exists())) {
+                throw ValidationException::withMessages([
+                    'payment_method_id' => 'طريقة الدفع غير مفعلة في هذا الفرع.',
+                ]);
+            }
+        }
 
         if (! empty($data['customer_id'])) {
             $customerAllowed = Customer::query()

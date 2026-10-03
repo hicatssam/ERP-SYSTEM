@@ -15,7 +15,7 @@ class RestaurantPosNonCashDetailsValidationTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
-    public function non_cash_payment_requires_reference_sender_name_and_phone_or_account(): void
+    public function non_cash_payment_requires_reference_and_cashier_confirmation_without_personal_details(): void
     {
         $method = $this->paymentMethod('bank_transfer');
 
@@ -26,8 +26,9 @@ class RestaurantPosNonCashDetailsValidationTest extends TestCase
         ]);
 
         $this->assertTrue($errors->has('reference_number'));
-        $this->assertTrue($errors->has('sender_name'));
-        $this->assertTrue($errors->has('sender_phone'));
+        $this->assertTrue($errors->has('payment_received_confirmed'));
+        $this->assertFalse($errors->has('sender_name'));
+        $this->assertFalse($errors->has('sender_phone'));
     }
 
     #[Test]
@@ -42,11 +43,13 @@ class RestaurantPosNonCashDetailsValidationTest extends TestCase
             'reference_number' => 'TX-7788',
             'sender_name' => 'أحمد محمد',
             'sender_phone' => '0599000000',
+            'payment_received_confirmed' => 1,
         ]);
 
         $this->assertFalse($errors->has('reference_number'));
         $this->assertFalse($errors->has('sender_name'));
         $this->assertFalse($errors->has('sender_phone'));
+        $this->assertFalse($errors->has('payment_received_confirmed'));
     }
 
     #[Test]
@@ -61,11 +64,13 @@ class RestaurantPosNonCashDetailsValidationTest extends TestCase
             'reference_number' => 'POS-9911',
             'sender_name' => 'صاحب البطاقة',
             'sender_account_number' => 'CARD-4455',
+            'payment_received_confirmed' => 1,
         ]);
 
         $this->assertFalse($errors->has('reference_number'));
         $this->assertFalse($errors->has('sender_name'));
         $this->assertFalse($errors->has('sender_phone'));
+        $this->assertFalse($errors->has('payment_received_confirmed'));
     }
 
     #[Test]
@@ -82,6 +87,28 @@ class RestaurantPosNonCashDetailsValidationTest extends TestCase
         $this->assertFalse($errors->has('reference_number'));
         $this->assertFalse($errors->has('sender_name'));
         $this->assertFalse($errors->has('sender_phone'));
+    }
+
+    #[Test]
+    public function manually_checked_transfer_can_have_no_sender_details_but_verified_method_still_needs_proof(): void
+    {
+        $manual = $this->paymentMethod('electronic_wallet');
+        $errors = $this->afterValidationErrors([
+            'service_type' => 'takeaway', 'payment_arrangement' => 'pay_now',
+            'payment_method_id' => $manual->id, 'reference_number' => 'WALLET-123',
+            'payment_received_confirmed' => 1,
+        ]);
+        $this->assertFalse($errors->has('payment_proof'));
+        $this->assertFalse($errors->has('payment_received_confirmed'));
+        $this->assertFalse($errors->has('sender_name'));
+
+        $manual->update(['requires_verification' => true]);
+        $errors = $this->afterValidationErrors([
+            'service_type' => 'takeaway', 'payment_arrangement' => 'pay_now',
+            'payment_method_id' => $manual->id, 'reference_number' => 'WALLET-123',
+            'payment_received_confirmed' => 1,
+        ]);
+        $this->assertTrue($errors->has('payment_proof'));
     }
 
     private function paymentMethod(string $type): PaymentMethod

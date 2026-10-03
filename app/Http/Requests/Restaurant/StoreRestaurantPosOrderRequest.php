@@ -46,6 +46,7 @@ class StoreRestaurantPosOrderRequest extends FormRequest
             'sender_name' => ['nullable', 'string', 'max:150'],
             'sender_phone' => ['nullable', 'string', 'max:50'],
             'sender_account_number' => ['nullable', 'string', 'max:120'],
+            'payment_received_confirmed' => ['nullable', 'boolean'],
             'payment_proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'items' => ['required', 'array', 'min:1'],
@@ -175,24 +176,12 @@ class StoreRestaurantPosOrderRequest extends FormRequest
                         );
                     }
 
-                    if (
-                        $isNonCash
-                        && ! $this->filled('sender_name')
-                    ) {
+                    if ($isNonCash && ! $method->requires_verification
+                        && $arrangement !== PaymentArrangement::PendingVerification->value
+                        && ! $this->boolean('payment_received_confirmed')) {
                         $validator->errors()->add(
-                            'sender_name',
-                            'اسم المحوّل أو صاحب عملية الدفع مطلوب.'
-                        );
-                    }
-
-                    if (
-                        $isNonCash
-                        && ! $this->filled('sender_phone')
-                        && ! $this->filled('sender_account_number')
-                    ) {
-                        $validator->errors()->add(
-                            'sender_phone',
-                            'أدخل رقم جوال المحوّل أو رقم حسابه/محفظته.'
+                            'payment_received_confirmed',
+                            'تأكد من وصول المبلغ فعليًا ثم أكد التحصيل قبل تسجيل الدفع.'
                         );
                     }
 

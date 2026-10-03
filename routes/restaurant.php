@@ -107,6 +107,9 @@ Route::middleware([
                 [RestaurantPosController::class, 'catalog']
             )->name('pos.catalog');
 
+            Route::get('/pos/qr-orders', [RestaurantPosController::class, 'qrOrders'])
+                ->name('pos.qr-orders');
+
             Route::post(
                 '/pos/orders',
                 [RestaurantPosController::class, 'store']

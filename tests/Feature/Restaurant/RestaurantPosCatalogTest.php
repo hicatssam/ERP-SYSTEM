@@ -8,6 +8,10 @@ use App\Models\Category;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\LocationProduct;
+use App\Models\LocationPaymentMethod;
+use App\Models\PaymentMethod;
+use App\Models\SalesChannel;
+use App\Models\Order;
 use App\Models\Modifier;
 use App\Models\ModifierGroup;
 use App\Models\Product;
@@ -16,6 +20,7 @@ use App\Models\ProductVariant;
 use App\Models\RestaurantMenuItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -23,6 +28,91 @@ use Tests\TestCase;
 class RestaurantPosCatalogTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[Test]
+    public function cashier_only_sees_branch_payment_methods_and_cannot_submit_another_branch_method(): void
+    {
+        $branch = $this->branch('PAY-A');
+        $other = $this->branch('PAY-B');
+        $cashier = $this->cashier($branch);
+        $cashier->givePermissionTo(Permission::findOrCreate('orders.create', 'web'));
+        $channel = SalesChannel::query()->create([
+            'name' => 'Cashier channel', 'slug' => 'pos-checkout', 'type' => 'direct',
+            'discount_type' => 'percentage', 'discount_value' => 10, 'is_active' => true,
+        ]);
+        $global = PaymentMethod::query()->create([
+            'name' => 'Global cash', 'name_ar' => 'نقد عام', 'code' => 'pos-global-cash',
+            'type' => 'cash', 'is_active' => true,
+        ]);
+        $otherOnly = PaymentMethod::query()->create([
+            'name' => 'Other branch cash', 'name_ar' => 'نقد فرع آخر', 'code' => 'pos-other-cash',
+            'type' => 'cash', 'is_active' => true,
+        ]);
+        LocationPaymentMethod::query()->create([
+            'location_id' => $other->id, 'payment_method_id' => $otherOnly->id, 'is_active' => true,
+        ]);
+        $product = $this->product($this->category(), 'PAY-ITEM');
+        $this->onMenu($branch, $product, 1);
+        $this->atBranch($branch, $product, true);
+
+        $this->actingAs($cashier)->get(route('restaurant.pos.index'))->assertOk()
+            ->assertSee('نقد عام')->assertDontSee('نقد فرع آخر')
+            ->assertSee('rbChannelDiscount')->assertSee('"discount_value":10', false);
+
+        $payload = [
+            'location_id' => $branch->id, 'service_type' => 'takeaway',
+            'payment_arrangement' => 'pay_now', 'payment_method_id' => $otherOnly->id,
+            'sales_channel_id' => $channel->id,
+            'items' => [['product_id' => $product->id, 'quantity' => 1]],
+        ];
+        $this->actingAs($cashier)->postJson(route('restaurant.pos.orders.store'), $payload)
+            ->assertUnprocessable()->assertJsonValidationErrors('payment_method_id');
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertNotSame($global->id, $otherOnly->id);
+
+        $payload['payment_method_id'] = $global->id;
+        $payload['payment_arrangement'] = 'pending_verification';
+        $payload['reference_number'] = 'POS-CHECK-100';
+        $payload['payment_proof'] = UploadedFile::fake()->image('transfer.jpg');
+        $this->actingAs($cashier)->post(route('restaurant.pos.orders.store'), $payload, [
+            'Accept' => 'application/json',
+        ])->assertCreated()->assertJsonPath('status', 'draft');
+
+        $order = \App\Models\Order::query()->sole();
+        $this->assertEquals(10, $order->subtotal);
+        $this->assertEquals(1, $order->channel_discount_amount);
+        $this->assertEquals(9, $order->total_amount);
+        $this->assertEquals(9, $order->payments()->sole()->amount);
+        $this->assertSame('pending_verification', $order->payments()->sole()->statusValue());
+        $this->assertNull($order->invoice);
+    }
+
+    #[Test]
+    public function qr_drawer_queries_real_customer_menu_orders_scoped_to_cashier_branch(): void
+    {
+        $branch = $this->branch('QR-A');
+        $other = $this->branch('QR-B');
+        $cashier = $this->cashier($branch);
+        foreach ([
+            ['POS-QR-LOCAL', $branch->id, 'customer_menu'],
+            ['POS-QR-FOREIGN', $other->id, 'customer_menu'],
+            ['POS-QR-NORMAL', $branch->id, null],
+        ] as [$number, $locationId, $source]) {
+            Order::query()->create([
+                'order_number' => $number, 'location_id' => $locationId,
+                'order_source' => $source, 'status' => 'draft',
+                'payment_arrangement' => 'pay_on_pickup',
+            ]);
+        }
+
+        $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders'))
+            ->assertOk()->assertJsonCount(1, 'orders')
+            ->assertJsonPath('orders.0.number', 'POS-QR-LOCAL');
+        $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders', ['q' => 'not-found']))
+            ->assertOk()->assertJsonCount(0, 'orders');
+        $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders', ['location_id' => $other->id]))
+            ->assertForbidden();
+    }
 
     #[Test]
     public function cashier_sees_only_available_branch_menu_in_menu_order_with_branch_prices(): void

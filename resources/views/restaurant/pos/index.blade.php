@@ -277,16 +277,12 @@
                             <strong id="rbSubtotal">₪0.00</strong>
                         </div>
                         <div class="rb-summary-row">
-                            <span>خصم المنتجات:</span>
-                            <strong>₪0.00</strong>
-                        </div>
-                        <div class="rb-summary-row">
-                            <span>الخصم الإضافي:</span>
+                            <span>خصم الطلب:</span>
                             <strong id="rbDiscountAmount">₪0.00</strong>
                         </div>
                         <div class="rb-summary-row">
-                            <span>خصم الكوبون:</span>
-                            <strong>₪0.00</strong>
+                            <span>خصم قناة البيع:</span>
+                            <strong id="rbChannelDiscount">₪0.00</strong>
                         </div>
                         <div class="rb-summary-total">
                             <span>الإجمالي:</span>
@@ -464,7 +460,7 @@
                         </div>
 
                         <div class="rb-field" id="rbSenderNameGroup" hidden>
-                            <label>اسم المحوّل / صاحب العملية *</label>
+                            <label>اسم المحوّل / صاحب العملية (اختياري)</label>
                             <input
                                 type="text"
                                 name="sender_name"
@@ -476,7 +472,7 @@
                         </div>
 
                         <div class="rb-field" id="rbSenderPhoneGroup" hidden>
-                            <label>رقم جوال المحوّل</label>
+                            <label>رقم جوال المحوّل (اختياري)</label>
                             <input
                                 type="text"
                                 name="sender_phone"
@@ -489,7 +485,7 @@
                         </div>
 
                         <div class="rb-field rb-field-wide" id="rbSenderAccountGroup" hidden>
-                            <label>رقم الحساب / المحفظة</label>
+                            <label>رقم الحساب / المحفظة (اختياري)</label>
                             <input
                                 type="text"
                                 name="sender_account_number"
@@ -500,7 +496,7 @@
                                 placeholder="رقم الحساب أو رقم المحفظة — يكفي هذا أو رقم الجوال"
                             >
                             <small class="rb-field-hint">
-                                لطريقة الدفع غير النقدية يجب إدخال رقم الجوال أو رقم الحساب/المحفظة على الأقل.
+                                يمكن إضافة بيانات المرسل عندما يقدمها العميل؛ رقم العملية يوثق التحصيل.
                             </small>
                         </div>
 
@@ -512,6 +508,14 @@
                                 accept="image/*"
                                 class="rb-control rb-file-control"
                             >
+                        </div>
+
+                        <div class="rb-field rb-field-wide" id="rbManualReceiptGroup" hidden>
+                            <label style="display:flex;gap:.6rem;align-items:flex-start">
+                                <input type="checkbox" name="payment_received_confirmed" value="1" id="rbManualReceipt">
+                                <span>تحققت بنفسي من وصول المبلغ إلى حساب المحل باستخدام رقم العملية أعلاه.</span>
+                            </label>
+                            <small class="rb-field-hint">يُسجَّل التحصيل باسم مستخدم الكاشير. عند الحاجة إلى مراجعة مستقلة فعّل طلب إثبات الدفع لهذه الطريقة من الإعدادات.</small>
                         </div>
 
                         <div class="rb-field rb-field-wide">
@@ -2263,6 +2267,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     let products = @json($productPayload);
     const catalogUrl = @json(route('restaurant.pos.catalog'));
+    const qrOrdersUrl = @json(route('restaurant.pos.qr-orders'));
+    const channelRules = @json($channelDiscountRules);
     const categories = @json($catalogFacets['categories']);
     const brands = @json($catalogFacets['brands']);
     const oldItems = @json(old('items', []));
@@ -2292,6 +2298,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cartCount = document.getElementById('rbCartCount');
     const subtotalEl = document.getElementById('rbSubtotal');
     const discountAmountEl = document.getElementById('rbDiscountAmount');
+    const channelDiscountEl = document.getElementById('rbChannelDiscount');
     const grandTotalEl = document.getElementById('rbGrandTotal');
     const checkoutTotalEl = document.getElementById('rbCheckoutTotal');
 
@@ -2311,6 +2318,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const senderPhoneGroup = document.getElementById('rbSenderPhoneGroup');
     const senderAccountGroup = document.getElementById('rbSenderAccountGroup');
     const proofGroup = document.getElementById('rbProofGroup');
+    const manualReceiptGroup = document.getElementById('rbManualReceiptGroup');
+    const manualReceipt = document.getElementById('rbManualReceipt');
 
     const referenceInput = form.querySelector('[name="reference_number"]');
     const senderNameInput = form.querySelector('[name="sender_name"]');
@@ -2342,7 +2351,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const localDraftSection = document.getElementById('rbLocalDraftSection');
     const localDraftContainer = document.getElementById('rbLocalDraftContainer');
     const serverOrdersTitle = document.getElementById('rbServerOrdersTitle');
-    const serverOrderCards = [...document.querySelectorAll('[data-server-order]')];
+    const serverOrdersList = document.getElementById('rbServerOrdersList');
+    const recentOrdersMarkup = serverOrdersList.innerHTML;
+    let qrRequest = 0;
+    let qrSearchTimer;
 
     const cart = new Map();
     let activeCategory = '__all__';
@@ -2680,7 +2692,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const raw = Math.max(0, Number(discountValue?.value || 0));
 
         if (type === 'percentage') {
-            return Math.min(subtotal, subtotal * Math.min(raw, 100) / 100);
+            return Math.min(subtotal, Math.floor((subtotal * Math.min(raw, 100) / 100 + Number.EPSILON) * 100) / 100);
         }
 
         if (type === 'fixed') {
@@ -2697,10 +2709,18 @@ document.addEventListener('DOMContentLoaded', () => {
             0
         );
         const discount = currentDiscount(subtotal);
+        const channel = channelRules[form.querySelector('[name="sales_channel_id"]')?.value];
+        const afterOrderDiscount = Math.max(0, subtotal - discount);
+        const channelDiscount = channel?.discount_type === 'percentage'
+            ? Math.floor((afterOrderDiscount * Math.min(channel.discount_value, 100) / 100 + Number.EPSILON) * 100) / 100
+            : channel?.discount_type === 'fixed'
+                ? Math.min(afterOrderDiscount, channel.discount_value)
+                : 0;
         return {
             subtotal,
             discount,
-            total: Math.max(0, subtotal - discount),
+            channelDiscount,
+            total: Math.max(0, afterOrderDiscount - channelDiscount),
         };
     }
 
@@ -2921,6 +2941,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const totals = getTotals();
         subtotalEl.textContent = money(totals.subtotal);
         discountAmountEl.textContent = money(totals.discount);
+        channelDiscountEl.textContent = money(totals.channelDiscount);
         grandTotalEl.textContent = money(totals.total);
         checkoutTotalEl.textContent = money(totals.total);
         cartCount.textContent = cart.size;
@@ -3113,13 +3134,11 @@ document.addEventListener('DOMContentLoaded', () => {
         senderPhoneGroup.hidden = !isNonCash;
         senderAccountGroup.hidden = !isNonCash;
         proofGroup.hidden = !requiresProof;
+        manualReceiptGroup.hidden = !isNonCash || requiresProof;
+        manualReceipt.required = isNonCash && !requiresProof;
 
         if (referenceInput) {
             referenceInput.required = requiresReference;
-        }
-
-        if (senderNameInput) {
-            senderNameInput.required = isNonCash;
         }
 
         if (proofInput) {
@@ -3208,28 +3227,9 @@ document.addEventListener('DOMContentLoaded', () => {
             && paymentMethod.value !== ''
             && (selectedPaymentMethod?.dataset.type || '') !== 'cash';
 
-        if (
-            nonCashPayment
-            && !senderNameInput?.value.trim()
-        ) {
-            showCheckoutError(
-                'اسم المحوّل أو صاحب عملية الدفع مطلوب.',
-                'sender_name'
-            );
-            senderNameInput?.focus();
-            return false;
-        }
-
-        if (
-            nonCashPayment
-            && !senderPhoneInput?.value.trim()
-            && !senderAccountInput?.value.trim()
-        ) {
-            showCheckoutError(
-                'أدخل رقم جوال المحوّل أو رقم حسابه/محفظته.',
-                'sender_phone'
-            );
-            senderPhoneInput?.focus();
+        if (nonCashPayment && manualReceipt.required && !manualReceipt.checked) {
+            showCheckoutError('تأكد من وصول المبلغ ثم أكد التحصيل.', 'payment_received_confirmed');
+            manualReceipt.focus();
             return false;
         }
 
@@ -3393,19 +3393,53 @@ document.addEventListener('DOMContentLoaded', () => {
     function filterServerOrders() {
         const query = (drawerSearchInput.value || '').trim().toLowerCase();
 
-        serverOrderCards.forEach(card => {
+        serverOrdersList.querySelectorAll('[data-server-order]').forEach(card => {
             const matchesQuery = !query || (card.dataset.search || '').includes(query);
 
             let matchesMode = true;
             if (drawerMode === 'draft') {
                 matchesMode = (card.dataset.status || '') === 'draft';
-            } else if (drawerMode === 'qr') {
-                const channel = card.dataset.channel || '';
-                matchesMode = channel.includes('qr') || channel.includes('كيو') || channel.includes('باركود');
             }
 
             card.hidden = !(matchesQuery && matchesMode);
         });
+    }
+
+    async function loadQrOrders(page = 1) {
+        const request = ++qrRequest;
+        if (page === 1) serverOrdersList.innerHTML = '<div class="rb-drawer-empty">جار تحميل طلبات QR...</div>';
+        const url = new URL(qrOrdersUrl, window.location.origin);
+        url.searchParams.set('location_id', locationId);
+        url.searchParams.set('page', page);
+        if (drawerSearchInput.value.trim()) url.searchParams.set('q', drawerSearchInput.value.trim());
+        try {
+            const response = await fetch(url, {headers: {Accept: 'application/json'}});
+            if (!response.ok) throw new Error('تعذر تحميل طلبات QR.');
+            const data = await response.json();
+            if (request !== qrRequest || drawerMode !== 'qr') return;
+            if (page === 1) serverOrdersList.replaceChildren();
+            serverOrdersList.querySelector('[data-qr-more]')?.remove();
+            data.orders.forEach(order => {
+                const card = document.createElement('a');
+                card.className = 'rb-server-order-card';
+                card.href = order.url;
+                card.innerHTML = `<div class="rb-server-order-top"><strong>${escapeHtml(order.number)}</strong><span>${escapeHtml(order.status)}</span></div>
+                    <div class="rb-server-order-meta"><span>${escapeHtml(order.service)}</span><span>${escapeHtml(order.customer)}</span></div>`;
+                serverOrdersList.appendChild(card);
+            });
+            if (!serverOrdersList.children.length) serverOrdersList.innerHTML = '<div class="rb-drawer-empty">لا توجد طلبات QR مطابقة في هذا الفرع.</div>';
+            if (data.has_more) {
+                const more = document.createElement('button');
+                more.type = 'button';
+                more.className = 'rb-load-more';
+                more.dataset.qrMore = String(page + 1);
+                more.textContent = 'عرض المزيد من طلبات QR';
+                serverOrdersList.appendChild(more);
+            }
+        } catch (error) {
+            if (request !== qrRequest || drawerMode !== 'qr') return;
+            serverOrdersList.insertAdjacentHTML('beforeend', '<div class="rb-drawer-empty">تعذر تحميل طلبات QR. أعد المحاولة بالبحث.</div>');
+        }
     }
 
     function openDrawer(mode = 'all', query = '') {
@@ -3414,22 +3448,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (mode === 'qr') {
             drawerTitle.textContent = 'طلبات QR';
-            drawerSubtitle.textContent = 'آخر طلبات قناة QR المتاحة في البيانات الحالية';
-            serverOrdersTitle.textContent = 'طلبات QR الأخيرة';
+            drawerSubtitle.textContent = 'طلبات منيو العميل في هذا الفرع';
+            serverOrdersTitle.textContent = 'طلبات QR';
             localDraftSection.hidden = true;
+            loadQrOrders();
         } else if (mode === 'draft') {
+            qrRequest++;
+            serverOrdersList.innerHTML = recentOrdersMarkup;
             drawerTitle.textContent = 'قائمة المسودات';
             drawerSubtitle.textContent = 'مسودات الجهاز + الطلبات المسجلة بحالة Draft';
             serverOrdersTitle.textContent = 'مسودات الخادم الحديثة';
             renderLocalDraftCard();
         } else {
+            qrRequest++;
+            serverOrdersList.innerHTML = recentOrdersMarkup;
             drawerTitle.textContent = 'البحث في الطلبات الحالية';
             drawerSubtitle.textContent = locationName;
             serverOrdersTitle.textContent = 'آخر الطلبات المسجلة';
             localDraftSection.hidden = true;
         }
 
-        filterServerOrders();
+        if (mode !== 'qr') filterServerOrders();
         drawer.classList.add('is-open');
         drawer.setAttribute('aria-hidden', 'false');
         drawerBackdrop.hidden = false;
@@ -3976,6 +4015,7 @@ async function submitOrder(action) {
         element?.addEventListener('input', renderSummary);
         element?.addEventListener('change', renderSummary);
     });
+    form.querySelector('[name="sales_channel_id"]')?.addEventListener('change', renderSummary);
 
     newOrderBtn.addEventListener('click', () => clearOrder(true));
     tableOrderBtn?.addEventListener('click', () => {
@@ -4034,7 +4074,16 @@ async function submitOrder(action) {
         if (!existingOrderSearch.value) return;
     });
 
-    drawerSearchInput.addEventListener('input', filterServerOrders);
+    drawerSearchInput.addEventListener('input', () => {
+        if (drawerMode === 'qr') {
+            clearTimeout(qrSearchTimer);
+            qrSearchTimer = setTimeout(() => loadQrOrders(), 250);
+        } else filterServerOrders();
+    });
+    serverOrdersList.addEventListener('click', event => {
+        const more = event.target.closest('[data-qr-more]');
+        if (more) loadQrOrders(Number(more.dataset.qrMore));
+    });
     closeDrawerBtn.addEventListener('click', closeDrawer);
     drawerBackdrop.addEventListener('click', closeDrawer);
 
