@@ -12,6 +12,7 @@ use App\Models\Refund;
 use App\Models\SalesLedgerEntry;
 use App\Models\User;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class FinancialPostingService
@@ -154,30 +155,35 @@ class FinancialPostingService
             return;
         }
 
-        $periodId = null;
-        if (FinancialPeriod::query()->exists()) {
-            $periodId = $this->periods->openForDate($date, true)->id;
-        }
+        DB::transaction(function () use (
+            $date, $key, $type, $amount, $locationId, $actorId, $referenceType,
+            $referenceId, $invoiceId, $orderId, $specialCakeOrderId, $description, $currencyCode
+        ): void {
+            $periodId = null;
+            if (FinancialPeriod::query()->exists()) {
+                $periodId = $this->periods->openForDate($date, true)->id;
+            }
 
-        $entry = SalesLedgerEntry::query()->firstOrCreate(
-            ['idempotency_key' => $key],
-            [
-                'location_id' => $locationId,
-                'financial_period_id' => $periodId,
-                'entry_date' => $date instanceof CarbonInterface ? $date->toDateString() : $date,
-                'entry_type' => $type,
-                'amount' => round($amount, 2),
-                'reference_type' => $referenceType,
-                'reference_id' => $referenceId,
-                'invoice_id' => $invoiceId,
-                'order_id' => $orderId,
-                'special_cake_order_id' => $specialCakeOrderId,
-                'description' => $description,
-                'currency_code' => $currencyCode,
-                'created_by' => $actorId,
-                'created_at' => now(),
-            ]
-        );
-        $this->journals->post($entry, User::query()->findOrFail($actorId));
+            $entry = SalesLedgerEntry::query()->firstOrCreate(
+                ['idempotency_key' => $key],
+                [
+                    'location_id' => $locationId,
+                    'financial_period_id' => $periodId,
+                    'entry_date' => $date instanceof CarbonInterface ? $date->toDateString() : $date,
+                    'entry_type' => $type,
+                    'amount' => round($amount, 2),
+                    'reference_type' => $referenceType,
+                    'reference_id' => $referenceId,
+                    'invoice_id' => $invoiceId,
+                    'order_id' => $orderId,
+                    'special_cake_order_id' => $specialCakeOrderId,
+                    'description' => $description,
+                    'currency_code' => $currencyCode,
+                    'created_by' => $actorId,
+                    'created_at' => now(),
+                ]
+            );
+            $this->journals->post($entry, User::query()->findOrFail($actorId));
+        });
     }
 }

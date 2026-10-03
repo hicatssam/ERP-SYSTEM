@@ -16,6 +16,7 @@ use App\Models\Location;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Refund;
+use App\Models\SalesLedgerEntry;
 use App\Models\User;
 use App\Services\Finance\AccountingReportService;
 use App\Services\Finance\DailyCashReconciliationService;
@@ -25,6 +26,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -108,6 +110,29 @@ class AccountingBooksTest extends TestCase
         app(FinancialPostingService::class)->refund($refund, $payment, $user);
         $this->assertEquals(5, AccountingJournal::query()->latest('id')->firstOrFail()->lines()
             ->whereHas('account', fn ($q) => $q->where('code', '1010'))->value('credit'));
+    }
+
+    public function test_failed_journal_rolls_back_the_operational_ledger_entry(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $this->openPeriod($user);
+        $this->account('1100')->update(['is_active' => false]);
+        $invoice = Invoice::query()->create([
+            'invoice_number' => 'GL-TEST-ROLLBACK', 'invoice_type' => 'regular_order',
+            'order_type' => 'order', 'order_id' => 98702, 'location_id' => $branch->id,
+            'status' => 'active', 'subtotal' => 20, 'total_amount' => 20,
+            'issued_by' => $user->id, 'issued_at' => now(),
+        ]);
+
+        $this->expectException(ValidationException::class);
+        try {
+            app(FinancialPostingService::class)->sale($invoice, $user);
+        } finally {
+            $this->assertSame(0, SalesLedgerEntry::query()->count());
+            $this->assertSame(0, AccountingJournal::query()->count());
+        }
     }
 
     public function test_draft_cash_receipt_posts_balanced_entry_once_and_reverses_before_cash_close(): void
