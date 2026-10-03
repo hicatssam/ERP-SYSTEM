@@ -264,7 +264,7 @@ class RestaurantPosCatalogTest extends TestCase
             'name' => 'Print', 'slug' => 'pos-print', 'type' => 'direct', 'is_active' => true,
         ]);
         $method = PaymentMethod::query()->create([
-            'name' => 'Transfer', 'code' => 'pos-print-transfer',
+            'name' => 'Transfer', 'name_ar' => 'حوالة', 'code' => 'pos-print-transfer',
             'type' => 'bank_transfer', 'is_active' => true, 'requires_verification' => true,
         ]);
         $product = $this->product($this->category(), 'PRINT-ITEM');
