@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\Employee;
 use App\Models\Location;
 use App\Models\LocationProduct;
+use App\Models\Inventory;
 use App\Models\LocationPaymentMethod;
 use App\Models\PaymentMethod;
 use App\Models\SalesChannel;
@@ -113,6 +114,47 @@ class RestaurantPosCatalogTest extends TestCase
             ->assertOk()->assertJsonCount(0, 'orders');
         $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders', ['location_id' => $other->id]))
             ->assertForbidden();
+    }
+
+    #[Test]
+    public function manually_confirmed_wallet_checkout_creates_paid_invoice_and_deducts_stock(): void
+    {
+        $branch = $this->branch('PAID');
+        $cashier = $this->cashier($branch);
+        $cashier->givePermissionTo(Permission::findOrCreate('orders.create', 'web'));
+        $channel = SalesChannel::query()->create([
+            'name' => 'Wallet checkout', 'slug' => 'wallet-checkout',
+            'type' => 'direct', 'discount_type' => 'percentage',
+            'discount_value' => 10, 'is_active' => true,
+        ]);
+        $method = PaymentMethod::query()->create([
+            'name' => 'Wallet', 'name_ar' => 'محفظة', 'code' => 'pos-wallet',
+            'type' => 'electronic_wallet', 'is_active' => true,
+            'requires_verification' => false,
+        ]);
+        $product = $this->product($this->category(), 'WALLET-ITEM');
+        $this->onMenu($branch, $product, 1);
+        $this->atBranch($branch, $product, true);
+        Inventory::query()->create([
+            'location_id' => $branch->id, 'product_id' => $product->id,
+            'quantity' => 10, 'reserved_quantity' => 0, 'unit_cost' => 4,
+        ]);
+
+        $this->actingAs($cashier)->postJson(route('restaurant.pos.orders.store'), [
+            'location_id' => $branch->id, 'service_type' => 'takeaway',
+            'payment_arrangement' => 'pay_now', 'payment_method_id' => $method->id,
+            'payment_received_confirmed' => 1, 'reference_number' => 'WALLET-PAID-1',
+            'sales_channel_id' => $channel->id,
+            'items' => [['product_id' => $product->id, 'quantity' => 1]],
+        ])->assertCreated()->assertJsonPath('status', 'confirmed');
+
+        $order = Order::query()->sole();
+        $this->assertEquals(9, $order->total_amount);
+        $this->assertEquals(9, $order->invoice?->total_amount);
+        $this->assertEquals(9, $order->invoice?->paid_amount);
+        $this->assertEquals(9, $order->payments()->sole()->amount);
+        $this->assertSame('confirmed', $order->payments()->sole()->statusValue());
+        $this->assertEquals(9, Inventory::query()->where('product_id', $product->id)->sole()->quantity);
     }
 
     #[Test]
