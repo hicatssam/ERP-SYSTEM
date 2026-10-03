@@ -102,6 +102,7 @@ class RestaurantPosCatalogTest extends TestCase
                 'order_number' => $number, 'location_id' => $locationId,
                 'order_source' => $source, 'status' => 'draft',
                 'payment_arrangement' => 'pay_on_pickup',
+                'created_by' => $cashier->id,
             ]);
         }
 
