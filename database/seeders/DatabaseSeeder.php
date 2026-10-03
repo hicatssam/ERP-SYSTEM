@@ -2163,6 +2163,9 @@ SVG;
             'financial.cash.view','financial.cash.movements.manage','financial.cash.close',
             'accounting.employee_accounts.view','accounting.employee_accounts.create',
             'accounting.employee_accounts.receive','accounting.employee_accounts.verify',
+            'accounting.books.view','accounting.accounts.manage','accounting.vouchers.create',
+            'accounting.vouchers.post','accounting.vouchers.reverse','accounting.journals.post',
+            'accounting.reports.view',
             'chat.view','chat.send','chat.attachments','chat.view_all_branches','chat.manage',
             'chat.direct.start_all','chat.direct.start_location',
             'crm.view','crm.view_all','crm.manage','crm.interactions.manage',
@@ -2241,7 +2244,7 @@ SVG;
             'dashboard.','employees.','hr.','products.','categories.','customers.','orders.',
             'inventory.','stock_','reports.','invoices.','payments.','restaurant.','kitchen.','kds.',
             'attendance.','chat.','crm.','loyalty.','delivery.','customer_display.','cash_sessions.',
-        ], ['financial.cash.view','accounting.employee_accounts.view','accounting.employee_accounts.create','accounting.employee_accounts.receive'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage','hr.organization.manage']);
+        ], ['financial.cash.view','accounting.employee_accounts.view','accounting.employee_accounts.create','accounting.employee_accounts.receive','accounting.books.view','accounting.vouchers.create'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage','hr.organization.manage']);
         $grantByPrefixes('Cashier', ['orders.','customers.','payments.','invoices.','restaurant.pos.'], [
             'products.view','categories.view','payment_methods.view',
         ], ['orders.confirm','orders.cancel','orders.delete','customers.view_all']);

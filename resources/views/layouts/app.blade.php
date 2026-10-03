@@ -1936,6 +1936,10 @@ a.app-page-btn:hover {
 
                 'accounting.employee_accounts.view',
 
+                'accounting.books.view',
+
+                'accounting.reports.view',
+
             ])
 
                 <div class="nav-section">
@@ -2127,6 +2131,26 @@ a.app-page-btn:hover {
                     @endif
 
                     @if($moduleEnabled('accounting'))
+                    @can('accounting.books.view')
+                        <a href="{{ route('accounting.books.vouchers') }}" class="nav-item {{ request()->routeIs('accounting.books.vouchers*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 3h16v18H4zM8 8h8M8 12h8M8 16h6"/></svg>
+                            <span>سندات القبض والصرف</span>
+                        </a>
+                        <a href="{{ route('accounting.books.journals') }}" class="nav-item {{ request()->routeIs('accounting.books.journals*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4zM8 9h8M8 13h8M8 17h5"/></svg>
+                            <span>دفتر القيود المحاسبية</span>
+                        </a>
+                        <a href="{{ route('accounting.books.accounts') }}" class="nav-item {{ request()->routeIs('accounting.books.accounts*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18M5 9h14M7 13h10M9 17h6"/></svg>
+                            <span>دليل الحسابات</span>
+                        </a>
+                    @endcan
+                    @can('accounting.reports.view')
+                        <a href="{{ route('accounting.books.statements') }}" class="nav-item {{ request()->routeIs('accounting.books.statements') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 16l4-5 3 2 5-7"/></svg>
+                            <span>ميزان المراجعة والقوائم</span>
+                        </a>
+                    @endcan
                     @can('accounting.employee_accounts.view')
                         <a href="{{ route('accounting.employee-purchases.index') }}" class="nav-item {{ request()->routeIs('accounting.employee-purchases.*') ? 'active' : '' }}">
                             <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M5 18c1-2 7-2 8 0m2-8h4m-4 4h4"/></svg>

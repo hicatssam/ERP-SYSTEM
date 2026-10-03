@@ -33,6 +33,7 @@ use App\Http\Controllers\Finance\FinancialPeriodController;
 use App\Http\Controllers\Finance\FinancialDashboardController;
 use App\Http\Controllers\Finance\AccountingLedgerController;
 use App\Http\Controllers\Finance\EmployeePurchaseController;
+use App\Http\Controllers\Finance\AccountingBooksController;
 use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\Reports\ReportScheduleController;
 use App\Http\Controllers\ProfileController;
@@ -588,6 +589,25 @@ Route::post(
         Route::get('financial/accounting/ledger', [AccountingLedgerController::class, 'index'])
             ->middleware('can:financial.reports.view')
             ->name('accounting.ledger.index');
+
+        Route::prefix('financial/accounting/books')->name('accounting.books.')->group(function () {
+            Route::get('/accounts', [AccountingBooksController::class, 'accounts'])->middleware('can:accounting.books.view')->name('accounts');
+            Route::post('/accounts', [AccountingBooksController::class, 'storeAccount'])->middleware('can:accounting.accounts.manage')->name('accounts.store');
+            Route::get('/vouchers', [AccountingBooksController::class, 'vouchers'])->middleware('can:accounting.books.view')->name('vouchers');
+            Route::get('/vouchers/create', [AccountingBooksController::class, 'createVoucher'])->middleware('can:accounting.vouchers.create')->name('vouchers.create');
+            Route::post('/vouchers', [AccountingBooksController::class, 'storeVoucher'])->middleware('can:accounting.vouchers.create')->name('vouchers.store');
+            Route::get('/vouchers/{voucher}/proof', [AccountingBooksController::class, 'voucherProof'])->middleware('can:accounting.books.view')->name('vouchers.proof');
+            Route::post('/vouchers/{voucher}/post', [AccountingBooksController::class, 'postVoucher'])->middleware('can:accounting.vouchers.post')->name('vouchers.post');
+            Route::post('/vouchers/{voucher}/cancel', [AccountingBooksController::class, 'cancelVoucher'])->middleware('can:accounting.vouchers.create')->name('vouchers.cancel');
+            Route::post('/vouchers/{voucher}/reverse', [AccountingBooksController::class, 'reverseVoucher'])->middleware('can:accounting.vouchers.reverse')->name('vouchers.reverse');
+            Route::get('/vouchers/{voucher}', [AccountingBooksController::class, 'showVoucher'])->middleware('can:accounting.books.view')->name('vouchers.show');
+            Route::get('/journals', [AccountingBooksController::class, 'journals'])->middleware('can:accounting.books.view')->name('journals');
+            Route::get('/journals/create', [AccountingBooksController::class, 'createJournal'])->middleware('can:accounting.journals.post')->name('journals.create');
+            Route::post('/journals', [AccountingBooksController::class, 'storeJournal'])->middleware('can:accounting.journals.post')->name('journals.store');
+            Route::post('/journals/{journal}/reverse', [AccountingBooksController::class, 'reverseJournal'])->middleware('can:accounting.journals.post')->name('journals.reverse');
+            Route::get('/journals/{journal}', [AccountingBooksController::class, 'showJournal'])->middleware('can:accounting.books.view')->name('journals.show');
+            Route::get('/statements', [AccountingBooksController::class, 'statements'])->middleware('can:accounting.reports.view')->name('statements');
+        });
 
         Route::prefix('financial/accounting/employee-purchases')->name('accounting.employee-purchases.')->group(function () {
             Route::get('/', [EmployeePurchaseController::class, 'index'])->middleware('can:accounting.employee_accounts.view')->name('index');

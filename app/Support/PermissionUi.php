@@ -88,6 +88,13 @@ class PermissionUi
             'accounting.employee_accounts.create' => 'صرف منتجات على حساب الموظف',
             'accounting.employee_accounts.receive' => 'تسجيل سداد مشتريات الموظف',
             'accounting.employee_accounts.verify' => 'اعتماد أو رفض دفعات الموظفين المعلقة',
+            'accounting.books.view' => 'عرض سندات المحاسبة والقيود ودليل الحسابات',
+            'accounting.accounts.manage' => 'إضافة حسابات إلى دليل الحسابات',
+            'accounting.vouchers.create' => 'إنشاء سند قبض أو صرف مسودة',
+            'accounting.vouchers.post' => 'اعتماد وترحيل سندات القبض والصرف',
+            'accounting.vouchers.reverse' => 'عكس السندات المرحّلة بقيد مقابل',
+            'accounting.journals.post' => 'ترحيل وعكس قيود اليومية اليدوية',
+            'accounting.reports.view' => 'عرض ميزان المراجعة والقوائم من الدفتر المحاسبي',
             // لوحة التحكم
             'dashboard.view' => 'الدخول إلى لوحة التحكم',
             'dashboard.orders' => 'إظهار بطاقة طلبات اليوم',

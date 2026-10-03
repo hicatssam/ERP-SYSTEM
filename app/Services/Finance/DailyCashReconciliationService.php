@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 class DailyCashReconciliationService
 {
     public const COMPONENTS = [
-        'sales', 'customer_receipts', 'employee_receipts', 'other_income', 'expenses',
+        'sales', 'customer_receipts', 'employee_receipts', 'voucher_receipts', 'voucher_payments', 'other_income', 'expenses',
         'supplier_payments', 'refunds', 'transfer_in', 'transfer_out',
     ];
 
@@ -40,6 +40,14 @@ class DailyCashReconciliationService
             ->where('pm.type', 'cash')
             ->where('er.posted_at', '>=', $start)->where('er.posted_at', '<', $end)
             ->sum('er.amount');
+
+        $vouchers = DB::table('accounting_vouchers as v')
+            ->join('payment_methods as pm', 'pm.id', '=', 'v.payment_method_id')
+            ->where('v.location_id', $locationId)->where('v.status', 'posted')
+            ->where('pm.type', 'cash')
+            ->where('v.posted_at', '>=', $start)->where('v.posted_at', '<', $end);
+        $voucherReceipts = (clone $vouchers)->where('v.type', 'receipt')->sum('v.amount');
+        $voucherPayments = (clone $vouchers)->where('v.type', 'payment')->sum('v.amount');
 
         $refunds = DB::table('refunds as r')
             ->join('payments as p', 'p.id', '=', 'r.payment_id')
@@ -92,6 +100,8 @@ class DailyCashReconciliationService
                 'sales' => round((float) $cashSales, 2),
                 'customer_receipts' => round((float) $customerReceipts, 2),
                 'employee_receipts' => round((float) $employeeReceipts, 2),
+                'voucher_receipts' => round((float) $voucherReceipts, 2),
+                'voucher_payments' => round((float) $voucherPayments, 2),
                 'other_income' => round((float) ($manual['other_income'] ?? 0), 2),
                 'expenses' => round((float) $cashExpenses + (float) $cashPayroll, 2),
                 'supplier_payments' => round((float) $cashSupplierPayments, 2),
@@ -109,10 +119,10 @@ class DailyCashReconciliationService
     public function expected(string|float $opening, array $components): float
     {
         $cents = (int) round((float) $opening * 100);
-        foreach (['sales', 'customer_receipts', 'employee_receipts', 'other_income', 'transfer_in'] as $key) {
+        foreach (['sales', 'customer_receipts', 'employee_receipts', 'voucher_receipts', 'other_income', 'transfer_in'] as $key) {
             $cents += (int) round(($components[$key] ?? 0) * 100);
         }
-        foreach (['expenses', 'supplier_payments', 'refunds', 'transfer_out'] as $key) {
+        foreach (['expenses', 'supplier_payments', 'voucher_payments', 'refunds', 'transfer_out'] as $key) {
             $cents -= (int) round(($components[$key] ?? 0) * 100);
         }
 
