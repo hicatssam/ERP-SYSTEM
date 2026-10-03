@@ -1920,16 +1920,20 @@ body.rb-pos-mode {
 .rb-drawer-backdrop {
     position: fixed;
     inset: 0;
-    z-index: 10020;
+    z-index: 2147482100;
     background: rgba(15, 23, 42, .3);
     backdrop-filter: blur(2px);
+}
+
+.rb-drawer-backdrop[hidden] {
+    display: none;
 }
 
 .rb-drawer {
     position: fixed;
     top: 0;
     right: 0;
-    z-index: 10030;
+    z-index: 2147482200;
     width: min(390px, 94vw);
     height: 100dvh;
     display: flex;
@@ -2014,6 +2018,26 @@ body.rb-pos-mode {
 .rb-server-order-card:hover,
 .rb-local-draft-card:hover {
     border-color: color-mix(in srgb, var(--rb-orange) 38%, var(--rb-border));
+}
+
+.rb-server-order-card summary {
+    cursor: pointer;
+    list-style-position: inside;
+}
+
+.rb-qr-order-items {
+    margin: 10px 0 0;
+    padding: 8px 18px 0 0;
+    border-top: 1px solid var(--rb-border);
+    font-size: 11px;
+}
+
+.rb-qr-order-open {
+    display: inline-block;
+    margin-top: 8px;
+    color: var(--rb-orange);
+    font-size: 11px;
+    font-weight: 800;
 }
 
 .rb-server-order-card[hidden] {
@@ -3421,11 +3445,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (page === 1) serverOrdersList.replaceChildren();
             serverOrdersList.querySelector('[data-qr-more]')?.remove();
             data.orders.forEach(order => {
-                const card = document.createElement('a');
+                const card = document.createElement('details');
                 card.className = 'rb-server-order-card';
-                card.href = order.url;
-                card.innerHTML = `<div class="rb-server-order-top"><strong>${escapeHtml(order.number)}</strong><span>${escapeHtml(order.status)}</span></div>
-                    <div class="rb-server-order-meta"><span>${escapeHtml(order.service)}</span><span>${escapeHtml(order.customer)}</span></div>`;
+                const items = Array.isArray(order.items) ? order.items : [];
+                card.innerHTML = `<summary><span class="rb-server-order-top"><strong>${escapeHtml(order.number)}</strong><span>${escapeHtml(order.status)}</span></span>
+                    <span class="rb-server-order-meta"><span>${escapeHtml(order.service)}</span><span>${escapeHtml(order.customer)}</span></span></summary>
+                    <ul class="rb-qr-order-items">${items.length
+                        ? items.map(item => `<li>${escapeHtml(item.name || 'منتج')} × ${escapeHtml(item.quantity)}</li>`).join('')
+                        : '<li>لا توجد أصناف مسجلة.</li>'}</ul>
+                    ${order.url ? `<a class="rb-qr-order-open" href="${escapeHtml(order.url)}">فتح الطلب</a>` : ''}`;
                 serverOrdersList.appendChild(card);
             });
             if (!serverOrdersList.children.length) serverOrdersList.innerHTML = '<div class="rb-drawer-empty">لا توجد طلبات QR مطابقة في هذا الفرع.</div>';

@@ -134,14 +134,33 @@ class RestaurantPosCatalogTest extends TestCase
                 'created_by' => $cashier->id,
             ]);
         }
+        $localOrder = Order::query()->where('order_number', 'POS-QR-LOCAL')->firstOrFail();
+        $product = $this->product($this->category(), 'QR-CAKE');
+        $localOrder->items()->create([
+            'product_id' => $product->id, 'product_name' => 'كعكة QR',
+            'quantity' => 2, 'unit_price' => 10, 'line_total' => 20,
+        ]);
 
         $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders'))
             ->assertOk()->assertJsonCount(1, 'orders')
-            ->assertJsonPath('orders.0.number', 'POS-QR-LOCAL');
+            ->assertJsonPath('orders.0.number', 'POS-QR-LOCAL')
+            ->assertJsonPath('orders.0.items.0.name', 'كعكة QR')
+            ->assertJsonPath('orders.0.items.0.quantity', 2)
+            ->assertJsonPath('orders.0.url', null);
+        $cashier->givePermissionTo(Permission::findOrCreate('orders.view', 'web'));
+        $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders'))
+            ->assertJsonPath('orders.0.url', route('orders.show', $localOrder));
         $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders', ['q' => 'not-found']))
             ->assertOk()->assertJsonCount(0, 'orders');
         $this->actingAs($cashier)->getJson(route('restaurant.pos.qr-orders', ['location_id' => $other->id]))
             ->assertForbidden();
+
+        $page = $this->actingAs($cashier)->get(route('restaurant.pos.index'))->assertOk()->getContent();
+        preg_match('/\\.rb-pos\\s*\\{[^}]*z-index:\\s*(\\d+)/s', $page, $posLayer);
+        preg_match('/\\.rb-drawer\\s*\\{[^}]*z-index:\\s*(\\d+)/s', $page, $drawerLayer);
+        $this->assertNotEmpty($posLayer);
+        $this->assertNotEmpty($drawerLayer);
+        $this->assertGreaterThan((int) $posLayer[1], (int) $drawerLayer[1]);
     }
 
     #[Test]

@@ -170,7 +170,7 @@ class RestaurantPosController extends Controller
         $orders = Order::query()
             ->where('location_id', $location->id)
             ->where('order_source', 'customer_menu')
-            ->with(['customer', 'restaurantTable'])
+            ->with(['customer', 'restaurantTable', 'items'])
             ->when(trim($data['q'] ?? '') !== '', fn ($query) => $query
                 ->where(fn ($search) => $search
                     ->where('order_number', 'like', '%'.trim($data['q']).'%')
@@ -186,7 +186,13 @@ class RestaurantPosController extends Controller
                 'status' => $order->status?->label() ?? $order->statusValue(),
                 'service' => $order->restaurant_service_type?->label() ?? 'طلب QR',
                 'customer' => $order->customer?->name ?: $order->guest_name ?: 'عميل نقدي',
-                'url' => route('orders.show', $order),
+                'items' => $order->items->map(fn ($item) => [
+                    'name' => $item->product_name,
+                    'quantity' => (float) $item->quantity,
+                ])->values(),
+                'url' => $request->user()->can('orders.view')
+                    ? route('orders.show', $order)
+                    : null,
             ])->values(),
             'has_more' => $orders->hasMorePages(),
         ]);
