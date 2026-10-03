@@ -52,7 +52,7 @@ class OperationalJournalService
             LedgerEntryType::Refund => ['1100', $this->treasuryCode($this->paymentMethod($entry))],
             LedgerEntryType::EmployeeCollection => [$this->treasuryCode($this->paymentMethod($entry)), '1150'],
             LedgerEntryType::Expense => ['6000', $this->expenseCounter($entry)],
-            LedgerEntryType::ExpenseReversal => [$this->expenseCounter($entry), '6000'],
+            LedgerEntryType::ExpenseReversal => [$this->expenseReversalCounter($entry), '6000'],
             default => [null, null],
         };
         if ($debit === null) {
@@ -93,6 +93,14 @@ class OperationalJournalService
         $id = Expense::query()->whereKey($entry->reference_id)->value('payment_method_id');
 
         return $id ? $this->treasuryCode(PaymentMethod::withTrashed()->findOrFail($id)) : '2200';
+    }
+
+    private function expenseReversalCounter(SalesLedgerEntry $entry): string
+    {
+        // Voiding a paid expense does not prove the money returned to the till.
+        // Keep the original treasury outflow and recognize a recovery receivable.
+        return Expense::query()->whereKey($entry->reference_id)->value('payment_method_id')
+            ? '1160' : '2200';
     }
 
     private function treasuryCode(PaymentMethod $method): string

@@ -303,6 +303,36 @@ class AccountingBooksTest extends TestCase
             ->report([$branch->id], '2026-10-02', '2026-10-03')['position']['difference']);
     }
 
+    public function test_voiding_paid_expense_keeps_cash_outflow_until_actual_recovery(): void
+    {
+        $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
+        [$branch, $user] = $this->branchUser($this->allPermissions());
+        $this->baseCurrency();
+        $this->openPeriod($user);
+        $cash = $this->method('cash');
+        $category = ExpenseCategory::query()->create(['code' => 'TEST-CASH', 'name' => 'مصروف نقدي']);
+        $expense = Expense::query()->create([
+            'expense_number' => 'EXP-GL-CASH', 'expense_category_id' => $category->id,
+            'payment_method_id' => $cash->id, 'location_id' => $branch->id,
+            'amount' => 20, 'expense_date' => today(), 'description' => 'مصروف نقدي',
+            'status' => 'approved', 'created_by' => $user->id,
+        ]);
+        $workflow = app(ExpenseWorkflowService::class);
+        $workflow->post($expense, $user);
+        $workflow->void($expense, 'لم يرجع المال بعد', $user);
+
+        $report = app(AccountingReportService::class)->report([$branch->id], '2026-10-02', '2026-10-02');
+        $balances = collect($report['rows'])->mapWithKeys(fn ($row) => [
+            $row['account']->code => $row['closing_debit'] - $row['closing_credit'],
+        ]);
+        $this->assertSame(-2000, $balances['1000']);
+        $this->assertSame(2000, $balances['1160']);
+        $this->assertSame(0, $report['income']['net']);
+        $this->assertSame(0, $report['position']['difference']);
+        $this->assertEquals(20, app(DailyCashReconciliationService::class)
+            ->forDay($branch->id, '2026-10-02')['components']['expenses']);
+    }
+
     public function test_draft_cash_receipt_posts_balanced_entry_once_and_reverses_before_cash_close(): void
     {
         $this->travelTo(now()->setDate(2026, 10, 2)->setTime(15, 0));
