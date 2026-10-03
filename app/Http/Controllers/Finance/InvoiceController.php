@@ -80,6 +80,12 @@ class InvoiceController extends Controller
     public function print(Invoice $invoice)
     {
         $this->ensureInvoiceAccess($invoice);
+        return $this->printForAuthorizedPos($invoice);
+    }
+
+    // POS checks ownership and branch access before calling this shared renderer.
+    public function printForAuthorizedPos(Invoice $invoice)
+    {
         $this->syncInvoicePaymentAmounts($invoice);
         $invoice->load(['location', 'customer', 'issuedBy', 'items.product']);
         $sourceOrder = $invoice->orderTypeValue() === 'order'

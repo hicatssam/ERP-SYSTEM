@@ -33,7 +33,7 @@ class RestaurantPosController extends Controller
     {
         $this->authorizePosPrint($request, $order);
 
-        return $invoices->print($order->invoice()->firstOrFail());
+        return $invoices->printForAuthorizedPos($order->invoice()->firstOrFail());
     }
 
     public function printKitchen(Request $request, Order $order)
