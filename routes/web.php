@@ -484,6 +484,10 @@ Route::post(
             ->name('showroom-sweets-requests.create')
             ->middleware('can:showroom_sweets_requests.create');
 
+        Route::get('showroom-sweets-requests/products', [ShowroomSweetsRequestController::class, 'products'])
+            ->name('showroom-sweets-requests.products')
+            ->middleware('can:showroom_sweets_requests.create');
+
         Route::post('showroom-sweets-requests', [ShowroomSweetsRequestController::class, 'store'])
             ->name('showroom-sweets-requests.store')
             ->middleware('can:showroom_sweets_requests.create');

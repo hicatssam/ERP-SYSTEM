@@ -137,20 +137,11 @@
     <div class="ssr-item-row" data-index="__IDX__">
         <div class="form-group ssr-product-col">
             <label class="form-label">الصنف *</label>
+            <input type="search" class="form-input product-search" placeholder="ابحث بالاسم أو الرمز" autocomplete="off" aria-label="بحث عن صنف حلويات">
             <select name="items[__IDX__][product_id]" class="form-select product-select" required>
-                <option value="">اختر الصنف</option>
-                @foreach($products as $product)
-                    <option value="{{ $product->id }}" data-unit="{{ $product->unit }}">
-                        {{ $product->name_ar ?? $product->name }}
-                        @if($product->category)
-                            — {{ $product->category->name_ar ?? $product->category->name }}
-                        @endif
-                        @if($product->sku)
-                            ({{ $product->sku }})
-                        @endif
-                    </option>
-                @endforeach
+                <option value="">ابحث ثم اختر الصنف</option>
             </select>
+            <small class="form-help product-search-status" aria-live="polite"></small>
         </div>
 
         <div class="form-group">
@@ -239,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const noItemsMsg = document.getElementById('noItemsMsg');
     const template = document.getElementById('itemTemplate');
     const oldItems = @json(old('items', [['quantity' => 1, 'requested_unit' => 'صدر']]));
+    const productsUrl = @json(route('showroom-sweets-requests.products'));
 
     function refreshEmptyState() {
         noItemsMsg.style.display = container.querySelector('.ssr-item-row') ? 'none' : '';
@@ -251,13 +243,46 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = holder.firstElementChild;
 
         const product = row.querySelector('.product-select');
+        const search = row.querySelector('.product-search');
+        const searchStatus = row.querySelector('.product-search-status');
         const quantity = row.querySelector('.quantity-input');
         const unit = row.querySelector('.unit-input');
         const reserved = row.querySelector('.reserved-input');
         const reservationNotes = row.querySelector('.reservation-notes-input');
         const notes = row.querySelector('.notes-input');
 
-        if (data.product_id) product.value = String(data.product_id);
+        let controller;
+        let timer;
+        const loadProducts = async (params, selectedId = null) => {
+            controller?.abort();
+            controller = new AbortController();
+            searchStatus.textContent = 'جاري البحث...';
+            try {
+                const response = await fetch(productsUrl + '?' + new URLSearchParams(params), {
+                    headers: {'Accept': 'application/json'}, signal: controller.signal,
+                });
+                if (!response.ok) throw new Error('تعذر تحميل الأصناف. حاول مجددًا.');
+                const items = await response.json();
+                product.replaceChildren(new Option('ابحث ثم اختر الصنف', ''));
+                items.forEach(item => {
+                    const option = new Option(item.label, item.id);
+                    option.dataset.unit = item.unit || '';
+                    product.add(option);
+                });
+                if (selectedId) product.value = String(selectedId);
+                searchStatus.textContent = items.length ? (items.length === 30 ? 'أول 30 نتيجة؛ اكتب اسمًا أدق للبحث.' : '') : 'لم نجد أصنافًا مطابقة.';
+            } catch (error) {
+                if (error.name !== 'AbortError') searchStatus.textContent = error.message;
+            }
+        };
+        search.addEventListener('input', () => {
+            clearTimeout(timer);
+            // An old selection must not be submitted after a different search.
+            product.value = '';
+            timer = setTimeout(() => loadProducts({q: search.value.trim()}), 250);
+        });
+        if (data.product_id) loadProducts({id: data.product_id}, data.product_id);
+        else loadProducts({q: ''});
         quantity.value = data.quantity ?? 1;
         unit.value = data.requested_unit ?? 'صدر';
         reserved.value = data.reserved_quantity ?? 0;
@@ -265,6 +290,8 @@ document.addEventListener('DOMContentLoaded', () => {
         notes.value = data.notes ?? '';
 
         row.querySelector('.remove-item-btn').addEventListener('click', () => {
+            controller?.abort();
+            clearTimeout(timer);
             row.remove();
             refreshEmptyState();
         });

@@ -6,6 +6,8 @@ use App\Enums\ShowroomCakeRequestStatus;
 use App\Enums\ShowroomSweetsRequestStatus;
 use App\Models\Employee;
 use App\Models\Location;
+use App\Models\Category;
+use App\Models\Product;
 use App\Models\ShowroomCakeRequest;
 use App\Models\ShowroomSweetsRequest;
 use App\Models\User;
@@ -70,6 +72,41 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
                     'showroom_sweets_requests.cancel',
                 ]
             );
+    }
+
+    #[Test]
+    public function sweets_picker_search_is_limited_and_respects_creation_permission_and_catalog_rules(): void
+    {
+        $sweets = Category::query()->create(['name' => 'Sweets', 'slug' => 'sweets', 'is_active' => true]);
+        $cakes = Category::query()->create(['name' => 'Cakes', 'slug' => 'cakes', 'is_active' => true]);
+        foreach (range(1, 35) as $number) {
+            Product::query()->create([
+                'category_id' => $sweets->id, 'name' => 'Baklava '.$number,
+                'sku' => 'BKL-'.$number, 'is_active' => true,
+            ]);
+        }
+        $cake = Product::query()->create([
+            'category_id' => $cakes->id, 'name' => 'Baklava cake', 'is_active' => true,
+        ]);
+        $inactive = Product::query()->create([
+            'category_id' => $sweets->id, 'name' => 'Baklava hidden', 'is_active' => false,
+        ]);
+
+        $this->actingAs($this->actor)->get(route('showroom-sweets-requests.create'))
+            ->assertOk()->assertDontSee('BKL-1');
+        $results = $this->actingAs($this->actor)->getJson(route('showroom-sweets-requests.products', ['q' => 'Baklava']))
+            ->assertOk()->json();
+        $this->assertCount(30, $results);
+        $this->assertNotContains($cake->id, array_column($results, 'id'));
+        $this->assertNotContains($inactive->id, array_column($results, 'id'));
+        $this->actingAs($this->actor)->getJson(route('showroom-sweets-requests.products', ['q' => 'BKL-35']))
+            ->assertOk()->assertJsonCount(1)->assertJsonPath('0.id', Product::query()->where('sku', 'BKL-35')->value('id'));
+        $this->actingAs($this->actor)->getJson(route('showroom-sweets-requests.products', ['id' => $cake->id]))
+            ->assertOk()->assertExactJson([]);
+
+        $viewer = $this->makeUser($this->branch, ['showroom_sweets_requests.view']);
+        $this->actingAs($viewer)->getJson(route('showroom-sweets-requests.products'))
+            ->assertForbidden();
     }
 
     #[Test]

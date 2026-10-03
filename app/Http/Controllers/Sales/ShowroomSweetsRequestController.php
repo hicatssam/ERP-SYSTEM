@@ -137,35 +137,49 @@ class ShowroomSweetsRequestController extends Controller
             ->orderBy('name')
             ->get();
 
-        $products = Product::query()
-            ->active()
-            ->whereHas(
-                'category',
-                fn ($q) =>
-                    $q->whereNotIn(
-                        'slug',
-                        [
-                            'cakes',
-                            'drinks',
-                            'gifts',
-                        ]
-                    )
-            )
-            ->with('category')
-            ->orderBy('name_ar')
-            ->orderBy('name')
-            ->get();
-
         return view(
             'sales.showroom-sweets-requests.create',
             compact(
                 'branch',
                 'branches',
                 'factories',
-                'products',
                 'canChooseBranch'
             )
         );
+    }
+
+    public function products(Request $request)
+    {
+        $data = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $query = Product::query()
+            ->active()
+            ->whereHas('category', fn ($category) => $category->whereNotIn('slug', [
+                'cakes', 'drinks', 'gifts',
+            ]));
+
+        if (isset($data['id'])) {
+            $query->whereKey($data['id']);
+        } elseif (trim($data['q'] ?? '') !== '') {
+            $term = addcslashes(trim($data['q']), '%_\\');
+            $query->where(fn ($products) => $products
+                ->where('name_ar', 'like', "%{$term}%")
+                ->orWhere('name', 'like', "%{$term}%")
+                ->orWhere('sku', 'like', "%{$term}%"));
+        }
+
+        return response()->json($query->with('category')
+            ->orderBy('name_ar')->orderBy('name')->limit(30)->get()
+            ->map(fn (Product $product) => [
+                'id' => $product->id,
+                'label' => ($product->name_ar ?: $product->name)
+                    .' — '.($product->category->name_ar ?: $product->category->name)
+                    .($product->sku ? " ({$product->sku})" : ''),
+                'unit' => $product->unit,
+            ])->values());
     }
 
     public function store(Request $request)

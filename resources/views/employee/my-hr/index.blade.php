@@ -313,11 +313,12 @@ document.getElementById(@json(old('_form') === 'leave' ? 'myLeaveDialog' : 'myCo
                 if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
                     throw new Error('تشغيل الكاميرا يحتاج HTTPS أو localhost ومتصفحًا يدعمها.');
                 }
-                const challenge = await send(challengeUrl, {});
-                token = challenge.token;
                 stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: 'user'}, audio: false});
                 video.srcObject = stream;
                 await video.play();
+                // Start the short-lived server challenge only after camera permission and playback.
+                const challenge = await send(challengeUrl, {});
+                token = challenge.token;
                 camera.classList.add('live');
                 phase = 'front';
                 status.textContent = 'انظر مباشرة إلى الكاميرا ثم التقط الصورة الأمامية.';
