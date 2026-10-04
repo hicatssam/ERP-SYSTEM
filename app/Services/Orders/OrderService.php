@@ -487,6 +487,39 @@ public function confirmOrder(Order $order, User $user): Order
         $order->load(['items.product', 'items.modifiers']);
         $isConfirmed = in_array($order->status?->value ?? $order->status, ['confirmed']);
 
+        $newItems = $data['new_items'] ?? [];
+        if ($order->isRestaurantOrder() && $newItems) {
+            throw ValidationException::withMessages(['new_items' => 'أضف منتج المطعم من شاشة الكاشير حتى تُحفظ خياراته والمطبخ بشكل صحيح.']);
+        }
+        if ($isConfirmed && $newItems) {
+            throw ValidationException::withMessages(['new_items' => 'إضافة منتج جديد متاحة قبل تأكيد الطلب فقط.']);
+        }
+        foreach ($data['items'] ?? [] as $row) {
+            $original = $order->items->firstWhere('id', (int) $row['id']);
+            if ($original && isset($row['product_id']) && (int) $row['product_id'] !== (int) $original->product_id && $isConfirmed) {
+                throw ValidationException::withMessages(['items' => 'تبديل المنتج متاح قبل تأكيد الطلب فقط.']);
+            }
+            if ($original && isset($row['product_id']) && (int) $row['product_id'] !== (int) $original->product_id && $order->isRestaurantOrder()) {
+                throw ValidationException::withMessages(['items' => 'تبديل منتج المطعم يتم من شاشة الكاشير للحفاظ على خياراته.']);
+            }
+            if ($original && isset($row['product_id']) && (int) $row['product_id'] !== (int) $original->product_id
+                && ($original->product_variant_id || $original->modifiers->isNotEmpty())) {
+                throw ValidationException::withMessages(['items' => 'لا يمكن تبديل منتج له حجم أو إضافات محفوظة؛ أنشئ طلبًا جديدًا لهذا التغيير.']);
+            }
+        }
+        if ($order->payments()->exists() && $newItems) {
+            throw ValidationException::withMessages(['new_items' => 'يوجد دفع مسجل لهذا الطلب. عدّل أو سوِّ الدفعة أولًا قبل إضافة منتجات.']);
+        }
+        if ($order->payments()->exists()) {
+            foreach ($data['items'] ?? [] as $row) {
+                $original = $order->items->firstWhere('id', (int) $row['id']);
+                if ($original && (abs((float) $row['quantity'] - (float) $original->quantity) > 0.000001
+                    || (isset($row['product_id']) && (int) $row['product_id'] !== (int) $original->product_id))) {
+                    throw ValidationException::withMessages(['items' => 'يوجد دفع مسجل لهذا الطلب. لا يمكن تغيير المنتجات أو الكميات دون تسوية الدفعة أولًا.']);
+                }
+            }
+        }
+
         // Build a map of new quantities keyed by order_item id
         $newQtyMap = [];
         foreach ($data['items'] ?? [] as $row) {
@@ -498,7 +531,7 @@ public function confirmOrder(Order $order, User $user): Order
             $data['items'] ?? []
         );
 
-        return DB::transaction(function () use ($order, $data, $user, $isConfirmed, $newQtyMap) {
+        return DB::transaction(function () use ($order, $data, $user, $isConfirmed, $newQtyMap, $newItems) {
             // ── Inventory sync for confirmed orders ───────────────────────────
             // Runs before OrderItem quantities change, using the frozen stock plan.
             if ($isConfirmed && ! empty($newQtyMap)) {
@@ -520,7 +553,7 @@ public function confirmOrder(Order $order, User $user): Order
             ]);
 
             // ── Item quantities ───────────────────────────────────────────────────
-            if (! empty($newQtyMap)) {
+            if (! empty($newQtyMap) || $newItems) {
                 $subtotal = '0';
 
                 foreach ($order->items as $item) {
@@ -543,6 +576,15 @@ public function confirmOrder(Order $order, User $user): Order
                         ->first(
                             fn ($row) => (int) ($row['id'] ?? 0) === (int) $item->id
                         );
+
+                    if (! $isConfirmed && isset($incomingRow['product_id']) && (int) $incomingRow['product_id'] !== (int) $item->product_id) {
+                        $product = $this->editableProduct((int) $incomingRow['product_id'], (int) $order->location_id);
+                        $itemUpdate['product_id'] = $product->id;
+                        $itemUpdate['product_name'] = $product->name_ar ?: $product->name;
+                        $itemUpdate['unit_price'] = $product->getEffectivePriceForLocation((int) $order->location_id);
+                        $lineTotal = bcmul((string) $newQty, (string) $itemUpdate['unit_price'], 3);
+                        $itemUpdate['line_total'] = $lineTotal;
+                    }
 
                     if (
                         is_array($incomingRow)
@@ -570,6 +612,21 @@ public function confirmOrder(Order $order, User $user): Order
                         ]);
                     }
 
+                    $subtotal = bcadd($subtotal, $lineTotal, 3);
+                }
+
+                foreach ($newItems as $row) {
+                    $product = $this->editableProduct((int) $row['product_id'], (int) $order->location_id);
+                    $price = $product->getEffectivePriceForLocation((int) $order->location_id);
+                    $lineTotal = bcmul((string) $row['quantity'], (string) $price, 3);
+                    OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $product->id,
+                        'product_name' => $product->name_ar ?: $product->name,
+                        'quantity' => $row['quantity'],
+                        'unit_price' => $price,
+                        'line_total' => $lineTotal,
+                    ]);
                     $subtotal = bcadd($subtotal, $lineTotal, 3);
                 }
 
@@ -655,6 +712,19 @@ public function confirmOrder(Order $order, User $user): Order
 
             return $order->fresh();
         });
+    }
+
+    private function editableProduct(int $productId, int $locationId): Product
+    {
+        $product = Product::query()->active()->findOrFail($productId);
+        if ($product->isVariantProduct()) {
+            throw ValidationException::withMessages(['items' => 'هذا المنتج له مقاسات أو متغيرات؛ اختره من شاشة البيع المناسبة.']);
+        }
+        if ($product->locationProducts()->exists()
+            && ! $product->locationProducts()->where('location_id', $locationId)->where('is_available', true)->exists()) {
+            throw ValidationException::withMessages(['items' => 'المنتج المختار غير متاح في فرع الطلب.']);
+        }
+        return $product;
     }
 
     public function cancelOrder(Order $order, string $reason, User $user): Order

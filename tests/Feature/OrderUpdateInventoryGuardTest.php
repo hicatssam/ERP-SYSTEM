@@ -262,6 +262,56 @@ class OrderUpdateInventoryGuardTest extends TestCase
     }
 
     #[Test]
+    public function draft_order_can_replace_a_product_and_add_a_line_using_branch_prices(): void
+    {
+        $location = $this->makeLocation();
+        $user = $this->makeUserWithUpdatePermission($location);
+        $old = $this->makeProduct('Old');
+        $replacement = $this->makeProduct('Replacement');
+        $added = $this->makeProduct('Added');
+        $order = $this->makeDraftOrder($location, $user);
+        $item = $this->addItem($order, $old, 2);
+
+        $this->actingAs($user)->put(route('orders.update', $order), [
+            'payment_arrangement' => 'pay_now',
+            'items' => [['id' => $item->id, 'product_id' => $replacement->id, 'quantity' => 3]],
+            'new_items' => [['product_id' => $added->id, 'quantity' => 2]],
+        ])->assertRedirect(route('orders.show', $order))->assertSessionHasNoErrors();
+
+        $this->assertEquals($replacement->id, $item->fresh()->product_id);
+        $this->assertEquals(3, $item->fresh()->quantity);
+        $this->assertEquals(2, $order->fresh()->items()->count());
+        $this->assertEquals(50, $order->fresh()->total_amount);
+    }
+
+    #[Test]
+    public function adding_a_line_to_a_confirmed_or_paid_draft_order_is_rejected(): void
+    {
+        $location = $this->makeLocation();
+        $user = $this->makeUserWithUpdatePermission($location);
+        $product = $this->makeProduct();
+        $confirmed = $this->makeConfirmedOrder($location, $user);
+        $this->actingAs($user)->put(route('orders.update', $confirmed), [
+            'payment_arrangement' => 'pay_now',
+            'new_items' => [['product_id' => $product->id, 'quantity' => 1]],
+        ])->assertSessionHasErrors('new_items');
+
+        $draft = $this->makeDraftOrder($location, $user);
+        \App\Models\Payment::create([
+            'order_type' => 'order', 'order_id' => $draft->id, 'location_id' => $location->id,
+            'payment_method_id' => \App\Models\PaymentMethod::query()->firstOrCreate(
+                ['name' => 'Cash test'], ['type' => 'cash', 'is_active' => true]
+            )->id,
+            'amount' => 10, 'status' => 'pending_verification', 'received_by' => $user->id,
+            'paid_at' => now(),
+        ]);
+        $this->actingAs($user)->put(route('orders.update', $draft), [
+            'payment_arrangement' => 'pay_now',
+            'new_items' => [['product_id' => $product->id, 'quantity' => 1]],
+        ])->assertSessionHasErrors('new_items');
+    }
+
+    #[Test]
     public function header_fields_are_saved_on_a_confirmed_order_edit(): void
     {
         $location = $this->makeLocation();

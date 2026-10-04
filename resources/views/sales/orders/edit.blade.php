@@ -321,7 +321,7 @@
                 </span>
 
                 <span class="items-edit-hint">
-                    عدّل الكمية ثم اضغط حفظ التعديلات
+                    {{ $orderStatus === 'draft' ? 'يمكن تعديل الكمية والمنتج وإضافة بند قبل التأكيد' : 'يمكن تعديل الكمية فقط قبل إرسال الطلب للمطبخ، وفق حالة الدفع' }}
                 </span>
 
             </div>
@@ -385,18 +385,23 @@
                                     >
 
 
-                                    @if($products->isNotEmpty())
+                                    @if($orderStatus === 'draft' && ! $order->isRestaurantOrder() && $products->isNotEmpty())
 
                                         <select
                                             name="items[{{ $index }}][product_id]"
                                             class="form-select @if($errors->has($productIdKey)) is-invalid @endif"
+                                            data-product-select
                                             required
                                         >
 
+                                            @if(! $products->contains('id', $item->product_id))
+                                                <option value="{{ $item->product_id }}" data-price="{{ $item->unit_price }}" selected>{{ $productName }} (غير متاح حاليًا)</option>
+                                            @endif
                                             @foreach($products as $product)
 
                                                 <option
                                                     value="{{ $product->id }}"
+                                                    data-price="{{ $product->getEffectivePriceForLocation((int) $order->location_id) }}"
                                                     @selected(
                                                         (string) old(
                                                             $productIdKey,
@@ -478,7 +483,7 @@
                                         step="0.01"
                                         value="{{ old($unitPriceKey, $item->unit_price) }}"
                                         data-item-price
-                                        required
+                                        readonly
                                     >
 
                                     @if($errors->has($unitPriceKey))
@@ -519,6 +524,27 @@
                     </tbody>
 
                 </table>
+
+                @if($orderStatus === 'draft' && ! $order->isRestaurantOrder() && $products->isNotEmpty())
+                    <div style="padding:1rem">
+                        <button type="button" class="btn btn-outline btn-sm" id="addOrderItem">+ إضافة منتج</button>
+                        <div id="newOrderItems"></div>
+                        <template id="newOrderItemTemplate">
+                            <div class="filter-row" data-order-item-row data-new-item style="display:flex;gap:.5rem;align-items:center;margin-top:.75rem">
+                                <select class="form-select" data-product-select data-field="product_id" required>
+                                    <option value="">اختر المنتج</option>
+                                    @foreach($products as $product)
+                                        <option value="{{ $product->id }}" data-price="{{ $product->getEffectivePriceForLocation((int) $order->location_id) }}">{{ $product->name_ar ?: $product->name }}</option>
+                                    @endforeach
+                                </select>
+                                <input type="number" class="form-input" data-field="quantity" data-item-quantity min="0.001" step="0.001" value="1" required style="max-width:110px">
+                                <input class="form-input" data-item-price value="0.00" readonly style="max-width:110px">
+                                <input class="form-input" data-item-total readonly style="max-width:110px">
+                                <button type="button" class="btn btn-ghost btn-sm" data-remove-item aria-label="حذف البند">حذف</button>
+                            </div>
+                        </template>
+                    </div>
+                @endif
 
             </div>
 
@@ -904,7 +930,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    const rows = document.querySelectorAll('[data-order-item-row]');
+    const rows = () => document.querySelectorAll('[data-order-item-row]');
     const discountInput = document.querySelector('[data-discount-amount]');
     const taxInput = document.querySelector('[data-tax-amount]');
     const subtotalInput = document.querySelector('[data-order-subtotal]');
@@ -924,7 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const calculateTotals = () => {
         let subtotal = 0;
 
-        rows.forEach((row) => {
+        rows().forEach((row) => {
             const quantity =
                 numberValue(
                     row.querySelector('[data-item-quantity]')
@@ -972,7 +998,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    rows.forEach((row) => {
+    rows().forEach((row) => {
         row
             .querySelector('[data-item-quantity]')
             ?.addEventListener(
@@ -986,6 +1012,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 'input',
                 calculateTotals
             );
+    });
+
+    const syncNewNames = () => {
+        document.querySelectorAll('[data-new-item]').forEach((row, index) => {
+            row.querySelector('[data-field="product_id"]').name = `new_items[${index}][product_id]`;
+            row.querySelector('[data-field="quantity"]').name = `new_items[${index}][quantity]`;
+        });
+    };
+
+    document.querySelectorAll('[data-product-select]').forEach((select) => {
+        select.addEventListener('change', () => {
+            const price = select.closest('[data-order-item-row]').querySelector('[data-item-price]');
+            price.value = select.selectedOptions[0]?.dataset.price ?? '0';
+            calculateTotals();
+        });
+    });
+
+    document.getElementById('addOrderItem')?.addEventListener('click', () => {
+        const template = document.getElementById('newOrderItemTemplate');
+        const row = template.content.firstElementChild.cloneNode(true);
+        document.getElementById('newOrderItems').append(row);
+        row.querySelector('[data-product-select]').addEventListener('change', (event) => {
+            row.querySelector('[data-item-price]').value = event.target.selectedOptions[0]?.dataset.price ?? '0';
+            calculateTotals();
+        });
+        row.querySelector('[data-item-quantity]').addEventListener('input', calculateTotals);
+        row.querySelector('[data-remove-item]').addEventListener('click', () => {
+            row.remove();
+            syncNewNames();
+            calculateTotals();
+        });
+        syncNewNames();
+        calculateTotals();
     });
 
     discountInput

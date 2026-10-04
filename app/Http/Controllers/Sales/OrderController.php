@@ -10,6 +10,7 @@ use App\Models\Location;
 use App\Models\LocationPaymentAccount;
 use App\Models\Order;
 use App\Models\PaymentMethod;
+use App\Models\Product;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\Orders\OrderService;
@@ -405,9 +406,19 @@ class OrderController extends Controller
                 'phone',
             ]);
 
+        $products = Product::query()->active()
+            ->where('product_type', 'standard')
+            ->where(fn ($query) => $query->whereDoesntHave('locationProducts')
+                ->orWhereHas('locationProducts', fn ($locations) => $locations
+                    ->where('location_id', $order->location_id)
+                    ->where('is_available', true)))
+            ->with(['locationProducts' => fn ($query) => $query->where('location_id', $order->location_id)])
+            ->orderBy('name')->get();
+
         return view('sales.orders.edit', compact(
             'order',
-            'customers'
+            'customers',
+            'products'
         ));
     }
 
@@ -475,6 +486,10 @@ class OrderController extends Controller
                 'string',
                 'max:500',
             ],
+            'items.*.product_id' => ['nullable', 'integer', Rule::exists('products', 'id')],
+            'new_items' => ['nullable', 'array', 'max:30'],
+            'new_items.*.product_id' => ['required', 'integer', Rule::exists('products', 'id')],
+            'new_items.*.quantity' => ['required', 'numeric', 'min:0.001'],
         ]);
 
         $this->ensureCustomerAvailableAtLocation(
