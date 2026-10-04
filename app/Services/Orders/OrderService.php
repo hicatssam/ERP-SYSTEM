@@ -507,18 +507,6 @@ public function confirmOrder(Order $order, User $user): Order
                 throw ValidationException::withMessages(['items' => 'لا يمكن تبديل منتج له حجم أو إضافات محفوظة؛ أنشئ طلبًا جديدًا لهذا التغيير.']);
             }
         }
-        if ($order->payments()->exists() && $newItems) {
-            throw ValidationException::withMessages(['new_items' => 'يوجد دفع مسجل لهذا الطلب. عدّل أو سوِّ الدفعة أولًا قبل إضافة منتجات.']);
-        }
-        if ($order->payments()->exists()) {
-            foreach ($data['items'] ?? [] as $row) {
-                $original = $order->items->firstWhere('id', (int) $row['id']);
-                if ($original && (abs((float) $row['quantity'] - (float) $original->quantity) > 0.000001
-                    || (isset($row['product_id']) && (int) $row['product_id'] !== (int) $original->product_id))) {
-                    throw ValidationException::withMessages(['items' => 'يوجد دفع مسجل لهذا الطلب. لا يمكن تغيير المنتجات أو الكميات دون تسوية الدفعة أولًا.']);
-                }
-            }
-        }
 
         // Build a map of new quantities keyed by order_item id
         $newQtyMap = [];
@@ -532,6 +520,8 @@ public function confirmOrder(Order $order, User $user): Order
         );
 
         return DB::transaction(function () use ($order, $data, $user, $isConfirmed, $newQtyMap, $newItems) {
+            $order = Order::query()->lockForUpdate()->findOrFail($order->id);
+            $order->load(['items.product', 'items.modifiers']);
             // ── Inventory sync for confirmed orders ───────────────────────────
             // Runs before OrderItem quantities change, using the frozen stock plan.
             if ($isConfirmed && ! empty($newQtyMap)) {
@@ -630,10 +620,25 @@ public function confirmOrder(Order $order, User $user): Order
                     $subtotal = bcadd($subtotal, $lineTotal, 3);
                 }
 
+                $paid = $order->payments()->withSum('refunds as refunded_amount', 'amount')
+                    ->whereIn('status', ['confirmed', 'corrected', 'refunded'])
+                    ->get()->sum(fn ($payment) => max(0, (float) $payment->amount - (float) ($payment->refunded_amount ?? 0)));
+                $paid = max($paid, (float) ($order->invoice?->paid_amount ?? 0));
+                if ($paid > (float) $subtotal + 0.004) {
+                    throw ValidationException::withMessages(['items' => 'الإجمالي الجديد أقل من المدفوع المؤكد. سوِّ فرق الدفع أولًا.']);
+                }
+
                 $order->update([
                     'subtotal'     => $subtotal,
                     'total_amount' => $subtotal,
                 ]);
+
+                if (! $isConfirmed && $order->payments()->exists()) {
+                    $pending = $order->payments()->where('status', 'pending_verification')->exists();
+                    $order->update(['payment_status' => $paid <= 0
+                        ? ($pending ? 'pending_payment_verification' : 'payment_pending')
+                        : ($paid + 0.004 >= (float) $subtotal ? 'paid' : 'partially_paid')]);
+                }
 
 
             }

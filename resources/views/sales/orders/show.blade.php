@@ -78,7 +78,9 @@
 
     $invoicePaidAmount = (float) (
         $order->invoice?->paid_amount
-        ?? 0
+        ?? $order->payments()->withSum('refunds as refunded_amount', 'amount')
+            ->whereIn('status', ['confirmed', 'corrected', 'refunded'])
+            ->get()->sum(fn ($payment) => max(0, (float) $payment->amount - (float) ($payment->refunded_amount ?? 0)))
     );
 
     $invoiceRemainingAmount = (float) (

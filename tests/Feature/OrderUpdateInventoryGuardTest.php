@@ -285,7 +285,7 @@ class OrderUpdateInventoryGuardTest extends TestCase
     }
 
     #[Test]
-    public function adding_a_line_to_a_confirmed_or_paid_draft_order_is_rejected(): void
+    public function confirmed_order_rejects_new_lines_but_paid_draft_keeps_payment_as_partial(): void
     {
         $location = $this->makeLocation();
         $user = $this->makeUserWithUpdatePermission($location);
@@ -297,18 +297,22 @@ class OrderUpdateInventoryGuardTest extends TestCase
         ])->assertSessionHasErrors('new_items');
 
         $draft = $this->makeDraftOrder($location, $user);
+        $this->addItem($draft, $product, 1);
         \App\Models\Payment::create([
             'order_type' => 'order', 'order_id' => $draft->id, 'location_id' => $location->id,
             'payment_method_id' => \App\Models\PaymentMethod::query()->firstOrCreate(
                 ['name' => 'Cash test'], ['name_ar' => 'نقدي', 'code' => 'cash-test', 'type' => 'cash', 'is_active' => true]
             )->id,
-            'amount' => 10, 'status' => 'pending_verification', 'received_by' => $user->id,
+            'amount' => 10, 'status' => 'confirmed', 'received_by' => $user->id,
             'paid_at' => now(),
         ]);
         $this->actingAs($user)->put(route('orders.update', $draft), [
             'payment_arrangement' => 'pay_now',
             'new_items' => [['product_id' => $product->id, 'quantity' => 1]],
-        ])->assertSessionHasErrors('new_items');
+        ])->assertRedirect(route('orders.show', $draft))->assertSessionHasNoErrors();
+        $this->assertEquals(20, $draft->fresh()->total_amount);
+        $this->assertSame('partially_paid', $draft->fresh()->payment_status->value);
+        $this->assertEquals(10, $draft->payments()->sole()->amount);
     }
 
     #[Test]
