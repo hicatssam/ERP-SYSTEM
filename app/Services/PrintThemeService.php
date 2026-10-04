@@ -61,6 +61,9 @@ class PrintThemeService
             'print_footer_text',
             SystemSetting::get('brand_footer_text', SystemSetting::get('invoice_footer_ar', ''))
         ));
+        if ($footerText === '') {
+            $footerText = trim((string) (SystemSetting::get('brand_footer_text') ?: SystemSetting::get('invoice_footer_ar', '')));
+        }
 
         // Demo branding must not appear on documents for a new business.
         if ($customBusiness && $englishName === 'Dahab Sweets') {

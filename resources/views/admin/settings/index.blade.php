@@ -673,10 +673,11 @@
 
                                             <div class="brand-upload-box">
 
-                                                @if($setting->value)
+                                                @php($settingImageUrl = \App\Support\PublicImageUrl::url($setting->value))
+                                                @if($settingImageUrl)
                                                     <div class="brand-current-image">
                                                         <img
-                                                            src="{{ asset($setting->value) }}"
+                                                            src="{{ $settingImageUrl }}"
                                                             alt="{{ $setting->label }}"
                                                             id="preview_{{ $setting->key }}"
                                                         >

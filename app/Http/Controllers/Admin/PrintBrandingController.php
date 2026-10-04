@@ -97,12 +97,12 @@ class PrintBrandingController extends Controller
 
     private function saveImage(Request $request, string $settingKey, string $input, string $removeInput): void
     {
-        if ($request->boolean($removeInput)) {
-            $this->deleteOwnedFile(SystemSetting::get($settingKey));
-            SystemSetting::set($settingKey, '');
-        }
-
+        $previous = SystemSetting::get($settingKey);
         if (! $request->hasFile($input)) {
+            if ($request->boolean($removeInput)) {
+                SystemSetting::set($settingKey, '');
+                $this->deleteOwnedFile($previous);
+            }
             return;
         }
 
@@ -111,13 +111,20 @@ class PrintBrandingController extends Controller
             return;
         }
 
-        $this->deleteOwnedFile(SystemSetting::get($settingKey));
-
         $extension = strtolower($file->getClientOriginalExtension() ?: 'png');
         $filename = $settingKey . '-' . now()->format('YmdHis') . '-' . bin2hex(random_bytes(3)) . '.' . $extension;
         $stored = $file->storeAs('branding/print', $filename, 'public');
+        if (! $stored) {
+            throw new \RuntimeException('تعذر حفظ صورة المستند في مساحة التخزين.');
+        }
 
-        SystemSetting::set($settingKey, 'storage/' . ltrim($stored, '/'));
+        try {
+            SystemSetting::set($settingKey, 'storage/' . ltrim($stored, '/'));
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($stored);
+            throw $exception;
+        }
+        $this->deleteOwnedFile($previous);
     }
 
     private function deleteOwnedFile(mixed $value): void
