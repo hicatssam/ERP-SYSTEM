@@ -316,6 +316,42 @@ class OrderUpdateInventoryGuardTest extends TestCase
     }
 
     #[Test]
+    public function paid_draft_can_be_confirmed_after_adding_an_item_with_available_stock(): void
+    {
+        $location = $this->makeLocation();
+        $user = $this->makeUserWithUpdatePermission($location);
+        $user->givePermissionTo('orders.confirm');
+        $product = $this->makeProduct();
+        $order = $this->makeDraftOrder($location, $user);
+        $item = $this->addItem($order, $product, 1);
+        $order->update(['subtotal' => 10, 'total_amount' => 10]);
+        $this->setInventory($location, $product, 5);
+        $method = \App\Models\PaymentMethod::create([
+            'name' => 'Cash', 'name_ar' => 'نقدي', 'code' => 'cash-confirm-test',
+            'type' => 'cash', 'is_active' => true,
+        ]);
+        \App\Models\Payment::create([
+            'order_type' => 'order', 'order_id' => $order->id,
+            'location_id' => $location->id, 'payment_method_id' => $method->id,
+            'amount' => 10, 'status' => 'confirmed', 'received_by' => $user->id,
+            'paid_at' => now(),
+        ]);
+
+        $this->actingAs($user)->put(route('orders.update', $order), [
+            'payment_arrangement' => 'pay_now',
+            'items' => [['id' => $item->id, 'quantity' => 1]],
+            'new_items' => [['product_id' => $product->id, 'quantity' => 1]],
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAs($user)->post(route('orders.confirm', $order))
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('confirmed', $order->fresh()->statusValue());
+        $this->assertEquals(20, $order->fresh()->invoice->total_amount);
+        $this->assertEquals(10, $order->fresh()->invoice->paid_amount);
+        $this->assertEquals(10, $order->fresh()->invoice->remaining_amount);
+    }
+
+    #[Test]
     public function header_fields_are_saved_on_a_confirmed_order_edit(): void
     {
         $location = $this->makeLocation();
