@@ -486,7 +486,7 @@ class EmployeeController extends Controller
     private function canViewAllEmployees(User $user): bool
     {
         return $user->isAdmin()
-            || $user->can('employees.view_all');
+            || ($user->can('employees.view_all') && ! $user->hasRole('Branch Manager'));
     }
 
     /**

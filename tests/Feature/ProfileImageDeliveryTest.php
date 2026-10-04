@@ -47,6 +47,9 @@ class ProfileImageDeliveryTest extends TestCase
         $manager->givePermissionTo(Permission::findOrCreate('users.manage', 'web'));
         $pictured = User::factory()->create(['profile_image' => 'users/profile-images/admin.png']);
         $this->assignBranch($pictured);
+        $pictured->employee->locations()->sync([
+            $manager->employee->primaryLocation()->id => ['is_primary' => true],
+        ]);
         $missing = User::factory()->create(['profile_image' => 'users/profile-images/missing.png']);
 
         $this->actingAs($manager)->get(route('users.index'))
@@ -57,6 +60,31 @@ class ProfileImageDeliveryTest extends TestCase
         $this->assertSame('admin-image', $response->streamedContent());
         $this->actingAs($manager)->get(route('users.image', $missing))->assertNotFound();
         $this->actingAs($pictured)->get(route('users.image', $pictured))->assertForbidden();
+    }
+
+    #[Test]
+    public function branch_manager_cannot_see_or_operate_on_another_branches_accounts(): void
+    {
+        $manager = User::factory()->create();
+        $this->assignBranch($manager);
+        $manager->givePermissionTo(Permission::findOrCreate('users.manage', 'web'));
+        $manager->givePermissionTo(Permission::findOrCreate('employees.view_all', 'web'));
+        $manager->assignRole(\Spatie\Permission\Models\Role::findOrCreate('Branch Manager', 'web'));
+
+        $local = User::factory()->create();
+        $this->assignBranch($local);
+        $local->employee->locations()->sync([
+            $manager->employee->primaryLocation()->id => ['is_primary' => true],
+        ]);
+        $foreign = User::factory()->create();
+        $this->assignBranch($foreign);
+
+        $this->actingAs($manager)->get(route('users.index'))->assertOk()
+            ->assertSee($local->username)->assertDontSee($foreign->username);
+        $this->actingAs($manager)->get(route('users.edit', $foreign))->assertForbidden();
+        $this->actingAs($manager)->get(route('users.image', $foreign))->assertForbidden();
+        $this->actingAs($manager)->post(route('users.reset-password', $foreign))->assertForbidden();
+        $this->actingAs($manager)->post(route('users.assign-role', $local), ['role' => 'Admin'])->assertForbidden();
     }
 
     #[Test]

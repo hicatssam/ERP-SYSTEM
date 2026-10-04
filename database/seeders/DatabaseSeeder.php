@@ -2244,7 +2244,7 @@ SVG;
             'dashboard.','employees.','hr.','products.','categories.','customers.','orders.',
             'inventory.','stock_','reports.','invoices.','payments.','restaurant.','kitchen.','kds.',
             'attendance.','chat.','crm.','loyalty.','delivery.','customer_display.','cash_sessions.',
-        ], ['financial.cash.view','accounting.employee_accounts.view','accounting.employee_accounts.create','accounting.employee_accounts.receive','accounting.books.view','accounting.vouchers.create'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage','hr.organization.manage']);
+        ], ['users.manage','financial.cash.view','accounting.employee_accounts.view','accounting.employee_accounts.create','accounting.employee_accounts.receive','accounting.books.view','accounting.vouchers.create'], ['orders.confirm','orders.cancel','customers.view_all','employees.view_all','hr.documents.manage','hr.organization.manage']);
         $grantByPrefixes('Cashier', ['orders.','customers.','payments.','invoices.','restaurant.pos.'], [
             'products.view','categories.view','payment_methods.view',
         ], ['orders.confirm','orders.cancel','orders.delete','customers.view_all']);

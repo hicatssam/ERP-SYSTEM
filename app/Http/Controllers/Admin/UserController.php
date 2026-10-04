@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AssistantUserSetting;
 use App\Models\User;
+use App\Models\Employee;
 use App\Support\ProfileImage;
 use App\Services\Assistant\AssistantAccessService;
 use App\Services\Assistant\AssistantPlanner;
@@ -19,6 +20,7 @@ class UserController extends Controller
 {
     public function image(User $user)
     {
+        $this->ensureAccessible($user);
         $user->loadMissing('employee');
         $path = ProfileImage::pathFor($user);
         abort_unless($path, 404);
@@ -31,7 +33,11 @@ class UserController extends Controller
 
     public function index()
     {
-        $users = User::with(['employee', 'roles'])->paginate(20);
+        $users = User::query()->with(['employee', 'roles']);
+        if (! auth()->user()->isAdmin() && ! auth()->user()->hasRole('General Manager')) {
+            $users->whereHas('employee', fn ($query) => $query->accessibleBy(auth()->user()));
+        }
+        $users = $users->paginate(20);
 
         return view('admin.users.index', compact('users'));
     }
@@ -52,6 +58,7 @@ class UserController extends Controller
 
     public function edit(User $user, AssistantAccessService $assistantAccess)
     {
+        $this->ensureAccessible($user);
         $roles = Role::orderBy('name')->get();
 
         $user->load(['employee', 'roles', 'assistantSetting']);
@@ -74,6 +81,7 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        $this->ensureAccessible($user);
         $validated = $request->validate([
             'username' => [
                 'required',
@@ -174,11 +182,13 @@ class UserController extends Controller
 
     public function destroy(User $user)
     {
+        $this->ensureAccessible($user);
         return back()->with('error', 'لا يمكن حذف حسابات المستخدمين.');
     }
 
     public function toggleStatus(User $user)
     {
+        $this->ensureAccessible($user);
         if ($user->id === auth()->id()) {
             return back()->with('error', 'لا يمكنك تعطيل حسابك الخاص.');
         }
@@ -192,6 +202,7 @@ class UserController extends Controller
 
     public function resetPassword(User $user)
     {
+        $this->ensureAccessible($user);
         $temp = Str::random(10) . '!2B';
 
         $user->update([
@@ -209,6 +220,8 @@ class UserController extends Controller
 
     public function assignRole(Request $request, User $user)
     {
+        $this->ensureAccessible($user);
+        abort_if(auth()->user()->hasRole('Branch Manager'), 403);
         $request->validate([
             'role' => ['required', 'exists:roles,name'],
         ]);
@@ -226,5 +239,16 @@ class UserController extends Controller
         ) {
             Storage::disk('public')->delete($user->profile_image);
         }
+    }
+
+    private function ensureAccessible(User $target): void
+    {
+        $actor = auth()->user();
+        if ($actor->isAdmin() || $actor->hasRole('General Manager')) {
+            return;
+        }
+
+        abort_unless($target->employee && Employee::query()->accessibleBy($actor)
+            ->whereKey($target->employee->id)->exists(), 403);
     }
 }

@@ -39,6 +39,7 @@ class OrderController extends Controller
                 'creator',
                 'restaurantTable.area',
                 'waiter.employee',
+                'invoice',
             ]);
 
         /*

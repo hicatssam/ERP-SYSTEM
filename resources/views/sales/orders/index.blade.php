@@ -38,7 +38,7 @@
 </div>
 <div class="table-wrap">
     <table class="data-table">
-        <thead><tr><th>رقم الطلب</th><th>الفرع</th><th>العميل</th>@if($restaurantEnabled)<th>خدمة المطعم</th>@endif<th>المبلغ</th><th>الحالة</th><th>التاريخ</th><th>الإجراءات</th></tr></thead>
+        <thead><tr><th>رقم الطلب</th><th>الفرع</th><th>العميل</th>@if($restaurantEnabled)<th>خدمة المطعم</th>@endif<th>المبلغ</th><th>حالة الطلب</th><th>حالة الدفع</th><th>التاريخ</th><th>الإجراءات</th></tr></thead>
         <tbody>
         @forelse($orders as $o)
             <tr>
@@ -70,11 +70,21 @@
         {{ ['draft' => 'بانتظار التأكيد','confirmed' => 'مؤكد','completed' => 'مكتمل','cancelled' => 'ملغى'][$o->status->value] ?? \App\Support\ArabicDisplay::status($o->status) }}
     </span>
 </td>
+                <td>
+                    @php
+                        $paid = (float) ($o->invoice?->paid_amount ?? 0);
+                        $total = (float) ($o->invoice?->total_amount ?? $o->total_amount);
+                        $paymentLabel = $o->invoice
+                            ? ($paid >= $total - 0.01 ? 'مدفوع' : ($paid > 0 ? 'مدفوع جزئياً' : $o->payment_status->label()))
+                            : $o->payment_status->label();
+                    @endphp
+                    <span class="badge {{ $paymentLabel === 'مدفوع' ? 'badge-active' : 'badge-pending' }}">{{ $paymentLabel }}</span>
+                </td>
                 <td>{{ $o->created_at->format('Y-m-d') }}</td>
                 <td><div class="actions"><a href="{{ route('orders.show', $o) }}" class="btn btn-ghost btn-sm">عرض</a></div></td>
             </tr>
         @empty
-            <tr><td colspan="{{ $restaurantEnabled ? 8 : 7 }}"><div class="empty-state-sm">لا توجد طلبات.</div></td></tr>
+            <tr><td colspan="{{ $restaurantEnabled ? 9 : 8 }}"><div class="empty-state-sm">لا توجد طلبات.</div></td></tr>
         @endforelse
         </tbody>
     </table>

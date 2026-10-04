@@ -117,7 +117,7 @@ class Employee extends Model
     {
         if (
             $user->isAdmin() ||
-            $user->can('employees.view_all')
+            ($user->can('employees.view_all') && ! $user->hasRole('Branch Manager'))
         ) {
             return $query;
         }
