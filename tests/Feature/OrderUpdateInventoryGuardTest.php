@@ -300,7 +300,7 @@ class OrderUpdateInventoryGuardTest extends TestCase
         \App\Models\Payment::create([
             'order_type' => 'order', 'order_id' => $draft->id, 'location_id' => $location->id,
             'payment_method_id' => \App\Models\PaymentMethod::query()->firstOrCreate(
-                ['name' => 'Cash test'], ['type' => 'cash', 'is_active' => true]
+                ['name' => 'Cash test'], ['name_ar' => 'نقدي', 'type' => 'cash', 'is_active' => true]
             )->id,
             'amount' => 10, 'status' => 'pending_verification', 'received_by' => $user->id,
             'paid_at' => now(),
