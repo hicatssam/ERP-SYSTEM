@@ -1432,6 +1432,14 @@
 
                 </button>
 
+                @can('inventory.view')
+                    <a href="{{ route('inventory.index', ['location_id' => $order->location_id, 'stock' => 'out']) }}#currentStock" class="btn btn-outline">فحص مخزون الفرع</a>
+                @else
+                    @if(auth()->user()?->isAdmin())
+                        <a href="{{ route('inventory.index', ['location_id' => $order->location_id, 'stock' => 'out']) }}#currentStock" class="btn btn-outline">فحص مخزون الفرع</a>
+                    @endif
+                @endcan
+
                 @if($orderStatus === 'draft')
 
                     @can('update', $order)

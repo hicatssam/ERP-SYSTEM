@@ -67,6 +67,19 @@ class InventoryController extends Controller
             ])
             ->orderBy('quantity');
 
+        $stockState = in_array($request->query('stock'), ['out', 'low'], true)
+            ? $request->query('stock') : null;
+        if ($stockState === 'out') {
+            $inventoryQuery->whereRaw('quantity - reserved_quantity <= 0');
+        } elseif ($stockState === 'low') {
+            $inventoryQuery->whereRaw('quantity - reserved_quantity > 0')
+                ->whereExists(fn ($query) => $query->selectRaw('1')
+                    ->from('location_products as lp')
+                    ->whereColumn('lp.location_id', 'inventories.location_id')
+                    ->whereColumn('lp.product_id', 'inventories.product_id')
+                    ->whereRaw('inventories.quantity - inventories.reserved_quantity <= lp.minimum_stock_level'));
+        }
+
         if ($location) {
             $inventoryQuery->where(
                 'location_id',
@@ -83,6 +96,41 @@ class InventoryController extends Controller
                 'inventory_page'
             )
             ->withQueryString();
+
+        $stockBase = Inventory::query();
+        if ($location) {
+            $stockBase->where('location_id', $location->id);
+        }
+        $outOfStockCount = (clone $stockBase)
+            ->whereRaw('quantity - reserved_quantity <= 0')->count();
+        $lowStockCount = (clone $stockBase)
+            ->whereRaw('quantity - reserved_quantity > 0')
+            ->whereExists(fn ($query) => $query->selectRaw('1')
+                ->from('location_products as lp')
+                ->whereColumn('lp.location_id', 'inventories.location_id')
+                ->whereColumn('lp.product_id', 'inventories.product_id')
+                ->whereRaw('inventories.quantity - inventories.reserved_quantity <= lp.minimum_stock_level'))
+            ->count();
+
+        $missingStockQuery = DB::table('location_products as lp')
+            ->join('products', 'products.id', '=', 'lp.product_id')
+            ->join('locations', 'locations.id', '=', 'lp.location_id')
+            ->leftJoin('inventories as stock', fn ($join) => $join
+                ->on('stock.product_id', '=', 'lp.product_id')
+                ->on('stock.location_id', '=', 'lp.location_id'))
+            ->whereNull('stock.id')
+            ->where('lp.is_available', true)
+            ->where('products.is_active', true);
+        if ($location) {
+            $missingStockQuery->where('lp.location_id', $location->id);
+        }
+        $missingStockCount = (clone $missingStockQuery)->count();
+        $missingStock = $stockState === 'out'
+            ? $missingStockQuery->select('products.name', 'products.name_ar', 'products.sku',
+                'locations.name as location_name', 'lp.product_id', 'lp.location_id')
+                ->orderBy('locations.name')->orderBy('products.name')->limit(20)->get()
+            : collect();
+        $outOfStockCount += $missingStockCount;
 
         $expirySummary = [
             'expired' => 0,
@@ -235,6 +283,7 @@ class InventoryController extends Controller
                 'location',
                 'showAllLocations',
                 'inventories',
+                'stockState', 'outOfStockCount', 'lowStockCount', 'missingStock', 'missingStockCount',
                 'expirySummary',
                 'expiryBatches'
             )

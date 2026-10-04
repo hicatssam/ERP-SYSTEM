@@ -33,6 +33,11 @@
     .expiry-status.warning{color:var(--warning);background:color-mix(in srgb,var(--warning) 11%,transparent)}
     .expiry-status.soon{color:var(--theme-primary);background:color-mix(in srgb,var(--theme-primary) 10%,transparent)}
     .inventory-pagination{padding:.8rem 1rem;border-top:1px solid var(--border)}
+    .stock-summary{display:flex;gap:.75rem;flex-wrap:wrap}
+    .stock-summary a{flex:1;min-width:190px;padding:1rem;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);text-decoration:none}
+    .stock-summary strong{display:block;font-size:1.5rem;margin:.2rem 0}
+    .stock-summary .is-out{border-color:var(--danger)}
+    .stock-summary .is-low{border-color:var(--warning)}
     @media(max-width:900px){.expiry-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:560px){.expiry-summary-grid{grid-template-columns:1fr}}
 </style>
@@ -91,6 +96,17 @@
             </form>
         </div>
     @endif
+
+    <div class="stock-summary" aria-label="تنبيهات كمية المخزون">
+        <a class="is-out" href="{{ route('inventory.index', array_filter(['location_id' => $location?->id, 'stock' => 'out'])) }}#currentStock">
+            <span>منتجات نافدة</span><strong>{{ number_format($outOfStockCount) }}</strong>
+            <small>يشمل المنتجات المفعّلة بلا سجل مخزون ({{ number_format($missingStockCount) }})</small>
+        </a>
+        <a class="is-low" href="{{ route('inventory.index', array_filter(['location_id' => $location?->id, 'stock' => 'low'])) }}#currentStock">
+            <span>منتجات تحت الحد الأدنى</span><strong>{{ number_format($lowStockCount) }}</strong>
+            <small>المتاح بعد حسم الكمية المحجوزة</small>
+        </a>
+    </div>
 
     <div class="expiry-summary-grid">
         <div class="expiry-summary-card is-expired">
@@ -238,11 +254,11 @@
         @endif
     </section>
 
-    <section class="inventory-section">
+    <section class="inventory-section" id="currentStock">
         <div class="inventory-section-header">
             <div>
-                <h2>مستوى المخزون الحالي</h2>
-                <p>الكميات المتوفرة والحد الأدنى لكل منتج.</p>
+                <h2>مستوى المخزون الحالي {{ $stockState === 'out' ? '— النافد' : ($stockState === 'low' ? '— تحت الحد الأدنى' : '') }}</h2>
+                <p>الكمية المتاحة = الرصيد الحالي ناقص المحجوز. <a href="{{ route('inventory.index', array_filter(['location_id' => $location?->id])) }}#currentStock">عرض الكل</a></p>
             </div>
         </div>
 
@@ -253,7 +269,7 @@
                         <th>المنتج</th>
                         @if($showAllLocations)<th>الموقع</th>@endif
                         <th>الفئة</th>
-                        <th>الكمية</th>
+                        <th>المتاح / الرصيد</th>
                         <th>الحد الأدنى</th>
                         <th>الحالة</th>
                     </tr>
@@ -270,7 +286,9 @@
                                 ->first();
 
                             $minStock = $lp?->minimum_stock_level ?? 0;
-                            $isLow = $inv->quantity < $minStock;
+                            $available = max(0, (float) $inv->quantity - (float) $inv->reserved_quantity);
+                            $isOut = $available <= 0;
+                            $isLow = ! $isOut && $available <= (float) $minStock;
                         @endphp
 
                         <tr>
@@ -292,15 +310,17 @@
                             </td>
 
                             <td>
-                                <strong style="{{ $isLow ? 'color:var(--danger)' : '' }}">
-                                    {{ number_format((float) $inv->quantity, 2) }}
+                                <strong style="{{ $isOut ? 'color:var(--danger)' : ($isLow ? 'color:var(--warning)' : '') }}">
+                                    {{ number_format($available, 2) }} / {{ number_format((float) $inv->quantity, 2) }}
                                 </strong>
                             </td>
 
                             <td>{{ number_format((float) $minStock, 2) }}</td>
 
                             <td>
-                                @if($isLow)
+                                @if($isOut)
+                                    <span class="badge badge-inactive">نافد</span>
+                                @elseif($isLow)
                                     <span class="badge badge-inactive">منخفض</span>
                                 @else
                                     <span class="badge badge-active">جيد</span>
@@ -317,6 +337,18 @@
                 </tbody>
             </table>
         </div>
+
+        @if($stockState === 'out' && $missingStock->isNotEmpty())
+            <div style="padding:1rem;border-top:1px solid var(--border)">
+                <strong>منتجات مفعّلة بلا سجل مخزون — المتاح صفر</strong>
+                <ul>
+                    @foreach($missingStock as $row)
+                        <li>{{ $row->name_ar ?: $row->name }} ({{ $row->sku }}) @if($showAllLocations)— {{ $row->location_name }}@endif</li>
+                    @endforeach
+                </ul>
+                @if($missingStockCount > $missingStock->count())<small>تظهر أول {{ $missingStock->count() }} من {{ $missingStockCount }}.</small>@endif
+            </div>
+        @endif
 
         @if($inventories instanceof \Illuminate\Contracts\Pagination\Paginator)
             <div class="inventory-pagination">
