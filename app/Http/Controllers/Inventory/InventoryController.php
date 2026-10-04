@@ -140,7 +140,7 @@ class InventoryController extends Controller
         $missingStockQuery = DB::query()->fromSub($missingConfigured->union($missingInOrders), 'missing');
         $missingStockCount = (clone $missingStockQuery)->count();
         $missingStock = $stockState === 'out'
-            ? $missingStockQuery->orderBy('location_name')->orderBy('name')->limit(20)->get()
+            ? $missingStockQuery->orderBy('location_name')->orderBy('name')->orderBy('product_id')->paginate(15, ['*'], 'missing_page')->withQueryString()
             : collect();
         $outOfStockCount += $missingStockCount;
 

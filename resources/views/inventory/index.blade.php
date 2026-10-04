@@ -38,6 +38,14 @@
     .stock-summary strong{display:block;font-size:1.5rem;margin:.2rem 0}
     .stock-summary .is-out{border-color:var(--danger)}
     .stock-summary .is-low{border-color:var(--warning)}
+    .missing-stock-heading{padding:1rem 1.1rem;border-top:1px solid var(--border)}
+    .missing-stock-heading h3{margin:0;font-size:.86rem}
+    .missing-stock-heading p{margin:.2rem 0 0;color:var(--text-muted);font-size:.7rem}
+    .missing-stock-action{margin-top:.3rem}
+    .missing-stock-action summary{cursor:pointer;color:var(--theme-primary);font-weight:700;font-size:.72rem}
+    .missing-stock-action form{display:flex;gap:.4rem;align-items:end;flex-wrap:wrap;margin-top:.5rem}
+    .missing-stock-action label{display:flex;flex-direction:column;gap:.2rem;font-size:.7rem}
+    .missing-stock-action input{max-width:130px;padding:.4rem;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text)}
     @media(max-width:900px){.expiry-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media(max-width:560px){.expiry-summary-grid{grid-template-columns:1fr}}
 </style>
@@ -338,16 +346,44 @@
             </table>
         </div>
 
-        @if($stockState === 'out' && $missingStock->isNotEmpty())
-            <div style="padding:1rem;border-top:1px solid var(--border)">
-                <strong>منتجات مفعّلة بلا سجل مخزون — المتاح صفر</strong>
-                <ul>
-                    @foreach($missingStock as $row)
-                        <li>{{ $row->name_ar ?: $row->name }} ({{ $row->sku }}) @if($showAllLocations)— {{ $row->location_name }}@endif</li>
-                    @endforeach
-                </ul>
-                @if($missingStockCount > $missingStock->count())<small>تظهر أول {{ $missingStock->count() }} من {{ $missingStockCount }}.</small>@endif
+        @if($stockState === 'out' && $missingStockCount > 0)
+            <div class="missing-stock-heading" id="missingStock">
+                <h3>منتجات مفعّلة بلا سجل مخزون ({{ number_format($missingStockCount) }})</h3>
+                <p>الرصيد المتاح صفر. سجّل الرصيد الفعلي بعد الجرد، أو استكمل التوريد قبل تأكيد الطلبات المرتبطة.</p>
             </div>
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead><tr><th>المنتج</th><th>الرمز</th>@if($showAllLocations)<th>الفرع</th>@endif<th>الحالة والإجراء</th></tr></thead>
+                    <tbody>
+                        @foreach($missingStock as $row)
+                            <tr>
+                                <td><strong>{{ $row->name_ar ?: $row->name }}</strong></td>
+                                <td>{{ $row->sku ?: '—' }}</td>
+                                @if($showAllLocations)<td>{{ $row->location_name }}</td>@endif
+                                <td>
+                                    <span class="badge badge-inactive">بلا رصيد</span>
+                                    @can('inventory.adjust')
+                                        @if(auth()->user()?->isAdmin() || (int) auth()->user()?->primaryLocation()?->id === (int) $row->location_id)
+                                            <details class="missing-stock-action">
+                                                <summary>تسجيل رصيد بعد الجرد</summary>
+                                                <form method="POST" action="{{ route('inventory.adjust') }}">
+                                                    @csrf
+                                                    <input type="hidden" name="location_id" value="{{ $row->location_id }}">
+                                                    <input type="hidden" name="product_id" value="{{ $row->product_id }}">
+                                                    <label>الكمية الفعلية<input type="number" name="quantity" min="0.001" step="0.001" required></label>
+                                                    <label>سبب التسوية<input type="text" name="reason" minlength="3" required placeholder="نتيجة الجرد"></label>
+                                                    <button type="submit" class="btn btn-primary">حفظ الحركة</button>
+                                                </form>
+                                            </details>
+                                        @endif
+                                    @endcan
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="inventory-pagination">{{ $missingStock->fragment('missingStock')->links() }}</div>
         @endif
 
         @if($inventories instanceof \Illuminate\Contracts\Pagination\Paginator)
