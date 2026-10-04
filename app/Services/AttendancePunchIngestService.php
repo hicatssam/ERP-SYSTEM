@@ -79,6 +79,8 @@ class AttendancePunchIngestService
                     $processed++;
                 } elseif ($result === 'unmapped') {
                     $unmapped++;
+                } elseif ($result === 'failed') {
+                    $failed++;
                 }
             } catch (\Throwable $e) {
                 $failed++;

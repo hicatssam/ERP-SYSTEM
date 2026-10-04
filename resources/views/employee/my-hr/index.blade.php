@@ -55,7 +55,7 @@
                     <small>تفتح الكاميرا وتتحقق من وجهك المسجّل قبل تسجيل الحضور أو الانصراف في سجلك.</small>
                     @if($facePunchEnabled && $faceConfigured && $faceProfileActive
                         && !($selfAttendanceRequest?->status === 'pending' && (!$selfAttendanceRequest->check_out_at || $todaySelfRequest))
-                        && (!$todayRecord || (!$todayRecord->approved_at && $todayRecord->status === 'present' && !$todayRecord->check_out_at)))
+                        && (!$todayRecord || (!$todayRecord->approved_at && $todayRecord->source === 'face' && $todayRecord->status === 'present' && !$todayRecord->check_out_at)))
                         <button class="btn btn-gold" type="button" data-myhr-open="myFaceDialog">{{ $todayRecord?->check_in_at ? 'تسجيل الانصراف بالوجه' : 'تسجيل الحضور بالوجه' }}</button>
                     @elseif(!$facePunchEnabled)
                         <small>التسجيل من البوابة غير مفعّل من إعدادات الحضور.</small>

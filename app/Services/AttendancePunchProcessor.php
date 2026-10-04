@@ -34,11 +34,38 @@ class AttendancePunchProcessor
             return 'unmapped';
         }
 
+        if (! $mapping->employee?->isActive()) {
+            $punch->update(['status' => 'error', 'error_message' => 'حساب الموظف غير نشط.']);
+
+            return 'failed';
+        }
+
         return DB::transaction(function () use ($punch, $mapping): string {
             [$workDate, $shift] = $this->resolveWorkDateAndShift(
                 $mapping->employee,
                 $punch->punch_at
             );
+
+            $device = $punch->device;
+            if ($device->location_id && ! $mapping->employee->employeeLocations()
+                ->where('location_id', $device->location_id)
+                ->where(fn ($query) => $query->whereNull('started_at')->orWhereDate('started_at', '<=', $workDate->toDateString()))
+                ->where(fn ($query) => $query->whereNull('ended_at')->orWhereDate('ended_at', '>=', $workDate->toDateString()))
+                ->exists()) {
+                $punch->update(['status' => 'error', 'error_message' => 'الموظف غير مرتبط بفرع جهاز البصمة في تاريخ الحضور.']);
+
+                return 'failed';
+            }
+
+            $existing = AttendanceRecord::query()
+                ->where('employee_id', $mapping->employee_id)
+                ->whereDate('work_date', $workDate->toDateString())
+                ->lockForUpdate()->first();
+            if ($existing && ($existing->source !== 'device' || $existing->approved_at || $existing->status !== 'present')) {
+                $punch->update(['status' => 'error', 'error_message' => 'يوجد سجل حضور معتمد أو من مصدر آخر لهذا اليوم؛ يلزم مراجعته يدويًا.']);
+
+                return 'failed';
+            }
 
             $punch->update([
                 'employee_biometric_mapping_id' => $mapping->id,
@@ -73,12 +100,7 @@ class AttendancePunchProcessor
             $requiresApproval =
                 $this->features->deviceApprovalRequired();
 
-            AttendanceRecord::query()->updateOrCreate(
-                [
-                    'employee_id' => $mapping->employee_id,
-                    'work_date' => $workDate->toDateString(),
-                ],
-                [
+            $values = [
                     'work_shift_id' => $shift?->id,
                     'scheduled_start_at' => $scheduledStart,
                     'scheduled_end_at' => $scheduledEnd,
@@ -93,8 +115,16 @@ class AttendancePunchProcessor
                         ? null
                         : now(),
                     'created_by' => null,
-                ]
-            );
+                ];
+            if ($existing) {
+                $existing->update($values);
+            } else {
+                AttendanceRecord::query()->create([
+                    'employee_id' => $mapping->employee_id,
+                    'work_date' => $workDate->toDateString(),
+                    ...$values,
+                ]);
+            }
 
             AttendancePunch::query()
                 ->whereIn('id', $dayPunches->pluck('id'))

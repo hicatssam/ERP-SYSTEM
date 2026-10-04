@@ -3,6 +3,8 @@
 namespace Tests\Feature\Attendance;
 
 use App\Models\AttendanceRecord;
+use App\Models\AttendanceDevice;
+use App\Models\EmployeeBiometricMapping;
 use App\Models\Employee;
 use App\Models\EmployeeFaceProfile;
 use App\Models\Location;
@@ -10,6 +12,7 @@ use App\Models\PayrollPeriod;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\FaceAttendanceService;
+use App\Services\AttendancePunchIngestService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -61,6 +64,53 @@ class FaceAttendanceFlowTest extends TestCase
 
         app(PermissionRegistrar::class)
             ->forgetCachedPermissions();
+    }
+
+    #[Test]
+    public function device_punch_cannot_replace_a_face_record_or_an_approved_record(): void
+    {
+        $branch = $this->makeLocation('DEVICE');
+        $employee = $this->makeEmployee($branch, 'Device Face Employee');
+        $device = AttendanceDevice::query()->create([
+            'code' => 'FACE-DEVICE-'.Str::upper(Str::random(5)),
+            'name' => 'Fingerprint terminal',
+            'location_id' => $branch->id,
+            'api_token_hash' => hash('sha256', 'test-token'),
+            'is_active' => true,
+        ]);
+        EmployeeBiometricMapping::query()->create([
+            'attendance_device_id' => $device->id,
+            'employee_id' => $employee->id,
+            'device_user_id' => 'terminal-employee',
+            'is_active' => true,
+        ]);
+        $record = AttendanceRecord::query()->create([
+            'employee_id' => $employee->id,
+            'work_date' => now()->toDateString(),
+            'status' => 'present',
+            'source' => 'face',
+            'verification_method' => 'face',
+            'check_in_at' => now()->subHour(),
+        ]);
+
+        $result = app(AttendancePunchIngestService::class)->ingestBatch($device, [[
+            'device_user_id' => 'terminal-employee',
+            'punch_at' => now()->toIso8601String(),
+            'punch_type' => 'out',
+        ]]);
+        $this->assertSame(1, $result['failed']);
+        $this->assertSame('face', $record->fresh()->source);
+        $this->assertNull($record->fresh()->check_out_at);
+
+        $record->update(['source' => 'device', 'approved_at' => now()]);
+        $again = app(AttendancePunchIngestService::class)->ingestBatch($device, [[
+            'device_user_id' => 'terminal-employee',
+            'punch_at' => now()->addMinute()->toIso8601String(),
+            'punch_type' => 'out',
+        ]]);
+        $this->assertSame(1, $again['failed']);
+        $this->assertNotNull($record->fresh()->approved_at);
+        $this->assertNull($record->fresh()->check_out_at);
     }
 
     #[Test]

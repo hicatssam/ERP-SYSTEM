@@ -498,6 +498,12 @@ class FaceAttendanceService
                     ]);
                 }
 
+                if ($record && $record->source !== 'face') {
+                    throw ValidationException::withMessages([
+                        'attendance' => 'يوجد سجل حضور من مصدر آخر لهذا اليوم؛ راجعه مع المسؤول قبل استخدام بصمة الوجه.',
+                    ]);
+                }
+
                 if (
                     $record
                     && $record->status
