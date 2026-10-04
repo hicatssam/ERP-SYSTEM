@@ -51,6 +51,10 @@ class ProfileImageDeliveryTest extends TestCase
             $manager->employee->primaryLocation()->id => ['is_primary' => true],
         ]);
         $missing = User::factory()->create(['profile_image' => 'users/profile-images/missing.png']);
+        $this->assignBranch($missing);
+        $missing->employee->locations()->sync([
+            $manager->employee->primaryLocation()->id => ['is_primary' => true],
+        ]);
 
         $this->actingAs($manager)->get(route('users.index'))
             ->assertOk()->assertSee(route('users.image', $pictured), false)
