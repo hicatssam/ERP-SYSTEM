@@ -7,31 +7,31 @@ employee face attendance. No paid face-recognition gateway is required.
 
 Laravel currently uses port 8000, so expose CompreFace on port 8001.
 
-1. Install Docker Desktop.
-2. Start CompreFace:
+1. Install and launch Docker Desktop, then wait for the Linux engine to start. Verify with `docker info`.
+2. Download the **release archive** from [CompreFace releases](https://github.com/exadel-inc/CompreFace/releases) and extract it to a permanent directory outside the ERP project. CompreFace needs its full Compose stack (UI, API, core, admin, PostgreSQL); a single `docker run exadel/compreface` is not a working installation.
+3. Open PowerShell in the extracted directory containing `docker-compose.yml` and `.env`. Change the UI port mapping in `docker-compose.yml` from `"8000:80"` to `"127.0.0.1:8001:80"` so it does not conflict with Laravel and is reachable only on this computer.
+4. Start the complete stack:
 
 ```powershell
-docker run -d --name CompreFace `
-  -v compreface-db:/var/lib/postgresql/data `
-  -p 127.0.0.1:8001:80 `
-  exadel/compreface
+docker compose up -d
+docker compose ps
 ```
 
-3. Wait for startup:
+5. Wait for startup (the first launch downloads several images and may take time):
 
 ```powershell
-docker logs CompreFace -f
+docker compose logs -f --tail 50
 ```
 
-4. Open:
+6. Open:
 
 ```text
 http://127.0.0.1:8001/login
 ```
 
-5. Create an application called `Dahab Attendance`.
-6. Create a **Face Recognition** service inside that application.
-7. Copy that service's API key.
+7. Create an application called `Dahab Attendance`.
+8. Create a **Face Recognition** service inside that application. Its model must provide the **head pose** plugin used by the attendance check.
+9. Copy that service's API key.
 
 In the ERP, open **Settings → Attendance & Payroll → CompreFace** and paste
 the key into **Face Recognition API key**. Save, then click **Test connection**.
@@ -43,7 +43,7 @@ secrets outside the application. A key saved in Settings takes precedence.
 
 ## Laravel environment
 
-Add to `.env`:
+The URL and API key can be saved in ERP Settings instead of `.env`. These optional `.env` values are useful for server-managed configuration:
 
 ```env
 ATTENDANCE_FACE_PROVIDER=compreface
@@ -114,9 +114,9 @@ examples before marking the ERP profile as revoked.
 ## Useful Docker commands
 
 ```powershell
-docker ps
-docker stop CompreFace
-docker start CompreFace
-docker logs CompreFace -f
-docker rm -f CompreFace
+docker compose ps
+docker compose stop
+docker compose up -d
+docker compose logs --tail 50
+docker compose down
 ```

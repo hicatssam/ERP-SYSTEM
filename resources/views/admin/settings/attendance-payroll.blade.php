@@ -193,10 +193,10 @@
                             <small>
                                 @if($faceAttendance['configured'])
                                     <span style="color:var(--theme-success);font-weight:850">● مهيأ</span>
-                                    — Laravel مربوط بعنوان CompreFace ومفتاح الخدمة موجود.
+                                    — العنوان والمفتاح محفوظان. اضغط «اختبار الاتصال» للتحقق من تشغيل الخدمة.
                                 @else
                                     <span style="color:var(--theme-warning);font-weight:850">● غير مهيأ</span>
-                                    — احفظ عنوان الخدمة ومفتاح Face Recognition أدناه، ثم اختبر الاتصال. ويمكن ضبطهما من ملف .env.
+                                    — شغّل حاويات CompreFace عبر Docker Compose، ثم احفظ عنوان الخدمة ومفتاح Face Recognition أدناه واختبر الاتصال.
                                 @endif
                             </small>
                         </div>

@@ -763,7 +763,7 @@
                 class="card"
                 style="margin-bottom:1rem;padding:.8rem 1rem;border-color:color-mix(in srgb,var(--theme-warning) 30%,var(--border));background:color-mix(in srgb,var(--theme-warning) 6%,var(--surface));font-size:.72rem;line-height:1.7;"
             >
-                بصمة الوجه مفعلة من إعدادات الحضور، لكنها تحتاج تشغيل CompreFace محليًا وإضافة <strong>COMPREFACE_BASE_URL</strong> و <strong>COMPREFACE_API_KEY</strong> داخل ملف .env.
+                بصمة الوجه مفعلة من إعدادات الحضور، لكنها تحتاج تشغيل CompreFace عبر Docker Compose وحفظ عنوان الخدمة ومفتاح Face Recognition من إعدادات الحضور والرواتب، ثم اختبار الاتصال.
             </div>
         @endcan
     @endif
