@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Currency;
 use App\Models\SystemSetting;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class PrintThemeService
 {
@@ -279,6 +280,13 @@ class PrintThemeService
                 $normalized
             );
 
+            if (! str_contains($relative, '..') && Storage::disk('public')->exists($relative)) {
+                $source = $this->bytesToDataUri(Storage::disk('public')->get($relative), $relative);
+                if ($source !== null) {
+                    return $source;
+                }
+            }
+
             $candidates = [
                 public_path($normalized),
                 public_path('storage/' . $relative),
@@ -305,10 +313,16 @@ class PrintThemeService
     ): ?string {
         $contents = @file_get_contents($path);
 
-        if (
-            $contents === false
-            || $contents === ''
-        ) {
+        if ($contents === false) {
+            return null;
+        }
+
+        return $this->bytesToDataUri($contents, $path);
+    }
+
+    private function bytesToDataUri(string $contents, string $path): ?string
+    {
+        if ($contents === '') {
             return null;
         }
 
