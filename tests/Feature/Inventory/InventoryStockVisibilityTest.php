@@ -6,6 +6,8 @@ use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\Location;
 use App\Models\LocationProduct;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -34,12 +36,18 @@ class InventoryStockVisibilityTest extends TestCase
         $empty = $make('Empty');
         $missing = $make('Missing');
         $foreign = $make('Foreign');
+        $fromDraft = $make('Draft Burger');
         Inventory::create(['location_id' => $branch->id, 'product_id' => $empty->id, 'quantity' => 0, 'reserved_quantity' => 0, 'unit_cost' => 0]);
         LocationProduct::create(['location_id' => $branch->id, 'product_id' => $missing->id, 'is_available' => true, 'minimum_stock_level' => 0]);
         Inventory::create(['location_id' => $other->id, 'product_id' => $foreign->id, 'quantity' => 0, 'reserved_quantity' => 0, 'unit_cost' => 0]);
+        $draft = Order::create(['order_number' => 'ORD-STOCK-CHECK', 'location_id' => $branch->id,
+            'status' => 'draft', 'payment_arrangement' => 'pay_now', 'subtotal' => 10,
+            'total_amount' => 10, 'created_by' => $user->id]);
+        OrderItem::create(['order_id' => $draft->id, 'product_id' => $fromDraft->id,
+            'product_name' => 'Draft Burger', 'quantity' => 1, 'unit_price' => 10, 'line_total' => 10]);
 
         $this->actingAs($user)->get(route('inventory.index', ['stock' => 'out']))
             ->assertOk()->assertSee('منتجات نافدة')->assertSee('Empty')
-            ->assertSee('Missing')->assertDontSee('Foreign');
+            ->assertSee('Missing')->assertSee('Draft Burger')->assertDontSee('Foreign');
     }
 }

@@ -112,7 +112,7 @@ class InventoryController extends Controller
                 ->whereRaw('inventories.quantity - inventories.reserved_quantity <= lp.minimum_stock_level'))
             ->count();
 
-        $missingStockQuery = DB::table('location_products as lp')
+        $missingConfigured = DB::table('location_products as lp')
             ->join('products', 'products.id', '=', 'lp.product_id')
             ->join('locations', 'locations.id', '=', 'lp.location_id')
             ->leftJoin('inventories as stock', fn ($join) => $join
@@ -120,15 +120,27 @@ class InventoryController extends Controller
                 ->on('stock.location_id', '=', 'lp.location_id'))
             ->whereNull('stock.id')
             ->where('lp.is_available', true)
-            ->where('products.is_active', true);
+            ->where('products.is_active', true)
+            ->select('products.name', 'products.name_ar', 'products.sku',
+                'locations.name as location_name', 'lp.product_id', 'lp.location_id');
+        $missingInOrders = DB::table('order_items as item')
+            ->join('orders', 'orders.id', '=', 'item.order_id')
+            ->join('products', 'products.id', '=', 'item.product_id')
+            ->join('locations', 'locations.id', '=', 'orders.location_id')
+            ->leftJoin('inventories as stock', fn ($join) => $join
+                ->on('stock.product_id', '=', 'item.product_id')
+                ->on('stock.location_id', '=', 'orders.location_id'))
+            ->whereNull('stock.id')->where('orders.status', 'draft')
+            ->select('products.name', 'products.name_ar', 'products.sku',
+                'locations.name as location_name', 'item.product_id', 'orders.location_id');
         if ($location) {
-            $missingStockQuery->where('lp.location_id', $location->id);
+            $missingConfigured->where('lp.location_id', $location->id);
+            $missingInOrders->where('orders.location_id', $location->id);
         }
+        $missingStockQuery = DB::query()->fromSub($missingConfigured->union($missingInOrders), 'missing');
         $missingStockCount = (clone $missingStockQuery)->count();
         $missingStock = $stockState === 'out'
-            ? $missingStockQuery->select('products.name', 'products.name_ar', 'products.sku',
-                'locations.name as location_name', 'lp.product_id', 'lp.location_id')
-                ->orderBy('locations.name')->orderBy('products.name')->limit(20)->get()
+            ? $missingStockQuery->orderBy('location_name')->orderBy('name')->limit(20)->get()
             : collect();
         $outOfStockCount += $missingStockCount;
 
