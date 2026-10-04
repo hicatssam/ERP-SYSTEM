@@ -59,6 +59,7 @@
     };
 
     $stockErrors = $errors->get('stock');
+    $confirmationErrors = collect($errors->all())->reject(fn ($message) => in_array($message, $stockErrors, true));
 
 
     /*
@@ -134,6 +135,14 @@
      رأس الصفحة
 
 \========================================================= --}}
+
+@if($confirmationErrors->isNotEmpty())
+    <div class="order-action-message" role="alert" style="margin:1rem 0;border:1px solid #b42318;color:#b42318">
+        <div><strong>تعذر تنفيذ العملية على الطلب:</strong>
+            <ul>@foreach($confirmationErrors as $message)<li>{{ $message }}</li>@endforeach</ul>
+        </div>
+    </div>
+@endif
 
 <div class="page-actions">
 
@@ -2197,6 +2206,13 @@
 
     }
 
+    window.addEventListener('pageshow', function () {
+        const button = document.getElementById('confirmOrderSubmitBtn');
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'تأكيد الطلب';
+        }
+    });
 </script>
 
 @endsection
