@@ -592,19 +592,13 @@ class SettingsController extends Controller
         }
 
         foreach (self::FILE_KEYS as $key) {
-            if (
-                $request->boolean(
-                    "remove_{$key}"
-                )
-            ) {
-                $this->removeBrandFile($key);
-            }
-
             if ($request->hasFile($key)) {
                 $this->replaceBrandFile(
                     $key,
                     $request->file($key)
                 );
+            } elseif ($request->boolean("remove_{$key}")) {
+                $this->removeBrandFile($key);
             }
         }
 
@@ -633,7 +627,7 @@ class SettingsController extends Controller
         string $key,
         UploadedFile $file
     ): void {
-        $this->removeBrandFile($key);
+        $previous = SystemSetting::get($key);
 
         $extension = strtolower(
             $file->getClientOriginalExtension()
@@ -643,7 +637,7 @@ class SettingsController extends Controller
         $filename =
             $key
             . '-'
-            . now()->format('YmdHis')
+            . now()->format('YmdHis') . '-' . bin2hex(random_bytes(4))
             . '.'
             . $extension;
 
@@ -669,14 +663,23 @@ class SettingsController extends Controller
             'public'
         );
 
-        SystemSetting::set(
-            $key,
-            'storage/'
-            . ltrim(
-                $storedPath,
-                '/'
-            )
-        );
+        if (! $storedPath) {
+            throw new \RuntimeException('تعذر حفظ الصورة الجديدة في مساحة التخزين العامة.');
+        }
+
+        try {
+            SystemSetting::set($key, 'storage/' . ltrim($storedPath, '/'));
+        } catch (\Throwable $exception) {
+            Storage::disk('public')->delete($storedPath);
+            throw $exception;
+        }
+
+        if (is_string($previous) && str_starts_with($previous, 'storage/')) {
+            $previousPath = substr($previous, strlen('storage/'));
+            if ($previousPath !== '' && $previousPath !== $storedPath && ! SystemSetting::query()->where('value', $previous)->exists()) {
+                Storage::disk('public')->delete($previousPath);
+            }
+        }
     }
 
     private function removeBrandFile(
@@ -685,24 +688,13 @@ class SettingsController extends Controller
         $current =
             SystemSetting::get($key);
 
-        if (
-            is_string($current)
-            && str_starts_with(
-                $current,
-                'storage/'
-            )
-        ) {
-            $diskPath = substr(
-                $current,
-                strlen('storage/')
-            );
+        SystemSetting::set($key, '');
 
+        if (is_string($current) && str_starts_with($current, 'storage/') && ! SystemSetting::query()->where('value', $current)->exists()) {
+            $diskPath = substr($current, strlen('storage/'));
             if ($diskPath !== '') {
-                Storage::disk('public')
-                    ->delete($diskPath);
+                Storage::disk('public')->delete($diskPath);
             }
         }
-
-        SystemSetting::set($key, '');
     }
 }

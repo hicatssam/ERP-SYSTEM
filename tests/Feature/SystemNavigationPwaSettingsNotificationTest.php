@@ -14,6 +14,8 @@ use App\Services\ModuleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Notifications\Notification as LaravelNotification;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\Test;
@@ -170,6 +172,31 @@ class SystemNavigationPwaSettingsNotificationTest extends TestCase
         $this->assertSame(1, substr_count($html, 'class="print-branding-settings-entry"'));
         $this->assertStringNotContainsString('id="setting_business_profile_code"', $html);
         $this->assertStringNotContainsString('id="setting_print_template"', $html);
+    }
+
+    #[Test]
+    public function replacing_brand_logo_keeps_the_current_file_until_new_upload_is_saved(): void
+    {
+        Storage::fake('public');
+        $admin = $this->makeUser($this->branch, ['settings.manage'], true, 'Admin');
+        Storage::disk('public')->put('branding/previous.png', 'previous logo');
+        SystemSetting::set('brand_logo', 'storage/branding/previous.png');
+
+        $this->actingAs($admin)->post(route('settings.update'), [
+            'active_settings_group' => 'branding',
+            'brand_logo' => UploadedFile::fake()->image('new-logo.png'),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $newPath = substr(SystemSetting::get('brand_logo'), strlen('storage/'));
+        Storage::disk('public')->assertExists($newPath);
+        Storage::disk('public')->assertMissing('branding/previous.png');
+
+        $this->actingAs($admin)->post(route('settings.update'), [
+            'active_settings_group' => 'branding',
+            'brand_logo' => UploadedFile::fake()->create('invalid.txt', 5, 'text/plain'),
+        ])->assertSessionHasErrors('brand_logo');
+        $this->assertSame('storage/'.$newPath, SystemSetting::get('brand_logo'));
+        Storage::disk('public')->assertExists($newPath);
     }
 
     #[Test]

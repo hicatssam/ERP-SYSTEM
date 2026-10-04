@@ -1157,12 +1157,22 @@ a.app-page-btn:hover {
 
                     @can('hr.dashboard.view')
                         <a href="{{ route('hr.dashboard') }}" class="nav-item {{ request()->routeIs('hr.dashboard') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <path d="M7 16v-3M12 16V8M17 16v-5" />
+                            </svg>
                             <span>ملخص الموارد البشرية</span>
                         </a>
                     @endcan
 
                     @can('hr.organization.view')
                         <a href="{{ route('hr.organization.index') }}" class="nav-item {{ request()->routeIs('hr.organization.*') ? 'active' : '' }}">
+                            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <rect x="9" y="2" width="6" height="5" rx="1" />
+                                <rect x="2" y="17" width="6" height="5" rx="1" />
+                                <rect x="16" y="17" width="6" height="5" rx="1" />
+                                <path d="M12 7v6M5 17v-4h14v4" />
+                            </svg>
                             <span>الهيكل الوظيفي ومراكز التكلفة</span>
                         </a>
                     @endcan
