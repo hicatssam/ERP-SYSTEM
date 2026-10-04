@@ -992,6 +992,7 @@ class FaceAttendanceFlowTest extends TestCase
             'payroll_standard_hours_per_day' => 8,
             'payroll_overtime_multiplier' => 1.5,
             'compreface_api_key' => 'private-face-key',
+            'compreface_base_url' => 'http://127.0.0.1:8001',
         ];
 
         $this->actingAs($manager)->put(route('settings.attendance-payroll.update'), $values)
@@ -999,6 +1000,7 @@ class FaceAttendanceFlowTest extends TestCase
         $stored = SystemSetting::query()->where('key', 'compreface_api_key_encrypted')->value('value');
         $this->assertNotSame('private-face-key', $stored);
         $this->assertSame('private-face-key', app(\App\Services\CompreFaceClient::class)->apiKey());
+        $this->assertSame('http://127.0.0.1:8001', app(\App\Services\CompreFaceClient::class)->baseUrl());
         $this->actingAs($manager)->get(route('settings.attendance-payroll.edit'))
             ->assertOk()->assertDontSee('private-face-key');
 

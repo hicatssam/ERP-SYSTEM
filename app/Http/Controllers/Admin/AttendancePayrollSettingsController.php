@@ -68,6 +68,7 @@ class AttendancePayrollSettingsController extends Controller
                 'max:10',
             ],
             'compreface_api_key' => ['nullable', 'string', 'max:500'],
+            'compreface_base_url' => ['nullable', 'url', 'max:500', 'regex:/^https?:\/\//i'],
         ]);
 
         $values = [
@@ -123,6 +124,10 @@ class AttendancePayrollSettingsController extends Controller
                 'compreface_api_key_encrypted',
                 Crypt::encryptString(trim($data['compreface_api_key']))
             );
+        }
+
+        if (filled($data['compreface_base_url'] ?? null)) {
+            SystemSetting::set('compreface_base_url', rtrim(trim($data['compreface_base_url']), '/'));
         }
 
         SystemSetting::flushCache();

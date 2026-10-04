@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AssistantUserSetting;
 use App\Models\User;
+use App\Support\ProfileImage;
 use App\Services\Assistant\AssistantAccessService;
 use App\Services\Assistant\AssistantPlanner;
 use Illuminate\Http\Request;
@@ -16,6 +17,18 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
+    public function image(User $user)
+    {
+        $user->loadMissing('employee');
+        $path = ProfileImage::pathFor($user);
+        abort_unless($path, 404);
+
+        return Storage::disk('public')->response($path, basename($path), [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function index()
     {
         $users = User::with(['employee', 'roles'])->paginate(20);

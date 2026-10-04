@@ -44,8 +44,7 @@
         <tbody>
         @forelse($users as $user)
             @php
-                $profileImage = $user->employee?->profile_image
-                    ?? $user->profile_image;
+                $profileImage = \App\Support\ProfileImage::pathFor($user);
 
                 $displayName = $user->employee?->full_name
                     ?? $user->username;
@@ -62,7 +61,7 @@
                         >
                             @if($profileImage)
                                 <img
-                                    src="{{ asset('storage/' . $profileImage) }}"
+                                    src="{{ route('users.image', $user) }}"
                                     alt="{{ $displayName }}"
                                     class="user-table-avatar"
                                     loading="lazy"

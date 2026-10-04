@@ -196,7 +196,7 @@
                                     — Laravel مربوط بعنوان CompreFace ومفتاح الخدمة موجود.
                                 @else
                                     <span style="color:var(--theme-warning);font-weight:850">● غير مهيأ</span>
-                                    — أضف COMPREFACE_BASE_URL وCOMPREFACE_API_KEY داخل ملف .env.
+                                    — احفظ عنوان الخدمة ومفتاح Face Recognition أدناه، ثم اختبر الاتصال. ويمكن ضبطهما من ملف .env.
                                 @endif
                             </small>
                         </div>
@@ -209,9 +209,12 @@
                                 الاتصال يتم من Laravel إلى CompreFace فقط؛ API Key لا يظهر في المتصفح.
                             </small>
 
-                            <code style="display:block;margin-top:.45rem;padding:.55rem .65rem;border-radius:9px;background:var(--off-white);border:1px solid var(--border);overflow-wrap:anywhere;direction:ltr;text-align:left">
-                                {{ $faceAttendance['base_url'] ?: 'غير محدد' }}
-                            </code>
+                            <input id="comprefaceBaseUrl" name="compreface_base_url" type="url" class="form-input"
+                                   value="{{ old('compreface_base_url', $faceAttendance['base_url']) }}"
+                                   placeholder="http://127.0.0.1:8001" maxlength="500"
+                                   style="margin-top:.55rem;direction:ltr;text-align:left">
+                            <small>العنوان يُقرأ من خادم Laravel؛ 127.0.0.1 يعمل فقط إذا كانت الخدمة على نفس الخادم.</small>
+                            @error('compreface_base_url')<small class="form-error">{{ $message }}</small>@enderror
                         </div>
                     </div>
 

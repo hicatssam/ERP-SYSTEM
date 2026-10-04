@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Location;
 use App\Models\User;
+use Spatie\Permission\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
@@ -12,6 +13,28 @@ use Tests\TestCase;
 class ProfileImageDeliveryTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[Test]
+    public function user_manager_sees_stored_avatars_without_storage_symlink_and_missing_ones_fall_back(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('users/profile-images/admin.png', 'admin-image');
+        $manager = User::factory()->create();
+        $this->assignBranch($manager);
+        $manager->givePermissionTo(Permission::findOrCreate('users.manage', 'web'));
+        $pictured = User::factory()->create(['profile_image' => 'users/profile-images/admin.png']);
+        $this->assignBranch($pictured);
+        $missing = User::factory()->create(['profile_image' => 'users/profile-images/missing.png']);
+
+        $this->actingAs($manager)->get(route('users.index'))
+            ->assertOk()->assertSee(route('users.image', $pictured), false)
+            ->assertDontSee('/storage/users/profile-images/admin.png', false)
+            ->assertDontSee(route('users.image', $missing), false);
+        $response = $this->actingAs($manager)->get(route('users.image', $pictured))->assertOk();
+        $this->assertSame('admin-image', $response->streamedContent());
+        $this->actingAs($manager)->get(route('users.image', $missing))->assertNotFound();
+        $this->actingAs($pictured)->get(route('users.image', $pictured))->assertForbidden();
+    }
 
     #[Test]
     public function owner_can_view_profile_image_without_a_public_storage_link(): void

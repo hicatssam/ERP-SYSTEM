@@ -41,10 +41,10 @@
                         "
                     >
                         <div style="flex-shrink:0">
-                            @if($user->profile_image)
+                            @if(\App\Support\ProfileImage::pathFor($user))
                                 <img
                                     id="profileImagePreview"
-                                    src="{{ asset('storage/' . $user->profile_image) }}"
+                                    src="{{ route('users.image', $user) }}"
                                     alt="{{ $user->username }}"
                                     width="110"
                                     height="110"

@@ -20,9 +20,7 @@ class CompreFaceClient
     public function baseUrl(): string
     {
         return rtrim(
-            (string) config(
-                'attendance-face.compreface.base_url'
-            ),
+            (string) (SystemSetting::get('compreface_base_url') ?: config('attendance-face.compreface.base_url')),
             '/'
         );
     }

@@ -131,6 +131,7 @@ Route::middleware(['auth', 'location.scope'])->group(function () {
 
         // ─── Users ─────────────────────────────────────────────────────────
         Route::middleware('can:users.manage')->group(function () {
+            Route::get('users/{user}/image', [UserController::class, 'image'])->name('users.image');
             Route::resource('users', UserController::class)->except(['show']);
             Route::post('users/{user}/toggle', [UserController::class, 'toggleStatus'])->name('users.toggle');
             Route::post('users/{user}/reset-password', [UserController::class, 'resetPassword'])->name('users.reset-password');
