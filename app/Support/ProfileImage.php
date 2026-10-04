@@ -3,10 +3,22 @@
 namespace App\Support;
 
 use App\Models\User;
+use App\Models\Employee;
 use Illuminate\Support\Facades\Storage;
 
 final class ProfileImage
 {
+    public static function pathForEmployee(Employee $employee): ?string
+    {
+        $path = $employee->profile_image;
+        if (! is_string($path)
+            || ! preg_match('#^employees/profile-images/[A-Za-z0-9._-]+\.(?:jpg|jpeg|png|webp)$#i', $path)) {
+            return null;
+        }
+
+        return Storage::disk('public')->exists($path) ? $path : null;
+    }
+
     public static function pathFor(User $user): ?string
     {
         foreach ([$user->employee?->profile_image, $user->profile_image] as $path) {

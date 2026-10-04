@@ -396,6 +396,17 @@ class BranchCakeAndSweetsNotificationFlowTest extends TestCase
     }
 
     #[Test]
+    public function another_branch_cannot_delete_a_cancelled_cake_request(): void
+    {
+        $request = $this->makeCakeRequest('cancelled');
+        $foreignUser = $this->makeUser($this->otherBranch, ['showroom_cake_requests.delete']);
+
+        $this->actingAs($foreignUser)->delete(route('showroom-cake-requests.destroy', $request))
+            ->assertForbidden();
+        $this->assertNotNull($request->fresh());
+    }
+
+    #[Test]
     public function branch_cake_every_visible_transition_notifies_admin_and_related_locations(): void
     {
         Notification::fake();

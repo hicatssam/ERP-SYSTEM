@@ -69,9 +69,9 @@
     <div class="card-body">
         <div class="employee-profile-hero">
             <div class="employee-profile-image-wrap">
-                @if($employee->profile_image)
+                @if(\App\Support\ProfileImage::pathForEmployee($employee))
                     <img
-                        src="{{ asset('storage/' . $employee->profile_image) }}"
+                        src="{{ route('employees.image', $employee) }}"
                         alt="{{ $employee->full_name }}"
                         class="employee-profile-image"
                     >
@@ -291,9 +291,9 @@
             @if($employee->user)
                 <div class="system-account-header">
                     <div class="system-account-avatar">
-                        @if($employee->profile_image)
+                        @if(\App\Support\ProfileImage::pathForEmployee($employee))
                             <img
-                                src="{{ asset('storage/' . $employee->profile_image) }}"
+                                src="{{ route('employees.image', $employee) }}"
                                 alt="{{ $employee->user->username }}"
                             >
                         @else

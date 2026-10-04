@@ -90,9 +90,9 @@
                             class="employee-avatar-link"
                             title="عرض بيانات {{ $emp->full_name }}"
                         >
-                            @if($emp->profile_image)
+                            @if(\App\Support\ProfileImage::pathForEmployee($emp))
                                 <img
-                                    src="{{ asset('storage/' . $emp->profile_image) }}"
+                                    src="{{ route('employees.image', $emp) }}"
                                     alt="{{ $emp->full_name }}"
                                     class="employee-avatar"
                                     loading="lazy"

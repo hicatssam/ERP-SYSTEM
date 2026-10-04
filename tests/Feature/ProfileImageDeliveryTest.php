@@ -15,6 +15,29 @@ class ProfileImageDeliveryTest extends TestCase
     use RefreshDatabase;
 
     #[Test]
+    public function employee_photo_is_available_in_employee_pages_without_public_link(): void
+    {
+        Storage::fake('public');
+        $manager = User::factory()->create();
+        $this->assignBranch($manager);
+        $manager->givePermissionTo(Permission::findOrCreate('employees.view', 'web'));
+        $employeeUser = User::factory()->create();
+        $this->assignBranch($employeeUser);
+        $employeeUser->employee->locations()->sync([
+            $manager->employee->primaryLocation()->id => ['is_primary' => true],
+        ]);
+        $photo = 'employees/profile-images/worker.png';
+        Storage::disk('public')->put($photo, 'employee-image');
+        $employeeUser->employee->update(['profile_image' => $photo]);
+
+        $response = $this->actingAs($manager)->get(route('employees.image', $employeeUser->employee))->assertOk();
+        $this->assertSame('employee-image', $response->streamedContent());
+        $this->actingAs($employeeUser)->get(route('employees.image', $employeeUser->employee))->assertForbidden();
+        Storage::disk('public')->delete($photo);
+        $this->actingAs($manager)->get(route('employees.image', $employeeUser->employee))->assertNotFound();
+    }
+
+    #[Test]
     public function user_manager_sees_stored_avatars_without_storage_symlink_and_missing_ones_fall_back(): void
     {
         Storage::fake('public');

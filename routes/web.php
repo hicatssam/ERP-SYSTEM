@@ -123,6 +123,7 @@ Route::middleware(['auth', 'location.scope'])->group(function () {
         });
 
         // ─── Employees ─────────────────────────────────────────────────────
+        Route::get('employees/{employee}/image', [EmployeeController::class, 'image'])->name('employees.image');
         Route::middleware('can:employees.manage')->group(function () {
             Route::resource('employees', EmployeeController::class);
             Route::post('employees/{employee}/toggle', [EmployeeController::class, 'toggleStatus'])->name('employees.toggle');

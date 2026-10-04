@@ -637,6 +637,8 @@ class ShowroomCakeRequestController extends Controller
     public function destroy(
         ShowroomCakeRequest $showroomCakeRequest
     ) {
+        $this->ensureCanAccess(Auth::user(), $showroomCakeRequest);
+
         if (
             $showroomCakeRequest->status
             !== ShowroomCakeRequestStatus::Cancelled

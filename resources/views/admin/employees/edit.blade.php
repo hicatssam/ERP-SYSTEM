@@ -82,13 +82,13 @@
 
                         <div class="employee-image-preview-wrap">
 
-                            @if($employee->profile_image)
+                            @if(\App\Support\ProfileImage::pathForEmployee($employee))
 
                                 <img
 
                                     id="employeeImagePreview"
 
-                                    src="{{ asset('storage/' . $employee->profile_image) }}"
+                                    src="{{ route('employees.image', $employee) }}"
 
                                     alt="{{ $employee->full_name }}"
 
@@ -767,9 +767,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const originalImage = @json(
 
-        $employee->profile_image
+        \App\Support\ProfileImage::pathForEmployee($employee)
 
-            ? asset('storage/' . $employee->profile_image)
+            ? route('employees.image', $employee)
 
             : null
 

@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeLocation;
 use App\Models\Location;
 use App\Models\User;
+use App\Support\ProfileImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,20 @@ use App\Services\Notifications\NotificationDispatcher;
 
 class EmployeeController extends Controller
 {
+    public function image(Request $request, Employee $employee)
+    {
+        $user = $request->user();
+        $this->requirePermission($user, ['employees.view', 'employees.view_all', 'employees.update']);
+        $this->ensureEmployeeAccess($employee, $user);
+        $path = ProfileImage::pathForEmployee($employee);
+        abort_unless($path, 404);
+
+        return Storage::disk('public')->response($path, basename($path), [
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     private const EMPLOYEE_NUMBER_PREFIX = 'EMP';
     private const EMPLOYEE_NUMBER_PADDING = 3;
 
